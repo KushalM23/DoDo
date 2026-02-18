@@ -1,0 +1,17 @@
+{
+  "name": "dodo-template",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "dodomobile",
+    "backend"
+  ],
+  "scripts": {
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:typecheck": "npm --prefix backend run typecheck",
+    "mobile:start": "npm --prefix dodomobile run start",
+    "mobile:android": "npm --prefix dodomobile run android",
+    "mobile:ios": "npm --prefix dodomobile run ios",
+    "mobile:typecheck": "npm --prefix dodomobile run typecheck"
+  }
+}
