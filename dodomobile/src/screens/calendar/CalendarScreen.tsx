@@ -1,13 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type GestureResponderEvent,
-} from "react-native";
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchTasksInRange } from "../../services/api";
 import { useHabits } from "../../state/HabitsContext";
@@ -28,6 +20,7 @@ type CalendarCell = {
 };
 
 type DayTaskStatus = "none" | "partial" | "done";
+type DayHabitStatus = "none" | "partial" | "done";
 
 type TimelineEvent = {
   id: string;
@@ -43,12 +36,16 @@ type RowPlacedTimelineEvent = TimelineEvent & {
 };
 
 const DAY_MINUTES = 24 * 60;
-const ROW_HEIGHT = 44;
-const AXIS_HEIGHT = 34;
+const AXIS_HEIGHT = 28;
+const MIN_ROW_HEIGHT = 34;
+const MAX_ROW_HEIGHT = 64;
 const MIN_DURATION_MINUTES = 15;
-const BASE_PX_PER_MINUTE = 1.2;
-const MIN_ZOOM = 0.6;
-const MAX_ZOOM = 2.2;
+const BASE_PX_PER_MINUTE = 0.95;
+const MIN_PX_PER_MINUTE = 0.5;
+const MAX_PX_PER_MINUTE = 3.2;
+const ZOOM_STEP = 0.3;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CELL_SIZE = Math.floor((SCREEN_WIDTH - spacing.lg * 2) / 7);
 
 function localDateKey(value: Date): string {
   return toLocalDateKey(value);
@@ -115,6 +112,23 @@ function taskStatusByDate(tasks: Task[]): Record<string, DayTaskStatus> {
     }
     result[key] = summary.completed === summary.total ? "done" : "partial";
   });
+  return result;
+}
+
+function habitStatusByDate(habits: Habit[], dates: string[]): Record<string, DayHabitStatus> {
+  const result: Record<string, DayHabitStatus> = {};
+
+  dates.forEach((dateKey) => {
+    const applies = habits.filter((habit) => habitAppliesToDate(habit, dateKey));
+    if (applies.length === 0) {
+      result[dateKey] = "none";
+      return;
+    }
+
+    // Habit completion data is not currently tracked here, so presence is treated as filled.
+    result[dateKey] = "done";
+  });
+
   return result;
 }
 
@@ -193,14 +207,12 @@ function layoutEventsIntoRows(events: TimelineEvent[]): { placed: RowPlacedTimel
   return { placed, rowCount: Math.max(1, rowEndMinutes.length) };
 }
 
-function distanceBetweenTouches(a: { pageX: number; pageY: number }, b: { pageX: number; pageY: number }): number {
-  const dx = a.pageX - b.pageX;
-  const dy = a.pageY - b.pageY;
+function touchDistance(event: GestureResponderEvent): number {
+  if (event.nativeEvent.touches.length < 2) return 0;
+  const [a, b] = event.nativeEvent.touches;
+  const dx = b.pageX - a.pageX;
+  const dy = b.pageY - a.pageY;
   return Math.sqrt(dx * dx + dy * dy);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
 
 export function CalendarScreen() {
@@ -211,11 +223,11 @@ export function CalendarScreen() {
   const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(today));
   const [selectedDate, setSelectedDate] = useState<string>(() => localDateKey(today));
   const [monthTasks, setMonthTasks] = useState<Task[]>([]);
-  const [loadingMonth, setLoadingMonth] = useState(false);
   const [monthError, setMonthError] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-
-  const pinchState = useRef({ active: false, startDistance: 0, startZoom: 1 });
+  const [timelineHeight, setTimelineHeight] = useState(240);
+  const [pxPerMinute, setPxPerMinute] = useState(BASE_PX_PER_MINUTE);
+  const pinchStartDistanceRef = useRef(0);
+  const pinchStartScaleRef = useRef(BASE_PX_PER_MINUTE);
 
   const dayNames = useMemo(() => getWeekdayLabels(preferences.weekStart), [preferences.weekStart]);
 
@@ -229,11 +241,10 @@ export function CalendarScreen() {
     [currentMonth],
   );
 
-  const todayChipLabel = useMemo(() => formatDate(new Date(), preferences.dateFormat, false), [preferences.dateFormat]);
+  const todayCompact = useMemo(() => String(new Date().getDate()), []);
 
   useEffect(() => {
     const { startAt, endAt } = monthWindow(currentMonth);
-    setLoadingMonth(true);
     setMonthError(null);
 
     fetchTasksInRange(startAt, endAt)
@@ -242,13 +253,14 @@ export function CalendarScreen() {
       })
       .catch((err) => {
         setMonthError(err instanceof Error ? err.message : "Failed to load calendar tasks.");
-      })
-      .finally(() => {
-        setLoadingMonth(false);
       });
   }, [currentMonth]);
 
   const statusMap = useMemo(() => taskStatusByDate(monthTasks), [monthTasks]);
+  const habitStatusMap = useMemo(
+    () => habitStatusByDate(habits, monthCells.map((cell) => cell.dateKey)),
+    [habits, monthCells],
+  );
 
   const tasksForSelectedDate = useMemo(
     () => monthTasks.filter((task) => toLocalDateKey(task.scheduledAt) === selectedDate),
@@ -271,9 +283,18 @@ export function CalendarScreen() {
     [selectedDate, preferences.dateFormat],
   );
 
-  const pxPerMinute = BASE_PX_PER_MINUTE * zoom;
   const timelineWidth = DAY_MINUTES * pxPerMinute;
-  const timelineBodyHeight = Math.max(ROW_HEIGHT, rowLayout.rowCount * ROW_HEIGHT);
+  const timelineMarks = useMemo(() => {
+    const minuteStep = pxPerMinute >= 2 ? 30 : pxPerMinute >= 1.2 ? 60 : 120;
+    const marks: number[] = [];
+    for (let minute = 0; minute <= DAY_MINUTES; minute += minuteStep) {
+      marks.push(minute);
+    }
+    return marks;
+  }, [pxPerMinute]);
+  const bodyAvailableHeight = Math.max(96, timelineHeight - AXIS_HEIGHT - 8);
+  const rowHeight = Math.min(MAX_ROW_HEIGHT, Math.max(MIN_ROW_HEIGHT, bodyAvailableHeight / rowLayout.rowCount));
+  const timelineBodyHeight = rowLayout.rowCount * rowHeight;
 
   function shiftMonthAndKeepDay(delta: number) {
     const selected = parseDateKey(selectedDate);
@@ -310,54 +331,64 @@ export function CalendarScreen() {
     return statusMap[dateKey] ?? "none";
   }
 
-  function onPinchStart(event: GestureResponderEvent) {
-    const touches = event.nativeEvent.touches;
-    if (touches.length !== 2) return;
-    pinchState.current.active = true;
-    pinchState.current.startDistance = distanceBetweenTouches(touches[0], touches[1]);
-    pinchState.current.startZoom = zoom;
+  function habitStatusForDate(dateKey: string): DayHabitStatus {
+    return habitStatusMap[dateKey] ?? "none";
   }
 
-  function onPinchMove(event: GestureResponderEvent) {
-    const touches = event.nativeEvent.touches;
-    if (!pinchState.current.active || touches.length !== 2) return;
-
-    const nextDistance = distanceBetweenTouches(touches[0], touches[1]);
-    if (pinchState.current.startDistance <= 0) return;
-
-    const ratio = nextDistance / pinchState.current.startDistance;
-    setZoom(clamp(pinchState.current.startZoom * ratio, MIN_ZOOM, MAX_ZOOM));
+  function onTimelineLayout(event: LayoutChangeEvent) {
+    setTimelineHeight(event.nativeEvent.layout.height);
   }
 
-  function onPinchEnd() {
-    pinchState.current.active = false;
-    pinchState.current.startDistance = 0;
-    pinchState.current.startZoom = zoom;
+  function zoomInTimeline() {
+    setPxPerMinute((prev) => Math.min(MAX_PX_PER_MINUTE, prev + ZOOM_STEP));
+  }
+
+  function zoomOutTimeline() {
+    setPxPerMinute((prev) => Math.max(MIN_PX_PER_MINUTE, prev - ZOOM_STEP));
+  }
+
+  function startPinch(event: GestureResponderEvent) {
+    if (event.nativeEvent.touches.length < 2) return;
+    pinchStartDistanceRef.current = touchDistance(event);
+    pinchStartScaleRef.current = pxPerMinute;
+  }
+
+  function movePinch(event: GestureResponderEvent) {
+    if (event.nativeEvent.touches.length < 2 || pinchStartDistanceRef.current <= 0) return;
+    const currentDistance = touchDistance(event);
+    if (currentDistance <= 0) return;
+    const scaleFactor = currentDistance / pinchStartDistanceRef.current;
+    const nextScale = Math.max(MIN_PX_PER_MINUTE, Math.min(MAX_PX_PER_MINUTE, pinchStartScaleRef.current * scaleFactor));
+    setPxPerMinute(nextScale);
+  }
+
+  function endPinch() {
+    pinchStartDistanceRef.current = 0;
   }
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.appName}>Dodo</Text>
-        <Text style={styles.pageName}>Calendar</Text>
+        <Pressable style={styles.todayBtn} onPress={handleToday} hitSlop={8}>
+          <View style={styles.todayIconWrap}>
+            <AppIcon name="calendar" size={18} color={colors.accent} />
+            <Text style={styles.todayBtnText}>{todayCompact}</Text>
+          </View>
+        </Pressable>
       </View>
 
       <View style={styles.content}>
-        <View style={styles.topHalf}>
+        <View style={styles.calendarSection}>
           <View style={styles.monthControls}>
             <Pressable style={styles.iconBtn} onPress={handlePrevMonth}>
-              <AppIcon name="chevron-left" size={17} color={colors.text} />
+              <AppIcon name="chevron-left" size={16} color={colors.text} />
             </Pressable>
             <Text style={styles.monthLabel}>{monthLabel}</Text>
             <Pressable style={styles.iconBtn} onPress={handleNextMonth}>
-              <AppIcon name="chevron-right" size={17} color={colors.text} />
+              <AppIcon name="chevron-right" size={16} color={colors.text} />
             </Pressable>
           </View>
-
-          <Pressable style={styles.todayChip} onPress={handleToday}>
-            <AppIcon name="calendar" size={12} color={colors.accent} />
-            <Text style={styles.todayChipText}>{todayChipLabel}</Text>
-          </Pressable>
 
           <View style={styles.weekRow}>
             {dayNames.map((dayName) => (
@@ -370,8 +401,11 @@ export function CalendarScreen() {
           <View style={styles.grid}>
             {monthCells.map((cell) => {
               const status = statusForDate(cell.dateKey);
+              const habitStatus = habitStatusForDate(cell.dateKey);
               const isSelected = cell.dateKey === selectedDate;
-              const dateTextColor = cell.inCurrentMonth ? colors.text : colors.mutedText;
+              const dateTextColor = isSelected
+                ? colors.text
+                : (cell.inCurrentMonth ? colors.text : colors.mutedText);
 
               return (
                 <Pressable
@@ -379,80 +413,68 @@ export function CalendarScreen() {
                   onPress={() => handleSelectDate(cell)}
                   style={[
                     styles.dayCell,
-                    status === "done" && styles.dayDone,
-                    status === "partial" && styles.dayPartial,
                     isSelected && styles.daySelected,
-                    cell.isToday && styles.dayToday,
+                    isSelected && cell.isToday && styles.daySelectedToday,
                   ]}
                 >
                   <Text
                     style={[
                       styles.dayNum,
-                      { color: status === "done" ? "#fff" : dateTextColor },
-                      cell.isToday && !isSelected && status !== "done" && styles.todayNum,
+                      { color: dateTextColor },
+                      cell.isToday && !isSelected && styles.todayNum,
+                      isSelected && styles.selectedDayNum,
                     ]}
                   >
                     {cell.dayNum}
                   </Text>
+
+                  {cell.inCurrentMonth && (status !== "none" || habitStatus !== "none") && (
+                    <View style={styles.indicatorRow}>
+                      {status !== "none" && (
+                        <View style={[styles.statusDot, status === "done" ? styles.doneDot : styles.partialDot]} />
+                      )}
+                      {habitStatus !== "none" && (
+                        <View style={[styles.statusDot, habitStatus === "done" ? styles.habitDoneDot : styles.habitPartialDot]} />
+                      )}
+                    </View>
+                  )}
                 </Pressable>
               );
             })}
           </View>
-
-          {loadingMonth ? (
-            <View style={styles.monthLoadingRow}>
-              <ActivityIndicator size="small" color={colors.accent} />
-              <Text style={styles.loadingText}>Loading month</Text>
-            </View>
-          ) : null}
-          {monthError ? <Text style={styles.errorText}>{monthError}</Text> : null}
         </View>
 
-        <View style={styles.bottomHalf}>
-          <View style={styles.dayHeaderRow}>
-            <Text style={styles.sectionTitle}>{selectedDateLabel}</Text>
-            <Text style={styles.sectionMeta}>
-              {rowLayout.placed.length} item{rowLayout.placed.length === 1 ? "" : "s"}
-            </Text>
-          </View>
-
-          <Text style={styles.zoomHint}>Pinch to zoom timeline</Text>
-
+        <View style={styles.timelineSection}>
           <View
             style={styles.timelineShell}
-            onTouchStart={onPinchStart}
-            onTouchMove={onPinchMove}
-            onTouchEnd={onPinchEnd}
-            onTouchCancel={onPinchEnd}
+            onLayout={onTimelineLayout}
+            onStartShouldSetResponder={(event) => event.nativeEvent.touches.length >= 2}
+            onMoveShouldSetResponder={(event) => event.nativeEvent.touches.length >= 2}
+            onResponderGrant={startPinch}
+            onResponderMove={movePinch}
+            onResponderRelease={endPinch}
+            onResponderTerminate={endPinch}
           >
-            <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.timelineScrollContent}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timelineScrollContent}>
               <View style={[styles.timelineTrack, { width: timelineWidth }]}> 
-                {Array.from({ length: 25 }).map((_, hour) => {
-                  const left = hour * 60 * pxPerMinute;
+                {timelineMarks.map((minute) => {
+                  const left = minute * pxPerMinute;
+                  const hour = Math.floor(minute / 60) % 24;
+                  const mins = minute % 60;
                   return (
-                    <View key={`tick_${hour}`} style={[styles.timeTick, { left }]}> 
+                    <View key={`tick_${minute}`} style={[styles.timeTick, { left }]}> 
                       <Text style={styles.timeTickLabel}>
-                        {formatTime(new Date(2000, 0, 1, hour % 24, 0, 0), preferences.timeFormat)}
+                        {formatTime(new Date(2000, 0, 1, hour, mins, 0), preferences.timeFormat)}
                       </Text>
                     </View>
                   );
                 })}
 
                 <View style={[styles.timelineBody, { top: AXIS_HEIGHT, height: timelineBodyHeight }]}> 
-                  {Array.from({ length: 25 }).map((_, hour) => {
-                    const left = hour * 60 * pxPerMinute;
-                    return <View key={`grid_${hour}`} style={[styles.timeGridLine, { left }]} />;
-                  })}
-
-                  {Array.from({ length: rowLayout.rowCount }).map((_, row) => {
-                    const top = row * ROW_HEIGHT;
-                    return <View key={`row_${row}`} style={[styles.rowDivider, { top }]} />;
-                  })}
-
                   {rowLayout.placed.map((event) => {
                     const left = event.startMinute * pxPerMinute;
-                    const width = Math.max(40, (event.endMinute - event.startMinute) * pxPerMinute);
-                    const top = event.row * ROW_HEIGHT + 6;
+                    const width = Math.max(42, (event.endMinute - event.startMinute) * pxPerMinute);
+                    const top = event.row * rowHeight + 6;
                     return (
                       <View
                         key={event.id}
@@ -462,15 +484,28 @@ export function CalendarScreen() {
                             left,
                             width,
                             top,
+                            height: Math.max(28, rowHeight - 12),
                           },
-                          event.isHabit ? styles.habitEvent : styles.taskEvent,
-                          event.completed && styles.completedEvent,
+                          event.isHabit ? styles.habitEventBase : styles.taskEventBase,
+                          event.completed && (event.isHabit ? styles.habitEventCompleted : styles.taskEventCompleted),
                         ]}
                       >
-                        <Text numberOfLines={1} style={styles.eventTitle}>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.eventTitle,
+                            !event.isHabit && !event.completed && styles.taskEventTitleOnAccent,
+                          ]}
+                        >
                           {event.title}
                         </Text>
-                        <Text numberOfLines={1} style={styles.eventMeta}>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.eventMeta,
+                            !event.isHabit && !event.completed && styles.taskEventMetaOnAccent,
+                          ]}
+                        >
                           {event.isHabit ? "Habit" : "Task"}
                         </Text>
                       </View>
@@ -492,9 +527,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
-    paddingTop: 14,
-    paddingBottom: spacing.sm,
+    paddingTop: 6,
+    paddingBottom: 0,
+    marginBottom: 8,
   },
   appName: {
     fontSize: fontSize.xxl,
@@ -508,137 +547,160 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.xs,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+    paddingTop: 2,
+    gap: 0,
   },
-  topHalf: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-    position: "relative",
+  calendarSection: {
+    paddingTop: 0,
+    marginBottom: 10,
   },
   monthControls: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.sm,
-    paddingRight: 76,
+    marginBottom: 14,
   },
   iconBtn: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: radii.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surfaceLight,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   monthLabel: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.lg,
     fontWeight: "700",
     color: colors.text,
   },
-  todayChip: {
-    position: "absolute",
-    right: spacing.sm,
-    top: spacing.sm,
-    flexDirection: "row",
+  todayBtn: {
     alignItems: "center",
-    gap: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    justifyContent: "center",
   },
-  todayChipText: {
+  todayIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  todayBtnText: {
     color: colors.accent,
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 8,
+    fontWeight: "900",
+    position: "absolute",
+    bottom: 9,
+    lineHeight: 8,
   },
   weekRow: {
     flexDirection: "row",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   weekHeaderCell: {
-    width: `${100 / 7}%`,
+    width: CELL_SIZE,
     alignItems: "center",
     justifyContent: "center",
-    height: 20,
   },
   dayHeader: {
     color: colors.mutedText,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "600",
+    lineHeight: 13,
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
   },
   dayCell: {
-    width: `${100 / 7}%`,
+    width: CELL_SIZE,
+    height: CELL_SIZE,
     alignItems: "center",
     justifyContent: "center",
-    height: 32,
     borderRadius: radii.sm,
-  },
-  dayDone: {
-    backgroundColor: colors.accent,
-  },
-  dayPartial: {
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.border,
+    position: "relative",
   },
   daySelected: {
-    borderWidth: 1,
-    borderColor: colors.text,
-  },
-  dayToday: {
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    backgroundColor: colors.accentLight,
     shadowColor: colors.accent,
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
+  },
+  daySelectedToday: {
+    backgroundColor: "transparent",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   dayNum: {
     color: colors.text,
     fontSize: fontSize.sm,
     fontWeight: "600",
   },
+  selectedDayNum: {
+    fontWeight: "800",
+  },
   todayNum: {
     color: colors.accent,
     fontWeight: "700",
   },
-  monthLoadingRow: {
+  indicatorRow: {
+    position: "absolute",
+    bottom: 4,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-    marginBottom: 2,
+    gap: 4,
   },
-  loadingText: {
-    color: colors.mutedText,
-    fontSize: fontSize.xs,
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  doneDot: {
+    backgroundColor: colors.accent,
+  },
+  partialDot: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    backgroundColor: "transparent",
+  },
+  habitDoneDot: {
+    backgroundColor: colors.habitBadge,
+  },
+  habitPartialDot: {
+    borderWidth: 1,
+    borderColor: colors.habitBadge,
+    backgroundColor: "transparent",
   },
   errorText: {
     color: colors.danger,
     fontSize: fontSize.xs,
-    marginBottom: 2,
+    marginTop: spacing.xs,
   },
-  bottomHalf: {
+  timelineSection: {
     flex: 1,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    padding: spacing.sm,
+    minHeight: 190,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 4,
   },
   dayHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  timelineHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
   },
   sectionTitle: {
     fontSize: fontSize.md,
@@ -650,33 +712,32 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: "600",
   },
-  zoomHint: {
-    color: colors.mutedText,
-    fontSize: 10,
-    marginTop: 2,
-    marginBottom: spacing.xs,
+  zoomBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   timelineShell: {
     flex: 1,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: "hidden",
+    backgroundColor: "transparent",
   },
   timelineScrollContent: {
     minHeight: "100%",
   },
   timelineTrack: {
-    minHeight: AXIS_HEIGHT + ROW_HEIGHT,
+    minHeight: AXIS_HEIGHT + MIN_ROW_HEIGHT,
     position: "relative",
-    backgroundColor: colors.background,
+    backgroundColor: "transparent",
   },
   timeTick: {
     position: "absolute",
     top: 0,
     height: AXIS_HEIGHT,
-    borderLeftWidth: 1,
-    borderLeftColor: colors.border,
     paddingLeft: 4,
     justifyContent: "center",
   },
@@ -690,40 +751,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  timeGridLine: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    borderLeftWidth: 1,
-    borderLeftColor: colors.border,
-    opacity: 0.8,
-  },
-  rowDivider: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
   eventCard: {
     position: "absolute",
-    height: ROW_HEIGHT - 12,
     borderRadius: radii.sm,
     borderWidth: 1,
     paddingHorizontal: 6,
     paddingVertical: 4,
     justifyContent: "center",
   },
-  taskEvent: {
-    backgroundColor: colors.accentLight,
+  taskEventBase: {
+    backgroundColor: colors.accent,
     borderColor: colors.accent,
   },
-  habitEvent: {
-    backgroundColor: colors.habitBadgeLight,
+  habitEventBase: {
+    backgroundColor: colors.surface,
     borderColor: colors.habitBadge,
   },
-  completedEvent: {
-    opacity: 0.55,
+  taskEventCompleted: {
+    backgroundColor: colors.accentLight,
+  },
+  habitEventCompleted: {
+    backgroundColor: colors.habitBadgeLight,
   },
   eventTitle: {
     color: colors.text,
@@ -735,5 +783,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "600",
     marginTop: 1,
+  },
+  taskEventTitleOnAccent: {
+    color: colors.text,
+    fontWeight: "800",
+  },
+  taskEventMetaOnAccent: {
+    color: colors.background,
   },
 });

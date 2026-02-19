@@ -101,7 +101,6 @@ export function ProfileScreen() {
           <View style={styles.profileMeta}>
             <Text style={styles.displayName}>{displayName}</Text>
             <Text style={styles.email}>{user?.email ?? "Not signed in"}</Text>
-            <Text style={styles.joinedDate}>Joined {user?.created_at ? formatDate(user.created_at, preferences.dateFormat) : "-"}</Text>
           </View>
         </View>
 
@@ -259,11 +258,6 @@ const styles = StyleSheet.create({
   email: {
     fontSize: fontSize.sm,
     color: colors.text,
-    marginTop: spacing.xs,
-  },
-  joinedDate: {
-    fontSize: fontSize.xs,
-    color: colors.mutedText,
     marginTop: spacing.xs,
   },
   progressSection: {

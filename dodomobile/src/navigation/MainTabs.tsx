@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: 1,
     height: 60,
-    paddingBottom: 6,
+    paddingBottom: 8,
     paddingTop: 6,
   },
   tabLabel: {
