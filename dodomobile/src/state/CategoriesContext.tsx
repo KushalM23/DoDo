@@ -7,7 +7,13 @@ import {
   updateCategory as apiUpdateCategory,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
-import type { Category, CreateCategoryInput } from "../types/category";
+import {
+  DEFAULT_CATEGORY_COLOR,
+  DEFAULT_CATEGORY_ICON,
+  type Category,
+  type CategoryIcon,
+  type CreateCategoryInput,
+} from "../types/category";
 
 type CategoriesContextValue = {
   categories: Category[];
@@ -21,7 +27,10 @@ type CategoriesContextValue = {
 
 const CategoriesContext = createContext<CategoriesContextValue | undefined>(undefined);
 
-const DEFAULT_CATEGORY_NAMES = ["Personal", "Work"];
+const DEFAULT_CATEGORIES: Array<{ name: string; color: string; icon: CategoryIcon }> = [
+  { name: "Personal", color: "#E8651A", icon: "user" },
+  { name: "Work", color: "#3B82F6", icon: "briefcase" },
+];
 const CATEGORY_ORDER_KEY_PREFIX = "dodo.categoryOrder";
 
 function orderKey(userId: string): string {
@@ -83,11 +92,17 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       let nextCategories = await fetchCategories();
       if (nextCategories.length === 0) {
         const seeded: Category[] = [];
-        for (const name of DEFAULT_CATEGORY_NAMES) {
-          seeded.push(await apiCreateCategory({ name }));
+        for (const category of DEFAULT_CATEGORIES) {
+          seeded.push(await apiCreateCategory(category));
         }
         nextCategories = seeded;
       }
+
+      nextCategories = nextCategories.map((category) => ({
+        ...category,
+        color: category.color || DEFAULT_CATEGORY_COLOR,
+        icon: category.icon || DEFAULT_CATEGORY_ICON,
+      }));
 
       const storedOrderRaw = await AsyncStorage.getItem(orderKey(user.id));
       let storedOrder: string[] = [];
@@ -118,7 +133,11 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       const name = input.name.trim();
       if (!name) throw new Error("Category name cannot be empty.");
 
-      const created = await apiCreateCategory({ name });
+      const created = await apiCreateCategory({
+        name,
+        color: input.color || DEFAULT_CATEGORY_COLOR,
+        icon: input.icon || DEFAULT_CATEGORY_ICON,
+      });
 
       const nextCategories = [...categories, created];
       const nextOrder = normalizeOrder(nextCategories, [...orderedIds, created.id]);
@@ -135,7 +154,11 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       const name = input.name.trim();
       if (!name) throw new Error("Category name cannot be empty.");
 
-      const updated = await apiUpdateCategory(id, { name });
+      const updated = await apiUpdateCategory(id, {
+        name,
+        color: input.color || DEFAULT_CATEGORY_COLOR,
+        icon: input.icon || DEFAULT_CATEGORY_ICON,
+      });
       setCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
     },
     [],

@@ -7,6 +7,7 @@ import { useTasks } from "../../state/TasksContext";
 import { useCategories } from "../../state/CategoriesContext";
 import { usePreferences } from "../../state/PreferencesContext";
 import { AppIcon } from "../../components/AppIcon";
+import { HoldToConfirmButton } from "../../components/HoldToConfirmButton";
 import { TaskForm } from "../../components/TaskForm";
 import { CustomDateTimePicker } from "../../components/CustomDateTimePicker";
 import { colors, spacing, radii, fontSize } from "../../theme/colors";
@@ -49,6 +50,8 @@ export function TaskDetailScreen() {
   const [undoState, setUndoState] = useState<UndoState | null>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
   const [undoProgress, setUndoProgress] = useState(0);
+  const [lockInMode, setLockInMode] = useState(false);
+  const [lockTime, setLockTime] = useState(() => new Date());
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -65,6 +68,12 @@ export function TaskDetailScreen() {
   }, [task?.timerStartedAt]);
 
   useEffect(() => {
+    if (!lockInMode) return;
+    const timer = setInterval(() => setLockTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [lockInMode]);
+
+  useEffect(() => {
     return () => {
       if (undoTimerRef.current) {
         clearTimeout(undoTimerRef.current);
@@ -75,9 +84,8 @@ export function TaskDetailScreen() {
     };
   }, []);
 
-  const categoryName = task?.categoryId
-    ? categories.find((c) => c.id === task.categoryId)?.name ?? "Unknown"
-    : "None";
+  const category = task?.categoryId ? categories.find((c) => c.id === task.categoryId) ?? null : null;
+  const categoryName = category?.name ?? "None";
 
   const priorityInfo = useMemo(() => (task ? priorityMeta(task.priority) : null), [task]);
 
@@ -254,6 +262,68 @@ export function TaskDetailScreen() {
   const showResume = !task.completed && !task.timerStartedAt && hasStartedInSession;
   const showPause = !task.completed && !!task.timerStartedAt;
 
+  if (lockInMode) {
+    const hour24 = lockTime.getHours();
+    const lockHour = String(preferences.timeFormat === "24h" ? hour24 : ((hour24 + 11) % 12) + 1).padStart(2, "0");
+    const lockMinute = String(lockTime.getMinutes()).padStart(2, "0");
+    const meridiem = preferences.timeFormat === "24h" ? "" : hour24 >= 12 ? "PM" : "AM";
+
+    return (
+      <SafeAreaView style={styles.lockContainer} edges={["top", "bottom"]}>
+        <View style={styles.lockContent}>
+          <View style={styles.lockClockWrap}>
+            <Text style={styles.lockClockLine}>{lockHour}</Text>
+            <Text style={styles.lockClockLine}>{lockMinute}</Text>
+            {meridiem ? <Text style={styles.lockClockMeridiem}>{meridiem}</Text> : null}
+          </View>
+
+          <View style={styles.lockInfoBlock}>
+            <Text style={styles.lockTitle} numberOfLines={2}>{task.title}</Text>
+            <Text style={styles.lockMeta}>{categoryName} · {priorityInfo?.label ?? "Priority"}</Text>
+            <Text style={styles.lockMeta}>Due {formatDateTime(task.deadline, {
+              dateFormat: preferences.dateFormat,
+              timeFormat: preferences.timeFormat,
+              weekStart: preferences.weekStart,
+            })}</Text>
+          </View>
+
+          <View style={styles.lockActionsRow}>
+            {showStart || showResume ? (
+              <Pressable style={[styles.lockActionBtn, styles.lockStartBtn]} onPress={handleStartOrResume}>
+                <AppIcon name="play" size={16} color={colors.success} />
+                <Text style={[styles.lockActionText, { color: colors.success }]}>{showStart ? "Start" : "Resume"}</Text>
+              </Pressable>
+            ) : null}
+            {showPause ? (
+              <Pressable style={[styles.lockActionBtn, styles.lockPauseBtn]} onPress={handlePause}>
+                <AppIcon name="clock" size={16} color={colors.accent} />
+                <Text style={[styles.lockActionText, { color: colors.accent }]}>Pause</Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={[styles.lockActionBtn, styles.lockCompleteBtn]} onPress={handleComplete} disabled={busy}>
+              <AppIcon name="check" size={16} color={task.completed ? colors.mutedText : colors.accent} />
+              <Text style={[styles.lockActionText, { color: task.completed ? colors.mutedText : colors.accent }]}>
+                {task.completed ? "Undo" : "Complete"}
+              </Text>
+            </Pressable>
+          </View>
+
+          <HoldToConfirmButton
+            iconName="lock-open"
+            onHoldComplete={() => setLockInMode(false)}
+            holdDurationMs={3000}
+            square
+            size={80}
+            progressStyle="fill"
+            showHint={false}
+            style={styles.lockExitBtn}
+            fillColor={colors.danger}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -289,7 +359,7 @@ export function TaskDetailScreen() {
             </View>
             <View style={styles.infoSep} />
             <View style={styles.infoRow}>
-              <AppIcon name="inbox" size={14} color={colors.mutedText} />
+              <AppIcon name={category?.icon ?? "inbox"} size={14} color={category?.color ?? colors.mutedText} />
               <Text style={styles.infoLabel}>Category</Text>
               <Text style={styles.infoValue}>{categoryName}</Text>
             </View>
@@ -329,6 +399,18 @@ export function TaskDetailScreen() {
       </View>
 
       <View style={styles.floatingActions}>
+        <HoldToConfirmButton
+          iconName="lock"
+          onHoldComplete={() => setLockInMode(true)}
+          holdDurationMs={1500}
+          square
+          size={80}
+          progressStyle="fill"
+          showHint={false}
+          style={styles.lockInBtn}
+          fillColor={colors.accent}
+        />
+
         <View style={styles.primaryActionsRow}>
         {showStart && (
           <Pressable style={[styles.actionBtn, styles.startBtn]} onPress={handleStartOrResume}>
@@ -471,6 +553,87 @@ export function TaskDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  lockContainer: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  lockContent: {
+    flex: 1,
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xl,
+    gap: spacing.md,
+  },
+  lockClockWrap: {
+    alignItems: "center",
+    marginTop: spacing.lg,
+  },
+  lockClockLine: {
+    color: "#fff",
+    fontSize: 68,
+    fontWeight: "800",
+    lineHeight: 72,
+    letterSpacing: 2,
+  },
+  lockClockMeridiem: {
+    color: "#BDBDBD",
+    fontSize: fontSize.md,
+    fontWeight: "700",
+    marginTop: spacing.xs,
+    letterSpacing: 1,
+  },
+  lockInfoBlock: {
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  lockTitle: {
+    color: "#fff",
+    fontSize: fontSize.xl,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  lockMeta: {
+    color: "#BDBDBD",
+    fontSize: fontSize.sm,
+    textAlign: "center",
+  },
+  lockActionsRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    width: "100%",
+  },
+  lockActionBtn: {
+    flex: 1,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "#2A2A2A",
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    backgroundColor: "#121212",
+  },
+  lockActionText: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+  },
+  lockStartBtn: {
+    borderColor: colors.success,
+  },
+  lockPauseBtn: {
+    borderColor: colors.accent,
+  },
+  lockCompleteBtn: {
+    borderColor: colors.border,
+  },
+  lockExitBtn: {
+    alignSelf: "center",
+    backgroundColor: "#111111",
+    borderColor: colors.border,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -626,6 +789,10 @@ const styles = StyleSheet.create({
   secondaryActionsRow: {
     flexDirection: "row",
     gap: spacing.sm,
+  },
+  lockInBtn: {
+    marginBottom: spacing.xs,
+    alignSelf: "center",
   },
   actionBtn: {
     flex: 1,

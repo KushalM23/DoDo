@@ -2,12 +2,14 @@ import React, { useMemo, useRef } from "react";
 import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import { AppIcon } from "./AppIcon";
 import type { Task } from "../types/task";
+import type { Category } from "../types/category";
 import { colors, spacing, radii, fontSize } from "../theme/colors";
 import { usePreferences } from "../state/PreferencesContext";
 import { formatTime } from "../utils/dateTime";
 
 type TaskItemProps = {
   task: Task;
+  category?: Category | null;
   isHabit?: boolean;
   onToggle: (task: Task) => void;
   onDelete: (taskId: string) => void;
@@ -35,7 +37,7 @@ function priorityIcon(priority: number): "arrow-up-circle" | "minus-circle" | "a
 const SWIPE_THRESHOLD = 74;
 const SWIPE_LIMIT = 108;
 
-export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft, onPress }: TaskItemProps) {
+export function TaskItem({ task, category, isHabit, onToggle, onDelete, onSwipeLeft, onPress }: TaskItemProps) {
   const { preferences } = usePreferences();
   const translateX = useRef(new Animated.Value(0)).current;
   const timerActive = !!task.timerStartedAt && !task.completed;
@@ -53,6 +55,9 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft, onPre
   onPressRef.current = onPress;
 
   const swipeLeftIcon = getSwipeLeftIcon(task);
+  const showLeadingIcon = isHabit || !!category;
+  const leadingIcon = isHabit ? "repeat" : category?.icon;
+  const leadingIconColor = isHabit ? colors.habitBadge : category?.color ?? colors.mutedText;
 
   const rightActionOpacity = useMemo(
     () =>
@@ -125,6 +130,12 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft, onPre
           </View>
         </Pressable>
 
+        {showLeadingIcon && leadingIcon ? (
+          <View style={[styles.leadingIconPill, { backgroundColor: `${leadingIconColor}22` }]}>
+            <AppIcon name={leadingIcon} size={17} color={leadingIconColor} />
+          </View>
+        ) : null}
+
         <Pressable style={styles.content} onPress={() => onPressRef.current?.(taskRef.current)}>
           <View style={styles.titleRow}>
             <Text style={[styles.title, task.completed && styles.completedText]} numberOfLines={1}>
@@ -144,19 +155,18 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft, onPre
         </Pressable>
 
         <View style={styles.badgesCol}>
-          <View style={[styles.priorityPill, { backgroundColor: `${priorityColor(task.priority)}22` }]}>
-            <AppIcon name={priorityIcon(task.priority)} size={13} color={priorityColor(task.priority)} />
+          <View style={styles.badgeTopRow}>
+            <View style={[styles.priorityPill, { backgroundColor: `${priorityColor(task.priority)}22` }]}>
+              <AppIcon name={priorityIcon(task.priority)} size={13} color={priorityColor(task.priority)} />
+            </View>
           </View>
-          {timerActive && (
-            <View style={styles.timerBadge}>
-              <AppIcon name="play" size={10} color={colors.success} />
-            </View>
-          )}
-          {isHabit && (
-            <View style={styles.habitBadge}>
-              <AppIcon name="repeat" size={10} color={colors.habitBadge} />
-            </View>
-          )}
+          <View style={styles.badgeBottomRow}>
+            {timerActive && (
+              <View style={styles.timerBadge}>
+                <AppIcon name="play" size={10} color={colors.success} />
+              </View>
+            )}
+          </View>
         </View>
       </Animated.View>
     </View>
@@ -211,6 +221,13 @@ const styles = StyleSheet.create({
   checkbox: {
     padding: 2,
   },
+  leadingIconPill: {
+    width: 30,
+    height: 30,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   checkboxInner: {
     width: 22,
     height: 22,
@@ -263,14 +280,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  habitBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: radii.sm,
-    backgroundColor: colors.habitBadgeLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   priorityPill: {
     width: 24,
     height: 24,
@@ -281,6 +290,17 @@ const styles = StyleSheet.create({
   badgesCol: {
     alignItems: "center",
     justifyContent: "center",
+    gap: 4,
+  },
+  badgeTopRow: {
+    flexDirection: "row",
     gap: 6,
+  },
+  badgeBottomRow: {
+    minHeight: 20,
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

@@ -130,6 +130,7 @@ export function TasksScreen() {
   }, [tasks, selectedCategory, pendingDeleteId, selectedDate]);
 
   const listData = archiveMode ? archivedTasks : filteredTasks;
+  const categoriesById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
 
   const handleRefresh = useCallback(() => {
     void refresh(selectedDate);
@@ -353,6 +354,7 @@ export function TasksScreen() {
         renderItem={({ item }) => (
           <TaskItem
             task={item}
+            category={item.categoryId ? categoriesById.get(item.categoryId) ?? null : null}
             isHabit={!!(item as DisplayTask)._isHabit}
             onToggle={handleToggleTask}
             onDelete={(id) => handleDeleteTask(id)}
@@ -377,12 +379,9 @@ export function TasksScreen() {
         style={styles.list}
       />
 
-      <Pressable
-        style={[styles.archiveFab, archiveMode && styles.archiveFabActive]}
-        onPress={() => setArchiveMode((prev) => !prev)}
-      >
-        <AppIcon name="package" size={20} color={archiveMode ? colors.accent : colors.mutedText} />
-        <Text style={[styles.archiveBtnText, archiveMode && styles.archiveBtnTextActive]}>Archive</Text>
+      <Pressable style={styles.newTaskFab} onPress={() => setFormVisible(true)}>
+        <AppIcon name="plus" size={22} color="#fff" />
+        <Text style={styles.newTaskFabText}>New Task</Text>
       </Pressable>
 
       {/* Bottom: Date Strip + Add Button */}
@@ -390,8 +389,11 @@ export function TasksScreen() {
         <View style={styles.dateStripContainer}>
           <DateStrip selectedDate={selectedDate} onSelectDate={handleDateChange} />
         </View>
-        <Pressable style={styles.addBtn} onPress={() => setFormVisible(true)}>
-          <AppIcon name="plus" size={22} color="#fff" />
+        <Pressable
+          style={[styles.archiveIconBtn, archiveMode && styles.archiveIconBtnActive]}
+          onPress={() => setArchiveMode((prev) => !prev)}
+        >
+          <AppIcon name="package" size={20} color={archiveMode ? colors.accent : colors.mutedText} />
         </Pressable>
       </View>
 
@@ -507,40 +509,40 @@ const styles = StyleSheet.create({
   dateStripContainer: {
     flex: 1,
   },
-  addBtn: {
+  archiveIconBtn: {
     width: 46,
     height: 46,
     borderRadius: radii.md,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: spacing.sm,
   },
-  archiveBtnText: {
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-    color: colors.mutedText,
+  archiveIconBtnActive: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentLight,
   },
-  archiveBtnTextActive: {
-    color: colors.accent,
-  },
-  archiveFab: {
+  newTaskFab: {
     position: "absolute",
     right: spacing.lg,
     bottom: 92,
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "center",
+    gap: spacing.xs,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  archiveFabActive: {
     borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.accent,
+  },
+  newTaskFabText: {
+    color: "#fff",
+    fontSize: fontSize.md,
+    fontWeight: "700",
   },
   undoBar: {
     position: "absolute",

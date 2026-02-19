@@ -2,7 +2,14 @@ import React, { useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useCategories } from "../state/CategoriesContext";
 import { colors, spacing, radii, fontSize } from "../theme/colors";
-import type { Category } from "../types/category";
+import {
+  CATEGORY_COLOR_OPTIONS,
+  CATEGORY_ICON_OPTIONS,
+  DEFAULT_CATEGORY_COLOR,
+  DEFAULT_CATEGORY_ICON,
+  type Category,
+  type CategoryIcon,
+} from "../types/category";
 import { AppIcon } from "./AppIcon";
 
 type Props = {
@@ -14,16 +21,22 @@ export function CategoryBar({ selected, onSelect }: Props) {
   const { categories, addCategory, editCategory, removeCategory, setCategoryOrder } = useCategories();
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [manageModalVisible, setManageModalVisible] = useState(false);
-  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [addInputValue, setAddInputValue] = useState("");
-  const [renameInputValue, setRenameInputValue] = useState("");
+  const [addColor, setAddColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
+  const [addIcon, setAddIcon] = useState<CategoryIcon>(DEFAULT_CATEGORY_ICON);
+  const [editInputValue, setEditInputValue] = useState("");
+  const [editColor, setEditColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
+  const [editIcon, setEditIcon] = useState<CategoryIcon>(DEFAULT_CATEGORY_ICON);
   const [busy, setBusy] = useState(false);
 
   const orderedIds = useMemo(() => categories.map((category) => category.id), [categories]);
 
   function handleAdd() {
     setAddInputValue("");
+    setAddColor(DEFAULT_CATEGORY_COLOR);
+    setAddIcon(DEFAULT_CATEGORY_ICON);
     setAddModalVisible(true);
   }
 
@@ -32,7 +45,7 @@ export function CategoryBar({ selected, onSelect }: Props) {
     if (!name || busy) return;
     setBusy(true);
     try {
-      await addCategory({ name });
+      await addCategory({ name, color: addColor, icon: addIcon });
       setAddModalVisible(false);
     } catch (err) {
       Alert.alert("Error", err instanceof Error ? err.message : "Failed to add category");
@@ -41,22 +54,24 @@ export function CategoryBar({ selected, onSelect }: Props) {
     }
   }
 
-  function openRenameModal(category: Category) {
+  function openEditModal(category: Category) {
     setManageModalVisible(false);
     setEditingCategory(category);
-    setRenameInputValue(category.name);
-    setRenameModalVisible(true);
+    setEditInputValue(category.name);
+    setEditColor(category.color);
+    setEditIcon(category.icon);
+    setEditModalVisible(true);
   }
 
-  async function handleRenameSubmit() {
+  async function handleEditSubmit() {
     if (!editingCategory || busy) return;
-    const name = renameInputValue.trim();
+    const name = editInputValue.trim();
     if (!name) return;
 
     setBusy(true);
     try {
-      await editCategory(editingCategory.id, { name });
-      setRenameModalVisible(false);
+      await editCategory(editingCategory.id, { name, color: editColor, icon: editIcon });
+      setEditModalVisible(false);
       setEditingCategory(null);
     } catch (err) {
       Alert.alert("Error", err instanceof Error ? err.message : "Failed to update category");
@@ -117,7 +132,10 @@ export function CategoryBar({ selected, onSelect }: Props) {
             const active = selected === cat.id;
             return (
               <Pressable key={cat.id} style={[styles.chip, active && styles.chipActive]} onPress={() => onSelect(cat.id)}>
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat.name}</Text>
+                <View style={styles.chipInner}>
+                  <AppIcon name={cat.icon} size={12} color={active ? colors.accent : cat.color} />
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat.name}</Text>
+                </View>
               </Pressable>
             );
           })}
@@ -146,6 +164,35 @@ export function CategoryBar({ selected, onSelect }: Props) {
               autoFocus
               onSubmitEditing={handleAddSubmit}
             />
+
+            <Text style={styles.fieldLabel}>Color</Text>
+            <View style={styles.optionGrid}>
+              {CATEGORY_COLOR_OPTIONS.map((option) => {
+                const active = addColor === option;
+                return (
+                  <Pressable
+                    key={option}
+                    style={[styles.colorOption, { backgroundColor: option }, active && styles.optionActive]}
+                    onPress={() => setAddColor(option)}
+                  >
+                    {active ? <AppIcon name="check" size={13} color="#fff" /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.fieldLabel}>Icon</Text>
+            <View style={styles.optionGrid}>
+              {CATEGORY_ICON_OPTIONS.map((option) => {
+                const active = addIcon === option;
+                return (
+                  <Pressable key={option} style={[styles.iconOption, active && styles.optionActive]} onPress={() => setAddIcon(option)}>
+                    <AppIcon name={option} size={16} color={active ? colors.accent : colors.text} />
+                  </Pressable>
+                );
+              })}
+            </View>
+
             <View style={styles.modalActions}>
               <Pressable style={styles.modalCancel} onPress={() => setAddModalVisible(false)}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
@@ -178,9 +225,13 @@ export function CategoryBar({ selected, onSelect }: Props) {
             ) : (
               categories.map((category, index) => (
                 <View key={category.id} style={styles.manageRow}>
-                  <Text style={styles.manageName} numberOfLines={1}>
-                    {category.name}
-                  </Text>
+                  <View style={styles.manageLabelWrap}>
+                    <View style={[styles.manageColorDot, { backgroundColor: category.color }]} />
+                    <AppIcon name={category.icon} size={14} color={category.color} />
+                    <Text style={styles.manageName} numberOfLines={1}>
+                      {category.name}
+                    </Text>
+                  </View>
                   <Pressable
                     style={[styles.iconBtn, index === 0 && styles.iconBtnDisabled]}
                     disabled={index === 0}
@@ -199,7 +250,7 @@ export function CategoryBar({ selected, onSelect }: Props) {
                       color={index === categories.length - 1 ? colors.border : colors.text}
                     />
                   </Pressable>
-                  <Pressable style={styles.iconBtn} onPress={() => openRenameModal(category)}>
+                  <Pressable style={styles.iconBtn} onPress={() => openEditModal(category)}>
                     <AppIcon name="edit" size={14} color={colors.mutedText} />
                   </Pressable>
                   <Pressable style={styles.iconBtn} onPress={() => handleDelete(category)}>
@@ -215,28 +266,57 @@ export function CategoryBar({ selected, onSelect }: Props) {
       <Modal
         transparent
         animationType="fade"
-        visible={renameModalVisible}
-        onRequestClose={() => setRenameModalVisible(false)}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
       >
         <View style={styles.overlay}>
           <View style={styles.modal}>
-            <Text style={styles.modalTitle}>Rename Category</Text>
+            <Text style={styles.modalTitle}>Edit Category</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="Category name"
               placeholderTextColor={colors.mutedText}
-              value={renameInputValue}
-              onChangeText={setRenameInputValue}
+              value={editInputValue}
+              onChangeText={setEditInputValue}
               autoFocus
-              onSubmitEditing={handleRenameSubmit}
+              onSubmitEditing={handleEditSubmit}
             />
+
+            <Text style={styles.fieldLabel}>Color</Text>
+            <View style={styles.optionGrid}>
+              {CATEGORY_COLOR_OPTIONS.map((option) => {
+                const active = editColor === option;
+                return (
+                  <Pressable
+                    key={option}
+                    style={[styles.colorOption, { backgroundColor: option }, active && styles.optionActive]}
+                    onPress={() => setEditColor(option)}
+                  >
+                    {active ? <AppIcon name="check" size={13} color="#fff" /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.fieldLabel}>Icon</Text>
+            <View style={styles.optionGrid}>
+              {CATEGORY_ICON_OPTIONS.map((option) => {
+                const active = editIcon === option;
+                return (
+                  <Pressable key={option} style={[styles.iconOption, active && styles.optionActive]} onPress={() => setEditIcon(option)}>
+                    <AppIcon name={option} size={16} color={active ? colors.accent : colors.text} />
+                  </Pressable>
+                );
+              })}
+            </View>
+
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancel} onPress={() => setRenameModalVisible(false)}>
+              <Pressable style={styles.modalCancel} onPress={() => setEditModalVisible(false)}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
               <Pressable
                 style={[styles.modalSubmit, busy && styles.disabled]}
-                onPress={handleRenameSubmit}
+                onPress={handleEditSubmit}
                 disabled={busy}
               >
                 <Text style={styles.modalSubmitText}>{busy ? "Saving..." : "Save"}</Text>
@@ -293,6 +373,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentLight,
     borderColor: colors.accent,
   },
+  chipInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
   chipText: {
     color: colors.mutedText,
     fontWeight: "600",
@@ -330,8 +415,43 @@ const styles = StyleSheet.create({
     color: colors.text,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     fontSize: fontSize.md,
+  },
+  fieldLabel: {
+    color: colors.mutedText,
+    fontSize: fontSize.xs,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: spacing.sm,
+  },
+  optionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  colorOption: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.sm,
+    borderWidth: 2,
+    borderColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconOption: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  optionActive: {
+    borderColor: colors.accent,
   },
   modalActions: {
     flexDirection: "row",
@@ -367,11 +487,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: spacing.xs,
   },
-  manageHint: {
-    color: colors.mutedText,
-    fontSize: fontSize.sm,
-    marginBottom: spacing.md,
-  },
   manageRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -383,6 +498,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     marginBottom: spacing.sm,
     backgroundColor: colors.surfaceLight,
+  },
+  manageLabelWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  manageColorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   manageName: {
     flex: 1,
@@ -402,19 +528,6 @@ const styles = StyleSheet.create({
   },
   iconBtnDisabled: {
     opacity: 0.45,
-  },
-  textBtn: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  textBtnLabel: {
-    color: colors.textSecondary,
-    fontWeight: "600",
-    fontSize: fontSize.xs,
   },
   emptyText: {
     color: colors.mutedText,

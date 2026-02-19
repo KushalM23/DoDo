@@ -10,6 +10,8 @@ create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null check (char_length(name) between 1 and 50),
+  color text not null default '#E8651A',
+  icon text not null default 'inbox',
   created_at timestamptz not null default now()
 );
 
@@ -69,6 +71,25 @@ alter table public.habits add column if not exists current_streak integer;
 alter table public.habits add column if not exists best_streak integer;
 alter table public.habits add column if not exists last_completed_on date;
 alter table public.habits add column if not exists next_occurrence_on date;
+alter table public.categories add column if not exists color text;
+alter table public.categories add column if not exists icon text;
+
+update public.categories
+set color = coalesce(color, '#E8651A');
+
+update public.categories
+set icon = coalesce(icon, 'inbox');
+
+alter table public.categories alter column color set default '#E8651A';
+alter table public.categories alter column color set not null;
+alter table public.categories alter column icon set default 'inbox';
+alter table public.categories alter column icon set not null;
+alter table public.categories drop constraint if exists categories_color_check;
+alter table public.categories add constraint categories_color_check
+  check (color in ('#E8651A', '#30A46C', '#3B82F6', '#E5484D', '#F5A623', '#8B5CF6', '#14B8A6', '#EC4899'));
+alter table public.categories drop constraint if exists categories_icon_check;
+alter table public.categories add constraint categories_icon_check
+  check (icon in ('inbox', 'briefcase', 'check-square', 'calendar', 'flame', 'heart', 'user', 'settings', 'repeat', 'zap'));
 
 update public.habits
 set frequency_type = case

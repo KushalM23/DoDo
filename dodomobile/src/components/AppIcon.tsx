@@ -8,6 +8,7 @@ export type AppIconName =
   | "arrow-up"
   | "arrow-up-circle"
   | "arrow-up-down"
+  | "briefcase"
   | "calendar"
   | "check"
   | "check-square"
@@ -20,8 +21,11 @@ export type AppIconName =
   | "file-text"
   | "flame"
   | "flame-kindling"
+  | "heart"
   | "inbox"
   | "log-out"
+  | "lock"
+  | "lock-open"
   | "key-round"
   | "minus-circle"
   | "package"
@@ -55,6 +59,7 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   "arrow-up-circle": "circle-arrow-up",
   "arrow-up": "arrow-up",
   "arrow-up-down": "arrow-up-down",
+  briefcase: "briefcase",
   calendar: "calendar",
   check: "check",
   "check-square": "square-check",
@@ -67,8 +72,11 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   "file-text": "file-text",
   flame: "flame",
   "flame-kindling": "flame-kindling",
+  heart: "heart",
   inbox: "inbox",
   "log-out": "log-out",
+  lock: "lock",
+  "lock-open": "lock-open",
   "key-round": "key-round",
   "minus-circle": "circle-minus",
   package: "package",
