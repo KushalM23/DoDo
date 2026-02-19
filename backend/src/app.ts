@@ -6,6 +6,8 @@ import type { NextFunction, Request, Response } from "express";
 import { env } from "./config/env.js";
 import { healthRouter } from "./routes/health.js";
 import { tasksRouter } from "./routes/tasks.js";
+import { categoriesRouter } from "./routes/categories.js";
+import { habitsRouter } from "./routes/habits.js";
 
 export function createApp() {
   const app = express();
@@ -25,6 +27,8 @@ export function createApp() {
 
   app.use("/api/health", healthRouter);
   app.use("/api/tasks", tasksRouter);
+  app.use("/api/categories", categoriesRouter);
+  app.use("/api/habits", habitsRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Route not found." });
