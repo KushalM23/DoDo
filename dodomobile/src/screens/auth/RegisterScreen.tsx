@@ -3,7 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-nativ
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useAuth } from "../../state/AuthContext";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
-import { colors } from "../../theme/colors";
+import { colors, spacing, radii, fontSize } from "../../theme/colors";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: 20,
+    padding: spacing.xl,
     justifyContent: "center",
   },
   title: {
@@ -74,25 +74,26 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 6,
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
     color: colors.mutedText,
-    fontSize: 16,
+    fontSize: fontSize.md + 1,
   },
   input: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: radii.sm,
+    padding: spacing.md,
     color: colors.text,
-    marginBottom: 12,
+    marginBottom: spacing.md,
+    fontSize: fontSize.md,
   },
   button: {
     backgroundColor: colors.accent,
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderRadius: radii.sm,
+    paddingVertical: spacing.md,
     alignItems: "center",
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: fontSize.md,
   },
   linkContainer: {
     marginTop: 14,
@@ -109,6 +110,7 @@ const styles = StyleSheet.create({
   linkText: {
     color: colors.accent,
     fontWeight: "600",
+    fontSize: fontSize.sm,
   },
 });
 

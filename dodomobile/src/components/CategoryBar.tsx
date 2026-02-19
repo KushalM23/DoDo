@@ -1,7 +1,8 @@
 import React, { useRef, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Icon from "react-native-vector-icons/Feather";
 import { useCategories } from "../state/CategoriesContext";
-import { colors } from "../theme/colors";
+import { colors, spacing, radii, fontSize } from "../theme/colors";
 import type { Category } from "../types/category";
 
 type Props = {
@@ -88,7 +89,7 @@ export function CategoryBar({ selected, onSelect }: Props) {
         })}
 
         <Pressable style={styles.addChip} onPress={handleAdd}>
-          <Text style={styles.addChipText}>+</Text>
+          <Icon name="plus" size={16} color={colors.accent} />
         </Pressable>
       </ScrollView>
 
@@ -155,13 +156,14 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -173,7 +175,7 @@ const styles = StyleSheet.create({
   chipText: {
     color: colors.mutedText,
     fontWeight: "600",
-    fontSize: 13,
+    fontSize: fontSize.sm,
   },
   chipTextActive: {
     color: colors.accent,
@@ -188,49 +190,45 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  addChipText: {
-    color: colors.accent,
-    fontSize: 18,
-    fontWeight: "700",
-  },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: spacing.xxl,
   },
   modal: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
     width: "100%",
     maxWidth: 340,
   },
   modalTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: fontSize.lg,
     fontWeight: "700",
     marginBottom: 14,
   },
   modalInput: {
     backgroundColor: colors.surfaceLight,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: radii.sm,
+    padding: spacing.md,
     color: colors.text,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
+    fontSize: fontSize.md,
   },
   modalActions: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
     justifyContent: "flex-end",
   },
   modalCancel: {
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.sm,
     backgroundColor: colors.surfaceLight,
   },
   modalCancelText: {
@@ -239,8 +237,8 @@ const styles = StyleSheet.create({
   },
   modalSubmit: {
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.sm,
     backgroundColor: colors.accent,
   },
   modalSubmitText: {
@@ -249,8 +247,8 @@ const styles = StyleSheet.create({
   },
   modalDelete: {
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.sm,
     backgroundColor: colors.dangerLight,
     marginRight: "auto",
   },

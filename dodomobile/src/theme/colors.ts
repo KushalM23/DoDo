@@ -15,5 +15,33 @@ export const colors = {
   highPriority: "#E5484D",
   mediumPriority: "#F5A623",
   lowPriority: "#30A46C",
+  habitBadge: "#8B5CF6",
+  habitBadgeLight: "rgba(139, 92, 246, 0.15)",
+};
+
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+};
+
+export const radii = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  pill: 100,
+};
+
+export const fontSize = {
+  xs: 11,
+  sm: 13,
+  md: 15,
+  lg: 18,
+  xl: 22,
+  xxl: 28,
 };
 

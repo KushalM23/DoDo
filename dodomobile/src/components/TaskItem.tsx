@@ -1,13 +1,15 @@
 import React, { useRef } from "react";
 import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import Icon from "react-native-vector-icons/Feather";
 import type { Task } from "../types/task";
-import { colors } from "../theme/colors";
+import { colors, spacing, radii, fontSize } from "../theme/colors";
 
 type TaskItemProps = {
   task: Task;
+  isHabit?: boolean;
   onToggle: (task: Task) => void;
   onDelete: (taskId: string) => void;
-  onSwipeRight: (task: Task) => void;
+  onSwipeLeft: (task: Task) => void;
 };
 
 function priorityColor(priority: number): string {
@@ -33,7 +35,7 @@ function formatTime(iso: string): string {
 
 const SWIPE_THRESHOLD = 80;
 
-export function TaskItem({ task, onToggle, onDelete, onSwipeRight }: TaskItemProps) {
+export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft }: TaskItemProps) {
   const translateX = useRef(new Animated.Value(0)).current;
 
   const panResponder = useRef(
@@ -44,13 +46,15 @@ export function TaskItem({ task, onToggle, onDelete, onSwipeRight }: TaskItemPro
         translateX.setValue(gs.dx);
       },
       onPanResponderRelease: (_, gs) => {
-        if (gs.dx > SWIPE_THRESHOLD) {
-          Animated.timing(translateX, { toValue: 300, duration: 200, useNativeDriver: true }).start(() => {
-            onSwipeRight(task);
+        if (gs.dx < -SWIPE_THRESHOLD) {
+          // Swipe LEFT → start / complete
+          Animated.timing(translateX, { toValue: -300, duration: 200, useNativeDriver: true }).start(() => {
+            onSwipeLeft(task);
             translateX.setValue(0);
           });
-        } else if (gs.dx < -SWIPE_THRESHOLD) {
-          Animated.timing(translateX, { toValue: -300, duration: 200, useNativeDriver: true }).start(() => {
+        } else if (gs.dx > SWIPE_THRESHOLD) {
+          // Swipe RIGHT → delete
+          Animated.timing(translateX, { toValue: 300, duration: 200, useNativeDriver: true }).start(() => {
             onDelete(task.id);
             translateX.setValue(0);
           });
@@ -65,15 +69,15 @@ export function TaskItem({ task, onToggle, onDelete, onSwipeRight }: TaskItemPro
 
   return (
     <View style={styles.outer}>
-      {/* Background actions */}
+      {/* Background actions: left = delete (shown when swiping right), right = start (shown when swiping left) */}
       <View style={styles.actionsRow}>
-        <View style={[styles.actionBg, styles.rightActionBg]}>
-          <Text style={styles.actionLabel}>
-            {timerActive ? "✓ Done" : "▶ Start"}
-          </Text>
+        <View style={[styles.actionBg, styles.deleteActionBg]}>
+          <Icon name="trash-2" size={16} color="#fff" />
+          <Text style={styles.actionLabel}>Delete</Text>
         </View>
-        <View style={[styles.actionBg, styles.leftActionBg]}>
-          <Text style={styles.actionLabel}>✕ Delete</Text>
+        <View style={[styles.actionBg, styles.startActionBg]}>
+          <Icon name={timerActive ? "check" : "play"} size={16} color="#fff" />
+          <Text style={styles.actionLabel}>{timerActive ? "Done" : "Start"}</Text>
         </View>
       </View>
 
@@ -84,7 +88,7 @@ export function TaskItem({ task, onToggle, onDelete, onSwipeRight }: TaskItemPro
         {/* Checkbox */}
         <Pressable style={styles.checkbox} onPress={() => onToggle(task)}>
           <View style={[styles.checkboxInner, task.completed && styles.checkboxChecked]}>
-            {task.completed && <Text style={styles.checkmark}>✓</Text>}
+            {task.completed && <Icon name="check" size={14} color="#fff" />}
           </View>
         </Pressable>
 
@@ -96,11 +100,25 @@ export function TaskItem({ task, onToggle, onDelete, onSwipeRight }: TaskItemPro
             </Text>
             {timerActive && (
               <View style={styles.timerBadge}>
-                <Text style={styles.timerText}>▶</Text>
+                <Icon name="play" size={10} color={colors.success} />
+              </View>
+            )}
+            {isHabit && (
+              <View style={styles.habitBadge}>
+                <Icon name="repeat" size={10} color={colors.habitBadge} />
               </View>
             )}
           </View>
-          <Text style={styles.meta}>{formatTime(task.scheduledAt)}</Text>
+          <View style={styles.metaRow}>
+            <Icon name="clock" size={11} color={colors.mutedText} />
+            <Text style={styles.meta}>{formatTime(task.scheduledAt)}</Text>
+            {task.durationMinutes != null && (
+              <>
+                <Text style={styles.metaDot}> · </Text>
+                <Text style={styles.meta}>{task.durationMinutes}m</Text>
+              </>
+            )}
+          </View>
         </View>
 
         {/* Priority pill */}
@@ -116,44 +134,46 @@ export function TaskItem({ task, onToggle, onDelete, onSwipeRight }: TaskItemPro
 
 const styles = StyleSheet.create({
   outer: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     overflow: "hidden",
-    borderRadius: 14,
+    borderRadius: radii.md,
   },
   actionsRow: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderRadius: 14,
+    borderRadius: radii.md,
   },
   actionBg: {
     width: 100,
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 14,
+    borderRadius: radii.md,
+    flexDirection: "row",
+    gap: spacing.xs,
   },
-  rightActionBg: {
-    backgroundColor: colors.success,
-  },
-  leftActionBg: {
+  deleteActionBg: {
     backgroundColor: colors.danger,
+  },
+  startActionBg: {
+    backgroundColor: colors.success,
   },
   actionLabel: {
     color: "#fff",
     fontWeight: "700",
-    fontSize: 12,
+    fontSize: fontSize.xs,
   },
   card: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
     paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
     gap: 10,
   },
   completedCard: {
@@ -175,12 +195,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     borderColor: colors.accent,
   },
-  checkmark: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "700",
-    marginTop: -1,
-  },
   content: {
     flex: 1,
   },
@@ -190,7 +204,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   title: {
-    fontSize: 15,
+    fontSize: fontSize.md,
     fontWeight: "600",
     color: colors.text,
     flex: 1,
@@ -199,10 +213,19 @@ const styles = StyleSheet.create({
     textDecorationLine: "line-through",
     color: colors.mutedText,
   },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 3,
+  },
   meta: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     color: colors.mutedText,
-    marginTop: 2,
+  },
+  metaDot: {
+    color: colors.mutedText,
+    fontSize: fontSize.xs,
   },
   timerBadge: {
     width: 20,
@@ -212,17 +235,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  timerText: {
-    color: colors.success,
-    fontSize: 10,
+  habitBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.habitBadgeLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
   priorityPill: {
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   priorityText: {
-    fontSize: 11,
+    fontSize: fontSize.xs,
     fontWeight: "700",
   },
 });

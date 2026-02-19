@@ -1,11 +1,12 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import Icon from "react-native-vector-icons/Feather";
 import { TasksScreen } from "../screens/tasks/TasksScreen";
 import { HabitScreen } from "../screens/habit/HabitScreen";
 import { CalendarScreen } from "../screens/calendar/CalendarScreen";
 import { ProfileScreen } from "../screens/profile/ProfileScreen";
-import { colors } from "../theme/colors";
+import { colors, fontSize } from "../theme/colors";
 
 export type MainTabsParamList = {
   TasksTab: undefined;
@@ -15,12 +16,6 @@ export type MainTabsParamList = {
 };
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
-
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  return (
-    <Text style={[styles.icon, focused && styles.iconFocused]}>{label}</Text>
-  );
-}
 
 export function MainTabs() {
   return (
@@ -38,15 +33,19 @@ export function MainTabs() {
         component={TasksScreen}
         options={{
           tabBarLabel: "Tasks",
-          tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon label="✓" focused={focused} />,
+          tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
+            <Icon name="check-square" size={20} color={color} />
+          ),
         }}
       />
       <Tab.Screen
         name="HabitTab"
         component={HabitScreen}
         options={{
-          tabBarLabel: "Habit",
-          tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon label="↻" focused={focused} />,
+          tabBarLabel: "Habits",
+          tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
+            <Icon name="repeat" size={20} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -54,7 +53,9 @@ export function MainTabs() {
         component={CalendarScreen}
         options={{
           tabBarLabel: "Calendar",
-          tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon label="▦" focused={focused} />,
+          tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
+            <Icon name="calendar" size={20} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -62,7 +63,9 @@ export function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: "Profile",
-          tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon label="●" focused={focused} />,
+          tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
+            <Icon name="user" size={20} color={color} />
+          ),
         }}
       />
     </Tab.Navigator>
@@ -79,14 +82,7 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: fontSize.xs,
     fontWeight: "600",
-  },
-  icon: {
-    fontSize: 20,
-    color: colors.mutedText,
-  },
-  iconFocused: {
-    color: colors.accent,
   },
 });

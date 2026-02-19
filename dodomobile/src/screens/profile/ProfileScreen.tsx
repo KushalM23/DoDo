@@ -1,8 +1,9 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Icon from "react-native-vector-icons/Feather";
 import { useAuth } from "../../state/AuthContext";
-import { colors } from "../../theme/colors";
+import { colors, spacing, radii, fontSize } from "../../theme/colors";
 
 export function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -39,6 +40,7 @@ export function ProfileScreen() {
         </View>
 
         <Pressable style={styles.logoutBtn} onPress={() => void signOut()}>
+          <Icon name="log-out" size={18} color={colors.danger} />
           <Text style={styles.logoutText}>Log Out</Text>
         </Pressable>
       </View>
@@ -52,88 +54,91 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   appName: {
-    fontSize: 28,
+    fontSize: fontSize.xxl,
     fontWeight: "800",
     color: colors.accent,
   },
   pageName: {
-    fontSize: 16,
+    fontSize: fontSize.md,
     color: colors.mutedText,
     marginTop: 2,
   },
   content: {
     flex: 1,
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 32,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxl + spacing.sm,
   },
   avatar: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: radii.pill,
     backgroundColor: colors.accentLight,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: fontSize.xxl + 4,
     fontWeight: "700",
     color: colors.accent,
   },
   email: {
-    fontSize: 16,
+    fontSize: fontSize.md,
     fontWeight: "600",
     color: colors.text,
-    marginBottom: 28,
+    marginBottom: spacing.xl + spacing.xs,
   },
   infoCard: {
     width: "100%",
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 16,
-    marginBottom: 32,
+    padding: spacing.md,
+    marginBottom: spacing.xxl,
   },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
   },
   infoLabel: {
     color: colors.mutedText,
-    fontSize: 14,
+    fontSize: fontSize.sm,
   },
   infoValue: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "500",
     flex: 1,
     textAlign: "right",
-    marginLeft: 12,
+    marginLeft: spacing.sm,
   },
   divider: {
     height: 1,
     backgroundColor: colors.border,
-    marginVertical: 4,
+    marginVertical: spacing.xs,
   },
   logoutBtn: {
     width: "100%",
     backgroundColor: colors.dangerLight,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: spacing.sm,
   },
   logoutText: {
     color: colors.danger,
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: fontSize.md,
   },
 });

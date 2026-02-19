@@ -1,26 +1,28 @@
 import { env } from "../config/env";
-import { supabase } from "../lib/supabase";
+import type { AuthUser } from "../types/auth";
 import type { CreateTaskInput, Task } from "../types/task";
 import type { Category, CreateCategoryInput } from "../types/category";
 import type { CreateHabitInput, Habit } from "../types/habit";
 
 type ApiMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
-async function getAccessToken(): Promise<string> {
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session?.access_token) {
-    throw new Error("No active session. Please log in again.");
-  }
-  return data.session.access_token;
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
 }
 
-async function apiRequest<T>(path: string, method: ApiMethod, body?: object): Promise<T> {
-  const token = await getAccessToken();
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+async function apiRequest<T>(path: string, method: ApiMethod, body?: object, requiresAuth = true): Promise<T> {
+  if (requiresAuth && !authToken) {
+    throw new Error("You are not logged in.");
+  }
+
+  const url = `${env.apiBaseUrl}${path}`;
+  const response = await fetch(url, {
     method,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -29,21 +31,53 @@ async function apiRequest<T>(path: string, method: ApiMethod, body?: object): Pr
     return undefined as T;
   }
 
-  const data = (await response.json()) as T & { error?: string };
+  const text = await response.text();
+  let data = {} as T & { error?: string };
+  if (text) {
+    try {
+      data = JSON.parse(text) as T & { error?: string };
+    } catch {
+      throw new Error("Server returned an invalid response.");
+    }
+  }
+
   if (!response.ok) {
     throw new Error(data.error ?? "Request failed");
   }
+
   return data;
 }
 
-// ── Tasks ──────────────────────────────────────────────
+export async function register(email: string, password: string): Promise<{
+  user: AuthUser;
+  token: string | null;
+  requiresEmailConfirmation: boolean;
+}> {
+  return apiRequest(
+    "/auth/register",
+    "POST",
+    { email: email.trim(), password },
+    false,
+  );
+}
 
-export async function fetchTasks(date?: string, categoryId?: string): Promise<Task[]> {
-  const params = new URLSearchParams();
-  if (date) params.set("date", date);
-  if (categoryId) params.set("categoryId", categoryId);
-  const qs = params.toString();
-  const data = await apiRequest<{ tasks: Task[] }>(`/tasks${qs ? `?${qs}` : ""}`, "GET");
+export async function login(email: string, password: string): Promise<{ user: AuthUser; token: string }> {
+  return apiRequest(
+    "/auth/login",
+    "POST",
+    { email: email.trim(), password },
+    false,
+  );
+}
+
+export async function fetchMe(): Promise<AuthUser> {
+  const data = await apiRequest<{ user: AuthUser }>("/auth/me", "GET");
+  return data.user;
+}
+
+export async function fetchTasks(categoryId?: string): Promise<Task[]> {
+  const qs = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : "";
+  const data = await apiRequest<{ tasks: Task[] }>(`/tasks${qs}`, "GET");
   return data.tasks;
 }
 
@@ -64,8 +98,6 @@ export async function deleteTask(taskId: string): Promise<void> {
   await apiRequest<void>(`/tasks/${taskId}`, "DELETE");
 }
 
-// ── Categories ─────────────────────────────────────────
-
 export async function fetchCategories(): Promise<Category[]> {
   const data = await apiRequest<{ categories: Category[] }>("/categories", "GET");
   return data.categories;
@@ -84,8 +116,6 @@ export async function updateCategory(categoryId: string, input: CreateCategoryIn
 export async function deleteCategory(categoryId: string): Promise<void> {
   await apiRequest<void>(`/categories/${categoryId}`, "DELETE");
 }
-
-// ── Habits ─────────────────────────────────────────────
 
 export async function fetchHabits(): Promise<Habit[]> {
   const data = await apiRequest<{ habits: Habit[] }>("/habits", "GET");
@@ -108,4 +138,3 @@ export async function updateHabit(
 export async function deleteHabit(habitId: string): Promise<void> {
   await apiRequest<void>(`/habits/${habitId}`, "DELETE");
 }
-

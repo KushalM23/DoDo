@@ -4,6 +4,10 @@ import { useAuth } from "./AuthContext";
 import type { CreateTaskInput, Task } from "../types/task";
 import { sortTasks, type SortMode } from "../utils/taskSort";
 
+function tempId(): string {
+  return `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
 type TasksContextValue = {
   tasks: Task[];
   loading: boolean;
@@ -35,7 +39,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       setError(null);
       try {
-        const nextTasks = await fetchTasks(date);
+        const nextTasks = await fetchTasks();
         setTasks(sortTasks(nextTasks, sortMode));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load tasks.");
@@ -46,40 +50,95 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     [user, sortMode],
   );
 
+  // Optimistic add: insert locally with temp ID, sync in background
   const addTask = useCallback(
     async (input: CreateTaskInput) => {
-      const task = await createTask(input);
-      setTasks((prev) => sortTasks([task, ...prev], sortMode));
+      const id = tempId();
+      const optimistic: Task = {
+        id,
+        title: input.title,
+        description: input.description,
+        categoryId: input.categoryId,
+        scheduledAt: input.scheduledAt,
+        deadline: input.deadline,
+        durationMinutes: input.durationMinutes,
+        priority: input.priority,
+        completed: false,
+        completedAt: null,
+        timerStartedAt: null,
+        createdAt: new Date().toISOString(),
+      };
+      setTasks((prev) => sortTasks([optimistic, ...prev], sortMode));
+
+      // Background sync
+      createTask(input)
+        .then((real) => {
+          setTasks((prev) => sortTasks(prev.map((t) => (t.id === id ? real : t)), sortMode));
+        })
+        .catch((err) => {
+          setTasks((prev) => prev.filter((t) => t.id !== id));
+          console.error("[TasksContext] addTask sync error:", err);
+        });
     },
     [sortMode],
   );
 
+  // Optimistic toggle: flip locally, sync in background
   const toggleTaskCompletion = useCallback(
     async (task: Task) => {
-      const updated = await updateTask(task.id, { completed: !task.completed });
-      setTasks((prev) => sortTasks(prev.map((item) => (item.id === updated.id ? updated : item)), sortMode));
+      const updated: Task = {
+        ...task,
+        completed: !task.completed,
+        completedAt: !task.completed ? new Date().toISOString() : null,
+      };
+      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? updated : t)), sortMode));
+
+      updateTask(task.id, { completed: !task.completed }).catch((err) => {
+        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? task : t)), sortMode));
+        console.error("[TasksContext] toggleTaskCompletion sync error:", err);
+      });
     },
     [sortMode],
   );
 
+  // Optimistic start: set timer locally, sync in background
   const startTimer = useCallback(
     async (task: Task) => {
-      const updated = await updateTask(task.id, { timerStartedAt: new Date().toISOString() });
-      setTasks((prev) => sortTasks(prev.map((item) => (item.id === updated.id ? updated : item)), sortMode));
+      const now = new Date().toISOString();
+      const updated: Task = { ...task, timerStartedAt: now };
+      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? updated : t)), sortMode));
+
+      updateTask(task.id, { timerStartedAt: now }).catch((err) => {
+        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? task : t)), sortMode));
+        console.error("[TasksContext] startTimer sync error:", err);
+      });
     },
     [sortMode],
   );
 
-  const removeTask = useCallback(async (taskId: string) => {
-    await deleteTask(taskId);
-    setTasks((prev) => prev.filter((item) => item.id !== taskId));
-  }, []);
+  // Optimistic remove: delete locally, sync in background
+  const removeTask = useCallback(
+    async (taskId: string) => {
+      let removed: Task | undefined;
+      setTasks((prev) => {
+        removed = prev.find((t) => t.id === taskId);
+        return prev.filter((t) => t.id !== taskId);
+      });
+
+      deleteTask(taskId).catch((err) => {
+        if (removed) {
+          setTasks((prev) => sortTasks([...prev, removed!], sortMode));
+        }
+        console.error("[TasksContext] removeTask sync error:", err);
+      });
+    },
+    [sortMode],
+  );
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  // Re-sort when sort mode changes
   useEffect(() => {
     setTasks((prev) => sortTasks([...prev], sortMode));
   }, [sortMode]);
@@ -110,4 +169,3 @@ export function useTasks(): TasksContextValue {
   }
   return context;
 }
-

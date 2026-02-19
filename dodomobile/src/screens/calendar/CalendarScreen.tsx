@@ -1,11 +1,20 @@
 import React, { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Icon from "react-native-vector-icons/Feather";
 import { useTasks } from "../../state/TasksContext";
 import { useHabits } from "../../state/HabitsContext";
-import { colors } from "../../theme/colors";
+import { colors, spacing, radii, fontSize } from "../../theme/colors";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function toLocalDateStr(isoString: string): string {
+  const d = new Date(isoString);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 function getMonthDays(): { dateStr: string; dayNum: number; dayOfWeek: number; isToday: boolean }[] {
   const today = new Date();
@@ -40,7 +49,7 @@ export function CalendarScreen() {
   const taskCountMap = useMemo(() => {
     const map: Record<string, number> = {};
     for (const t of tasks) {
-      const day = t.scheduledAt.slice(0, 10);
+      const day = toLocalDateStr(t.scheduledAt);
       map[day] = (map[day] ?? 0) + 1;
     }
     return map;
@@ -90,6 +99,9 @@ export function CalendarScreen() {
                     ))}
                   </View>
                 )}
+                {count > 3 && (
+                  <Text style={styles.moreText}>+{count - 3}</Text>
+                )}
               </View>
             );
           })}
@@ -101,7 +113,7 @@ export function CalendarScreen() {
             <Text style={styles.sectionTitle}>Active Habits</Text>
             {habits.map((h) => (
               <View key={h.id} style={styles.habitRow}>
-                <View style={styles.habitDot} />
+                <Icon name="repeat" size={14} color={colors.accent} />
                 <Text style={styles.habitText}>{h.title}</Text>
                 <Text style={styles.habitFreq}>{h.frequency}</Text>
               </View>
@@ -119,34 +131,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   appName: {
-    fontSize: 28,
+    fontSize: fontSize.xxl,
     fontWeight: "800",
     color: colors.accent,
   },
   pageName: {
-    fontSize: 16,
+    fontSize: fontSize.md,
     color: colors.mutedText,
     marginTop: 2,
   },
   scroll: {
-    paddingHorizontal: 12,
-    paddingBottom: 40,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.xxl + spacing.md,
   },
   monthLabel: {
-    fontSize: 20,
+    fontSize: fontSize.lg,
     fontWeight: "700",
     color: colors.text,
-    marginBottom: 12,
-    paddingHorizontal: 4,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   weekRow: {
     flexDirection: "row",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   grid: {
     flexDirection: "row",
@@ -161,16 +173,16 @@ const styles = StyleSheet.create({
   },
   todayCell: {
     backgroundColor: colors.accentLight,
-    borderRadius: 12,
+    borderRadius: radii.md,
   },
   dayHeader: {
     color: colors.mutedText,
-    fontSize: 12,
+    fontSize: fontSize.xs,
     fontWeight: "600",
   },
   dayNum: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "500",
   },
   todayNum: {
@@ -188,38 +200,38 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: colors.accent,
   },
+  moreText: {
+    color: colors.mutedText,
+    fontSize: 8,
+    fontWeight: "600",
+    marginTop: 1,
+  },
   habitsSection: {
-    marginTop: 24,
-    paddingHorizontal: 4,
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.xs,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: fontSize.md,
     fontWeight: "700",
     color: colors.text,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   habitRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingVertical: 10,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  habitDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.accent,
-  },
   habitText: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: fontSize.sm,
     fontWeight: "500",
     flex: 1,
   },
   habitFreq: {
     color: colors.mutedText,
-    fontSize: 12,
+    fontSize: fontSize.xs,
   },
 });

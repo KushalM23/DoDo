@@ -7,6 +7,10 @@ import {
 import { useAuth } from "./AuthContext";
 import type { CreateHabitInput, Habit } from "../types/habit";
 
+function tempId(): string {
+  return `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
 type HabitsContextValue = {
   habits: Habit[];
   loading: boolean;
@@ -31,21 +35,48 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await fetchHabits();
       setHabits(data);
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[HabitsContext] refresh error:', err);
     } finally {
       setLoading(false);
     }
   }, [user]);
 
+  // Optimistic add
   const addHabit = useCallback(async (input: CreateHabitInput) => {
-    const habit = await apiCreateHabit(input);
-    setHabits((prev) => [...prev, habit]);
+    const id = tempId();
+    const optimistic: Habit = {
+      id,
+      title: input.title,
+      frequency: input.frequency,
+      createdAt: new Date().toISOString(),
+    };
+    setHabits((prev) => [...prev, optimistic]);
+
+    apiCreateHabit(input)
+      .then((real) => {
+        setHabits((prev) => prev.map((h) => (h.id === id ? real : h)));
+      })
+      .catch((err) => {
+        setHabits((prev) => prev.filter((h) => h.id !== id));
+        console.error('[HabitsContext] addHabit sync error:', err);
+      });
   }, []);
 
+  // Optimistic remove
   const removeHabit = useCallback(async (id: string) => {
-    await apiDeleteHabit(id);
-    setHabits((prev) => prev.filter((h) => h.id !== id));
+    let removed: Habit | undefined;
+    setHabits((prev) => {
+      removed = prev.find((h) => h.id === id);
+      return prev.filter((h) => h.id !== id);
+    });
+
+    apiDeleteHabit(id).catch((err) => {
+      if (removed) {
+        setHabits((prev) => [...prev, removed!]);
+      }
+      console.error('[HabitsContext] removeHabit sync error:', err);
+    });
   }, []);
 
   useEffect(() => {

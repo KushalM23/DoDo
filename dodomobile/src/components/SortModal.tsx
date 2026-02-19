@@ -1,6 +1,7 @@
 import React from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors } from "../theme/colors";
+import Icon from "react-native-vector-icons/Feather";
+import { colors, spacing, radii, fontSize } from "../theme/colors";
 import type { SortMode } from "../utils/taskSort";
 
 type Props = {
@@ -10,12 +11,12 @@ type Props = {
   onClose: () => void;
 };
 
-const OPTIONS: { mode: SortMode; label: string }[] = [
-  { mode: "smart", label: "Smart (Default)" },
-  { mode: "priority_desc", label: "Priority: High → Low" },
-  { mode: "priority_asc", label: "Priority: Low → High" },
-  { mode: "time_asc", label: "Time: Earliest First" },
-  { mode: "time_desc", label: "Time: Latest First" },
+const OPTIONS: { mode: SortMode; label: string; icon: string }[] = [
+  { mode: "smart", label: "Smart (Default)", icon: "zap" },
+  { mode: "priority_desc", label: "Priority: High to Low", icon: "arrow-up" },
+  { mode: "priority_asc", label: "Priority: Low to High", icon: "arrow-down" },
+  { mode: "time_asc", label: "Time: Earliest First", icon: "sunrise" },
+  { mode: "time_desc", label: "Time: Latest First", icon: "sunset" },
 ];
 
 export function SortModal({ visible, current, onSelect, onClose }: Props) {
@@ -24,7 +25,7 @@ export function SortModal({ visible, current, onSelect, onClose }: Props) {
       <Pressable style={styles.overlay} onPress={onClose}>
         <View style={styles.sheet}>
           <Text style={styles.title}>Sort Tasks</Text>
-          {OPTIONS.map(({ mode, label }) => (
+          {OPTIONS.map(({ mode, label, icon }) => (
             <Pressable
               key={mode}
               style={[styles.option, current === mode && styles.optionActive]}
@@ -33,10 +34,15 @@ export function SortModal({ visible, current, onSelect, onClose }: Props) {
                 onClose();
               }}
             >
+              <Icon
+                name={icon}
+                size={16}
+                color={current === mode ? colors.accent : colors.mutedText}
+              />
               <Text style={[styles.optionText, current === mode && styles.optionTextActive]}>
                 {label}
               </Text>
-              {current === mode && <Text style={styles.check}>✓</Text>}
+              {current === mode && <Icon name="check" size={16} color={colors.accent} />}
             </Pressable>
           ))}
         </View>
@@ -53,42 +59,38 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
     paddingBottom: 36,
   },
   title: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: fontSize.lg,
     fontWeight: "700",
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   option: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: spacing.md,
     paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 4,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.sm,
+    marginBottom: spacing.xs,
   },
   optionActive: {
     backgroundColor: colors.accentLight,
   },
   optionText: {
     color: colors.textSecondary,
-    fontSize: 15,
+    fontSize: fontSize.md,
     fontWeight: "500",
+    flex: 1,
   },
   optionTextActive: {
     color: colors.accent,
-    fontWeight: "700",
-  },
-  check: {
-    color: colors.accent,
-    fontSize: 16,
     fontWeight: "700",
   },
 });

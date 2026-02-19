@@ -10,8 +10,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Icon from "react-native-vector-icons/Feather";
 import { useHabits } from "../../state/HabitsContext";
-import { colors } from "../../theme/colors";
+import { colors, spacing, radii, fontSize } from "../../theme/colors";
 import type { HabitFrequency } from "../../types/habit";
 
 export function HabitScreen() {
@@ -36,12 +37,10 @@ export function HabitScreen() {
     }
   }
 
-  async function handleDelete(id: string) {
-    try {
-      await removeHabit(id);
-    } catch (err) {
+  function handleDelete(id: string) {
+    removeHabit(id).catch((err) => {
       Alert.alert("Error", err instanceof Error ? err.message : "Failed to delete habit");
-    }
+    });
   }
 
   return (
@@ -57,19 +56,23 @@ export function HabitScreen() {
         contentContainerStyle={habits.length === 0 ? styles.emptyContainer : styles.list}
         renderItem={({ item }) => (
           <View style={styles.card}>
+            <View style={styles.cardIcon}>
+              <Icon name="repeat" size={18} color={colors.habitBadge} />
+            </View>
             <View style={styles.cardContent}>
               <Text style={styles.habitTitle}>{item.title}</Text>
               <View style={styles.freqBadge}>
                 <Text style={styles.freqText}>{item.frequency}</Text>
               </View>
             </View>
-            <Pressable style={styles.deleteBtn} onPress={() => void handleDelete(item.id)}>
-              <Text style={styles.deleteBtnText}>✕</Text>
+            <Pressable style={styles.deleteBtn} onPress={() => handleDelete(item.id)}>
+              <Icon name="trash-2" size={16} color={colors.danger} />
             </Pressable>
           </View>
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
+            <Icon name="repeat" size={40} color={colors.mutedText} />
             <Text style={styles.emptyTitle}>No habits yet</Text>
             <Text style={styles.emptyText}>Create your first habit to start tracking.</Text>
           </View>
@@ -77,14 +80,20 @@ export function HabitScreen() {
       />
 
       <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
-        <Text style={styles.fabText}>+ New Habit</Text>
+        <Icon name="plus" size={18} color="#fff" />
+        <Text style={styles.fabText}>New Habit</Text>
       </Pressable>
 
       {/* Create Habit Modal */}
       <Modal transparent animationType="fade" visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.overlay}>
-          <View style={styles.modal}>
-            <Text style={styles.modalTitle}>New Habit</Text>
+        <Pressable style={styles.overlay} onPress={() => setModalVisible(false)}>
+          <Pressable style={styles.modal} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>New Habit</Text>
+              <Pressable onPress={() => setModalVisible(false)} hitSlop={12}>
+                <Icon name="x" size={22} color={colors.mutedText} />
+              </Pressable>
+            </View>
 
             <TextInput
               style={styles.input}
@@ -103,6 +112,11 @@ export function HabitScreen() {
                   style={[styles.freqOption, frequency === f && styles.freqOptionActive]}
                   onPress={() => setFrequency(f)}
                 >
+                  <Icon
+                    name={f === "daily" ? "sun" : "calendar"}
+                    size={14}
+                    color={frequency === f ? colors.accent : colors.mutedText}
+                  />
                   <Text style={[styles.freqOptionText, frequency === f && styles.freqOptionTextActive]}>
                     {f.charAt(0).toUpperCase() + f.slice(1)}
                   </Text>
@@ -110,20 +124,16 @@ export function HabitScreen() {
               ))}
             </View>
 
-            <View style={styles.modalActions}>
-              <Pressable style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.submitBtn, (busy || !title.trim()) && styles.disabled]}
-                onPress={handleCreate}
-                disabled={busy || !title.trim()}
-              >
-                <Text style={styles.submitBtnText}>{busy ? "Saving..." : "Create"}</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
+            <Pressable
+              style={[styles.submitBtn, (busy || !title.trim()) && styles.disabled]}
+              onPress={handleCreate}
+              disabled={busy || !title.trim()}
+            >
+              <Icon name="plus" size={18} color="#fff" />
+              <Text style={styles.submitBtnText}>{busy ? "Saving..." : "Create"}</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -135,34 +145,43 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingTop: 14,
     paddingBottom: 10,
   },
   appName: {
-    fontSize: 28,
+    fontSize: fontSize.xxl,
     fontWeight: "800",
     color: colors.accent,
   },
   pageName: {
-    fontSize: 16,
+    fontSize: fontSize.lg,
     color: colors.mutedText,
     marginTop: 2,
   },
   list: {
     paddingHorizontal: 14,
-    paddingTop: 8,
+    paddingTop: spacing.sm,
     paddingBottom: 80,
   },
   card: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 14,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
+  },
+  cardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.sm,
+    backgroundColor: colors.habitBadgeLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
   },
   cardContent: {
     flex: 1,
@@ -172,29 +191,24 @@ const styles = StyleSheet.create({
   },
   habitTitle: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: fontSize.md,
     fontWeight: "600",
     flex: 1,
   },
   freqBadge: {
     backgroundColor: colors.accentLight,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   freqText: {
     color: colors.accent,
-    fontSize: 12,
+    fontSize: fontSize.xs,
     fontWeight: "600",
   },
   deleteBtn: {
     marginLeft: 10,
     padding: 6,
-  },
-  deleteBtnText: {
-    color: colors.danger,
-    fontSize: 16,
-    fontWeight: "700",
   },
   emptyContainer: {
     flex: 1,
@@ -204,31 +218,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
+    gap: spacing.sm,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: fontSize.xl,
     fontWeight: "700",
     color: colors.text,
   },
   emptyText: {
     color: colors.mutedText,
-    marginTop: 6,
     textAlign: "center",
+    fontSize: fontSize.sm,
   },
   fab: {
     position: "absolute",
     bottom: 20,
-    right: 16,
+    right: spacing.lg,
     backgroundColor: colors.accent,
-    borderRadius: 14,
-    paddingHorizontal: 20,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.xl,
     paddingVertical: 14,
     elevation: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   fabText: {
     color: "#fff",
     fontWeight: "700",
-    fontSize: 14,
+    fontSize: fontSize.sm,
   },
   // Modal
   overlay: {
@@ -236,50 +254,60 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: spacing.xxl,
   },
   modal: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
     width: "100%",
     maxWidth: 360,
   },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.lg,
+  },
   modalTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: fontSize.xl,
     fontWeight: "700",
-    marginBottom: 16,
   },
   input: {
     backgroundColor: colors.surfaceLight,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: radii.sm,
+    padding: spacing.md,
     color: colors.text,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
+    fontSize: fontSize.md,
   },
   label: {
     color: colors.mutedText,
     fontWeight: "600",
-    fontSize: 13,
-    marginBottom: 8,
+    fontSize: fontSize.xs,
+    marginBottom: spacing.sm,
     textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   freqRow: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 20,
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
   },
   freqOption: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: radii.sm,
     backgroundColor: colors.surfaceLight,
     borderWidth: 1,
     borderColor: colors.border,
-    alignItems: "center",
   },
   freqOptionActive: {
     backgroundColor: colors.accentLight,
@@ -288,35 +316,24 @@ const styles = StyleSheet.create({
   freqOptionText: {
     color: colors.mutedText,
     fontWeight: "600",
+    fontSize: fontSize.sm,
   },
   freqOptionTextActive: {
     color: colors.accent,
   },
-  modalActions: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceLight,
-    alignItems: "center",
-  },
-  cancelBtnText: {
-    color: colors.mutedText,
-    fontWeight: "700",
-  },
   submitBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: colors.accent,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    paddingVertical: 12,
+    borderRadius: radii.sm,
+    backgroundColor: colors.accent,
   },
   submitBtnText: {
     color: "#fff",
     fontWeight: "700",
+    fontSize: fontSize.md,
   },
   disabled: {
     opacity: 0.5,

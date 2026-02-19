@@ -3,12 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "workspaces": [
-    "dodomobile",
-    "backend"
+    "dodomobile"
   ],
   "scripts": {
-    "backend:dev": "npm --prefix backend run dev",
-    "backend:typecheck": "npm --prefix backend run typecheck",
+    "backend:dev": "cd backend && python run.py",
     "mobile:start": "npm --prefix dodomobile run start",
     "mobile:android": "npm --prefix dodomobile run android",
     "mobile:ios": "npm --prefix dodomobile run ios",

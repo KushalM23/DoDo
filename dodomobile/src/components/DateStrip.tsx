@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors } from "../theme/colors";
+import { colors, spacing, radii, fontSize } from "../theme/colors";
 
 type Props = {
   selectedDate: string; // YYYY-MM-DD
@@ -86,13 +86,13 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
   },
   dayItem: {
     width: ITEM_WIDTH,
     alignItems: "center",
-    paddingVertical: 8,
-    borderRadius: 14,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   dayName: {
-    fontSize: 11,
+    fontSize: fontSize.xs,
     color: colors.mutedText,
     fontWeight: "600",
     marginBottom: 2,
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   dayNum: {
-    fontSize: 16,
+    fontSize: fontSize.md + 1,
     fontWeight: "700",
     color: colors.text,
   },
