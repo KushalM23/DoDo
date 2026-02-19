@@ -1,16 +1,13 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
-  fetchCategories,
   createCategory as apiCreateCategory,
-  updateCategory as apiUpdateCategory,
   deleteCategory as apiDeleteCategory,
+  fetchCategories,
+  updateCategory as apiUpdateCategory,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
 import type { Category, CreateCategoryInput } from "../types/category";
-
-function tempId(): string {
-  return `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
 
 type CategoriesContextValue = {
   categories: Category[];
@@ -19,97 +16,170 @@ type CategoriesContextValue = {
   addCategory: (input: CreateCategoryInput) => Promise<void>;
   editCategory: (id: string, input: CreateCategoryInput) => Promise<void>;
   removeCategory: (id: string) => Promise<void>;
+  setCategoryOrder: (orderedIds: string[]) => Promise<void>;
 };
 
 const CategoriesContext = createContext<CategoriesContextValue | undefined>(undefined);
 
 const DEFAULT_CATEGORY_NAMES = ["Personal", "Work"];
+const CATEGORY_ORDER_KEY_PREFIX = "dodo.categoryOrder";
+
+function orderKey(userId: string): string {
+  return `${CATEGORY_ORDER_KEY_PREFIX}:${userId}`;
+}
+
+function orderCategories(categories: Category[], orderedIds: string[]): Category[] {
+  const indexMap = new Map<string, number>();
+  orderedIds.forEach((id, index) => indexMap.set(id, index));
+
+  return [...categories].sort((a, b) => {
+    const aIndex = indexMap.get(a.id);
+    const bIndex = indexMap.get(b.id);
+
+    if (aIndex != null && bIndex != null) return aIndex - bIndex;
+    if (aIndex != null) return -1;
+    if (bIndex != null) return 1;
+
+    return a.createdAt.localeCompare(b.createdAt);
+  });
+}
+
+function normalizeOrder(categories: Category[], rawOrder: string[]): string[] {
+  const existingIds = new Set(categories.map((c) => c.id));
+  const nextOrder = rawOrder.filter((id) => existingIds.has(id));
+
+  for (const category of categories) {
+    if (!nextOrder.includes(category.id)) {
+      nextOrder.push(category.id);
+    }
+  }
+
+  return nextOrder;
+}
 
 export function CategoriesProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [orderedIds, setOrderedIds] = useState<string[]>([]);
+
+  const persistOrder = useCallback(
+    async (ids: string[]) => {
+      if (!user?.id) return;
+      await AsyncStorage.setItem(orderKey(user.id), JSON.stringify(ids));
+    },
+    [user?.id],
+  );
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    if (!user?.id) {
       setCategories([]);
+      setOrderedIds([]);
       return;
     }
+
     setLoading(true);
     try {
-      const cats = await fetchCategories();
-      if (cats.length === 0) {
+      let nextCategories = await fetchCategories();
+      if (nextCategories.length === 0) {
         const seeded: Category[] = [];
         for (const name of DEFAULT_CATEGORY_NAMES) {
-          const c = await apiCreateCategory({ name });
-          seeded.push(c);
+          seeded.push(await apiCreateCategory({ name }));
         }
-        setCategories(seeded);
-      } else {
-        setCategories(cats);
+        nextCategories = seeded;
+      }
+
+      const storedOrderRaw = await AsyncStorage.getItem(orderKey(user.id));
+      let storedOrder: string[] = [];
+      if (storedOrderRaw) {
+        try {
+          storedOrder = JSON.parse(storedOrderRaw) as string[];
+        } catch {
+          storedOrder = [];
+        }
+      }
+      const normalizedOrder = normalizeOrder(nextCategories, storedOrder);
+
+      setOrderedIds(normalizedOrder);
+      setCategories(orderCategories(nextCategories, normalizedOrder));
+
+      if (storedOrderRaw == null || JSON.stringify(storedOrder) !== JSON.stringify(normalizedOrder)) {
+        await persistOrder(normalizedOrder);
       }
     } catch (err) {
-      console.error('[CategoriesContext] refresh error:', err);
+      console.error("[CategoriesContext] refresh error:", err);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [persistOrder, user?.id]);
 
-  // Optimistic add
-  const addCategory = useCallback(async (input: CreateCategoryInput) => {
-    const id = tempId();
-    const optimistic: Category = { id, name: input.name, createdAt: new Date().toISOString() };
-    setCategories((prev) => [...prev, optimistic]);
+  const addCategory = useCallback(
+    async (input: CreateCategoryInput) => {
+      const name = input.name.trim();
+      if (!name) throw new Error("Category name cannot be empty.");
 
-    apiCreateCategory(input)
-      .then((real) => {
-        setCategories((prev) => prev.map((c) => (c.id === id ? real : c)));
-      })
-      .catch((err) => {
-        setCategories((prev) => prev.filter((c) => c.id !== id));
-        console.error('[CategoriesContext] addCategory sync error:', err);
-      });
-  }, []);
+      const created = await apiCreateCategory({ name });
 
-  // Optimistic edit
-  const editCategory = useCallback(async (id: string, input: CreateCategoryInput) => {
-    let original: Category | undefined;
-    setCategories((prev) => {
-      original = prev.find((c) => c.id === id);
-      return prev.map((c) => (c.id === id ? { ...c, name: input.name } : c));
-    });
+      const nextCategories = [...categories, created];
+      const nextOrder = normalizeOrder(nextCategories, [...orderedIds, created.id]);
 
-    apiUpdateCategory(id, input).catch((err) => {
-      if (original) {
-        setCategories((prev) => prev.map((c) => (c.id === id ? original! : c)));
-      }
-      console.error('[CategoriesContext] editCategory sync error:', err);
-    });
-  }, []);
+      setOrderedIds(nextOrder);
+      setCategories(orderCategories(nextCategories, nextOrder));
+      await persistOrder(nextOrder);
+    },
+    [categories, orderedIds, persistOrder],
+  );
 
-  // Optimistic remove
-  const removeCategory = useCallback(async (id: string) => {
-    let removed: Category | undefined;
-    setCategories((prev) => {
-      removed = prev.find((c) => c.id === id);
-      return prev.filter((c) => c.id !== id);
-    });
+  const editCategory = useCallback(
+    async (id: string, input: CreateCategoryInput) => {
+      const name = input.name.trim();
+      if (!name) throw new Error("Category name cannot be empty.");
 
-    apiDeleteCategory(id).catch((err) => {
-      if (removed) {
-        setCategories((prev) => [...prev, removed!]);
-      }
-      console.error('[CategoriesContext] removeCategory sync error:', err);
-    });
-  }, []);
+      const updated = await apiUpdateCategory(id, { name });
+      setCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    },
+    [],
+  );
+
+  const removeCategory = useCallback(
+    async (id: string) => {
+      await apiDeleteCategory(id);
+
+      const nextCategories = categories.filter((c) => c.id !== id);
+      const nextOrder = orderedIds.filter((categoryId) => categoryId !== id);
+
+      setOrderedIds(nextOrder);
+      setCategories(orderCategories(nextCategories, nextOrder));
+      await persistOrder(nextOrder);
+    },
+    [categories, orderedIds, persistOrder],
+  );
+
+  const setCategoryOrder = useCallback(
+    async (nextOrderInput: string[]) => {
+      const nextOrder = normalizeOrder(categories, nextOrderInput);
+      setOrderedIds(nextOrder);
+      setCategories((prev) => orderCategories(prev, nextOrder));
+      await persistOrder(nextOrder);
+    },
+    [categories, persistOrder],
+  );
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   const value = useMemo<CategoriesContextValue>(
-    () => ({ categories, loading, refresh, addCategory, editCategory, removeCategory }),
-    [categories, loading, refresh, addCategory, editCategory, removeCategory],
+    () => ({
+      categories,
+      loading,
+      refresh,
+      addCategory,
+      editCategory,
+      removeCategory,
+      setCategoryOrder,
+    }),
+    [addCategory, categories, editCategory, loading, refresh, removeCategory, setCategoryOrder],
   );
 
   return <CategoriesContext.Provider value={value}>{children}</CategoriesContext.Provider>;

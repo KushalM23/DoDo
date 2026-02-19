@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/Feather";
 import { useTasks } from "../../state/TasksContext";
 import { useHabits } from "../../state/HabitsContext";
 import { useCategories } from "../../state/CategoriesContext";
@@ -10,6 +9,7 @@ import { TaskItem } from "../../components/TaskItem";
 import { CategoryBar } from "../../components/CategoryBar";
 import { DateStrip } from "../../components/DateStrip";
 import { SortModal } from "../../components/SortModal";
+import { AppIcon } from "../../components/AppIcon";
 import { colors, spacing, radii, fontSize } from "../../theme/colors";
 import type { CreateTaskInput, Task } from "../../types/task";
 import type { Habit } from "../../types/habit";
@@ -69,7 +69,7 @@ function habitToTask(habit: Habit, dateStr: string): Task & { _isHabit: true; _h
 type DisplayTask = Task & { _isHabit?: boolean; _habitId?: string };
 
 export function TasksScreen() {
-  const { tasks, loading, error, sortMode, setSortMode, refresh, addTask, removeTask, toggleTaskCompletion, startTimer } = useTasks();
+  const { tasks, loading, error, sortMode, setSortMode, refresh, addTask, removeTask, toggleTaskCompletion } = useTasks();
   const { habits } = useHabits();
   const { categories } = useCategories();
 
@@ -121,21 +121,15 @@ export function TasksScreen() {
   );
 
   async function handleCreateTask(input: CreateTaskInput) {
-    try {
-      await addTask(input);
-    } catch (err) {
-      Alert.alert("Failed to create task", err instanceof Error ? err.message : "Unknown error");
-      throw err;
-    }
+    await addTask(input);
   }
 
   function handleDeleteTask(taskId: string) {
     if (taskId.startsWith("habit_")) {
-      // Can't delete habit from task list, just hide it
-      setHabitState((prev) => ({ ...prev, [taskId]: { ...prev[taskId], completed: true } }));
+      Alert.alert("Manage habits in Habits tab", "Delete habits from the Habits screen.");
       return;
     }
-    removeTask(taskId).catch((err) => {
+    void removeTask(taskId).catch((err) => {
       Alert.alert("Failed to delete task", err instanceof Error ? err.message : "Unknown error");
     });
   }
@@ -148,30 +142,23 @@ export function TasksScreen() {
       }));
       return;
     }
-    toggleTaskCompletion(task).catch((err) => {
+    void toggleTaskCompletion(task).catch((err) => {
       Alert.alert("Failed to update task", err instanceof Error ? err.message : "Unknown error");
     });
   }
 
   function handleSwipeLeft(task: DisplayTask) {
     if (task._isHabit) {
-      if (task.timerStartedAt && !task.completed) {
-        setHabitState((prev) => ({ ...prev, [task.id]: { ...prev[task.id], completed: true } }));
-      } else if (!task.completed) {
-        setHabitState((prev) => ({ ...prev, [task.id]: { ...prev[task.id], timerStartedAt: new Date().toISOString() } }));
-      }
+      setHabitState((prev) => ({
+        ...prev,
+        [task.id]: { ...prev[task.id], completed: !task.completed },
+      }));
       return;
     }
 
-    if (task.timerStartedAt && !task.completed) {
-      toggleTaskCompletion(task).catch((err) => {
-        Alert.alert("Error", err instanceof Error ? err.message : "Unknown error");
-      });
-    } else if (!task.completed) {
-      startTimer(task).catch((err) => {
-        Alert.alert("Error", err instanceof Error ? err.message : "Unknown error");
-      });
-    }
+    void toggleTaskCompletion(task).catch((err) => {
+      Alert.alert("Error", err instanceof Error ? err.message : "Unknown error");
+    });
   }
 
   return (
@@ -180,7 +167,7 @@ export function TasksScreen() {
       <View style={styles.header}>
         <Text style={styles.appName}>Dodo</Text>
         <Pressable style={styles.sortBtn} onPress={() => setSortVisible(true)}>
-          <Icon name="sliders" size={16} color={colors.text} />
+          <AppIcon name="sliders" size={16} color={colors.text} />
           <Text style={styles.sortBtnText}>Sort</Text>
         </Pressable>
       </View>
@@ -207,7 +194,7 @@ export function TasksScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Icon name="inbox" size={40} color={colors.mutedText} />
+            <AppIcon name="inbox" size={40} color={colors.mutedText} />
             <Text style={styles.emptyTitle}>No tasks</Text>
             <Text style={styles.emptyText}>
               {selectedCategory ? "No tasks in this category for the selected date." : "Tap + to add your first task."}
@@ -224,7 +211,7 @@ export function TasksScreen() {
           <DateStrip selectedDate={selectedDate} onSelectDate={handleDateChange} />
         </View>
         <Pressable style={styles.addBtn} onPress={() => setFormVisible(true)}>
-          <Icon name="plus" size={24} color="#fff" />
+          <AppIcon name="plus" size={22} color="#fff" />
         </Pressable>
       </View>
 
@@ -329,9 +316,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   addBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: radii.md,
     backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",

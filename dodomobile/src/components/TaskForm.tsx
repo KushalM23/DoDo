@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import Icon from "react-native-vector-icons/Feather";
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { AppIcon } from "./AppIcon";
 import type { CreateTaskInput, Priority } from "../types/task";
 import type { Category } from "../types/category";
 import { colors, spacing, radii, fontSize } from "../theme/colors";
@@ -45,11 +45,19 @@ function formatTimeDisplay(d: Date): string {
   return `${h12}:${padTwo(m)} ${ampm}`;
 }
 
+function roundToNextInterval(date: Date, intervalMinutes: number): Date {
+  const next = new Date(date);
+  const minutes = next.getMinutes();
+  const remainder = minutes % intervalMinutes;
+  const delta = remainder === 0 ? 0 : intervalMinutes - remainder;
+  next.setMinutes(minutes + delta, 0, 0);
+  return next;
+}
+
 export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, onCancel, onSubmit }: TaskFormProps) {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<Priority>(2);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedTime, setSelectedTime] = useState(new Date());
+  const [scheduledAt, setScheduledAt] = useState(new Date());
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -60,15 +68,14 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
     if (visible) {
       setTitle("");
       setPriority(2);
-      const dateParts = defaultDate.split("-").map(Number);
-      const now = new Date();
-      const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-      setSelectedDate(d);
-      // Round current time to nearest 15 min
-      const roundedMin = Math.ceil(now.getMinutes() / 15) * 15;
-      const timeDate = new Date(now);
-      timeDate.setMinutes(roundedMin, 0, 0);
-      setSelectedTime(timeDate);
+
+      const [year, month, day] = defaultDate.split("-").map(Number);
+      const dateIsValid = Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day);
+      const nextDate = dateIsValid ? new Date(year, month - 1, day) : new Date();
+      const roundedTime = roundToNextInterval(new Date(), 5);
+      nextDate.setHours(roundedTime.getHours(), roundedTime.getMinutes(), 0, 0);
+
+      setScheduledAt(nextDate);
       setDurationMinutes(60);
       setCategoryId(defaultCategoryId);
       setShowDatePicker(false);
@@ -80,13 +87,6 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
     if (!title.trim()) return;
     setBusy(true);
     try {
-      const h = selectedTime.getHours();
-      const m = selectedTime.getMinutes();
-      const y = selectedDate.getFullYear();
-      const mo = selectedDate.getMonth();
-      const day = selectedDate.getDate();
-
-      const scheduledAt = new Date(y, mo, day, h, m, 0);
       const deadline = new Date(scheduledAt.getTime() + durationMinutes * 60 * 1000);
 
       await onSubmit({
@@ -99,19 +99,33 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
         priority,
       });
       onCancel();
+    } catch (err) {
+      Alert.alert("Failed to create task", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setBusy(false);
     }
   }
 
-  function handleDateChange(_: any, date?: Date) {
+  function handleDateChange(event: DateTimePickerEvent, date?: Date) {
     if (Platform.OS === "android") setShowDatePicker(false);
-    if (date) setSelectedDate(date);
+    if (event.type !== "set" || !date) return;
+
+    setScheduledAt((prev) => {
+      const next = new Date(prev);
+      next.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+      return next;
+    });
   }
 
-  function handleTimeChange(_: any, date?: Date) {
+  function handleTimeChange(event: DateTimePickerEvent, date?: Date) {
     if (Platform.OS === "android") setShowTimePicker(false);
-    if (date) setSelectedTime(date);
+    if (event.type !== "set" || !date) return;
+
+    setScheduledAt((prev) => {
+      const next = new Date(prev);
+      next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+      return next;
+    });
   }
 
   return (
@@ -123,7 +137,7 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
             <View style={styles.popupHeader}>
               <Text style={styles.heading}>New Task</Text>
               <Pressable onPress={onCancel} hitSlop={12}>
-                <Icon name="x" size={22} color={colors.mutedText} />
+                <AppIcon name="x" size={22} color={colors.mutedText} />
               </Pressable>
             </View>
 
@@ -150,7 +164,7 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
                     style={[styles.chipBtn, active && { backgroundColor: col + "25", borderColor: col }]}
                     onPress={() => setPriority(p)}
                   >
-                    <Icon
+                    <AppIcon
                       name={p === 3 ? "alert-circle" : p === 2 ? "minus-circle" : "arrow-down-circle"}
                       size={14}
                       color={active ? col : colors.mutedText}
@@ -165,36 +179,46 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
 
             {/* Date */}
             <Text style={styles.label}>Date</Text>
-            <Pressable style={styles.pickerBtn} onPress={() => setShowDatePicker(true)}>
-              <Icon name="calendar" size={16} color={colors.accent} />
-              <Text style={styles.pickerBtnText}>{formatDateDisplay(selectedDate)}</Text>
-              <Icon name="chevron-down" size={16} color={colors.mutedText} />
+            <Pressable
+              style={styles.pickerBtn}
+              onPress={() => {
+                setShowTimePicker(false);
+                setShowDatePicker((prev) => !prev);
+              }}
+            >
+              <AppIcon name="calendar" size={16} color={colors.accent} />
+              <Text style={styles.pickerBtnText}>{formatDateDisplay(scheduledAt)}</Text>
+              <AppIcon name="chevron-down" size={16} color={colors.mutedText} />
             </Pressable>
             {showDatePicker && (
               <DateTimePicker
-                value={selectedDate}
+                value={scheduledAt}
                 mode="date"
-                display={Platform.OS === "ios" ? "inline" : "default"}
+                display={Platform.OS === "ios" ? "spinner" : "default"}
                 onChange={handleDateChange}
-                themeVariant="dark"
               />
             )}
 
             {/* Time */}
             <Text style={styles.label}>Time</Text>
-            <Pressable style={styles.pickerBtn} onPress={() => setShowTimePicker(true)}>
-              <Icon name="clock" size={16} color={colors.accent} />
-              <Text style={styles.pickerBtnText}>{formatTimeDisplay(selectedTime)}</Text>
-              <Icon name="chevron-down" size={16} color={colors.mutedText} />
+            <Pressable
+              style={styles.pickerBtn}
+              onPress={() => {
+                setShowDatePicker(false);
+                setShowTimePicker((prev) => !prev);
+              }}
+            >
+              <AppIcon name="clock" size={16} color={colors.accent} />
+              <Text style={styles.pickerBtnText}>{formatTimeDisplay(scheduledAt)}</Text>
+              <AppIcon name="chevron-down" size={16} color={colors.mutedText} />
             </Pressable>
             {showTimePicker && (
               <DateTimePicker
-                value={selectedTime}
+                value={scheduledAt}
                 mode="time"
                 display={Platform.OS === "ios" ? "spinner" : "default"}
-                minuteInterval={5}
+                minuteInterval={Platform.OS === "ios" ? 5 : undefined}
                 onChange={handleTimeChange}
-                themeVariant="dark"
               />
             )}
 
@@ -242,7 +266,7 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
               onPress={handleSubmit}
               disabled={busy || !title.trim()}
             >
-              <Icon name="plus" size={18} color="#fff" />
+              <AppIcon name="plus" size={18} color="#fff" />
               <Text style={styles.submitText}>{busy ? "Saving..." : "Add Task"}</Text>
             </Pressable>
           </ScrollView>

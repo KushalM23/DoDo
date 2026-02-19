@@ -16,6 +16,7 @@ jest.mock('../src/navigation/RootNavigator', () => ({
 jest.mock('@react-navigation/native', () => ({
   NavigationContainer: ({children}: any) => children,
   DefaultTheme: {colors: {}},
+  DarkTheme: {colors: {}},
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -28,6 +29,14 @@ jest.mock('../src/state/AuthContext', () => ({
 
 jest.mock('../src/state/TasksContext', () => ({
   TasksProvider: ({children}: any) => children,
+}));
+
+jest.mock('../src/state/CategoriesContext', () => ({
+  CategoriesProvider: ({children}: any) => children,
+}));
+
+jest.mock('../src/state/HabitsContext', () => ({
+  HabitsProvider: ({children}: any) => children,
 }));
 
 import App from '../App';

@@ -21,5 +21,11 @@ module.exports = {
     'react-native-screens': {
       root: path.join(monorepoRoot, 'node_modules', 'react-native-screens'),
     },
+    '@react-native-vector-icons/lucide': {
+      root: path.join(monorepoRoot, 'node_modules', '@react-native-vector-icons', 'lucide'),
+    },
+    '@react-native-vector-icons/common': {
+      root: path.join(monorepoRoot, 'node_modules', '@react-native-vector-icons', 'common'),
+    },
   },
 };

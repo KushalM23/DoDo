@@ -1,8 +1,8 @@
 import React from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import Icon from "react-native-vector-icons/Feather";
 import { colors, spacing, radii, fontSize } from "../theme/colors";
 import type { SortMode } from "../utils/taskSort";
+import { AppIcon, type AppIconName } from "./AppIcon";
 
 type Props = {
   visible: boolean;
@@ -11,7 +11,7 @@ type Props = {
   onClose: () => void;
 };
 
-const OPTIONS: { mode: SortMode; label: string; icon: string }[] = [
+const OPTIONS: { mode: SortMode; label: string; icon: AppIconName }[] = [
   { mode: "smart", label: "Smart (Default)", icon: "zap" },
   { mode: "priority_desc", label: "Priority: High to Low", icon: "arrow-up" },
   { mode: "priority_asc", label: "Priority: Low to High", icon: "arrow-down" },
@@ -34,7 +34,7 @@ export function SortModal({ visible, current, onSelect, onClose }: Props) {
                 onClose();
               }}
             >
-              <Icon
+              <AppIcon
                 name={icon}
                 size={16}
                 color={current === mode ? colors.accent : colors.mutedText}
@@ -42,7 +42,7 @@ export function SortModal({ visible, current, onSelect, onClose }: Props) {
               <Text style={[styles.optionText, current === mode && styles.optionTextActive]}>
                 {label}
               </Text>
-              {current === mode && <Icon name="check" size={16} color={colors.accent} />}
+              {current === mode && <AppIcon name="check" size={16} color={colors.accent} />}
             </Pressable>
           ))}
         </View>
@@ -59,8 +59,8 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
     paddingBottom: 36,

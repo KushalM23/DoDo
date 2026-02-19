@@ -10,10 +10,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/Feather";
 import { useHabits } from "../../state/HabitsContext";
 import { colors, spacing, radii, fontSize } from "../../theme/colors";
 import type { HabitFrequency } from "../../types/habit";
+import { AppIcon } from "../../components/AppIcon";
 
 export function HabitScreen() {
   const { habits, loading, addHabit, removeHabit } = useHabits();
@@ -57,7 +57,7 @@ export function HabitScreen() {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardIcon}>
-              <Icon name="repeat" size={18} color={colors.habitBadge} />
+              <AppIcon name="repeat" size={18} color={colors.habitBadge} />
             </View>
             <View style={styles.cardContent}>
               <Text style={styles.habitTitle}>{item.title}</Text>
@@ -66,13 +66,13 @@ export function HabitScreen() {
               </View>
             </View>
             <Pressable style={styles.deleteBtn} onPress={() => handleDelete(item.id)}>
-              <Icon name="trash-2" size={16} color={colors.danger} />
+              <AppIcon name="trash-2" size={16} color={colors.danger} />
             </Pressable>
           </View>
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Icon name="repeat" size={40} color={colors.mutedText} />
+            <AppIcon name="repeat" size={40} color={colors.mutedText} />
             <Text style={styles.emptyTitle}>No habits yet</Text>
             <Text style={styles.emptyText}>Create your first habit to start tracking.</Text>
           </View>
@@ -80,7 +80,7 @@ export function HabitScreen() {
       />
 
       <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
-        <Icon name="plus" size={18} color="#fff" />
+        <AppIcon name="plus" size={18} color="#fff" />
         <Text style={styles.fabText}>New Habit</Text>
       </Pressable>
 
@@ -91,7 +91,7 @@ export function HabitScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>New Habit</Text>
               <Pressable onPress={() => setModalVisible(false)} hitSlop={12}>
-                <Icon name="x" size={22} color={colors.mutedText} />
+                <AppIcon name="x" size={22} color={colors.mutedText} />
               </Pressable>
             </View>
 
@@ -112,7 +112,7 @@ export function HabitScreen() {
                   style={[styles.freqOption, frequency === f && styles.freqOptionActive]}
                   onPress={() => setFrequency(f)}
                 >
-                  <Icon
+                  <AppIcon
                     name={f === "daily" ? "sun" : "calendar"}
                     size={14}
                     color={frequency === f ? colors.accent : colors.mutedText}
@@ -129,7 +129,7 @@ export function HabitScreen() {
               onPress={handleCreate}
               disabled={busy || !title.trim()}
             >
-              <Icon name="plus" size={18} color="#fff" />
+              <AppIcon name="plus" size={18} color="#fff" />
               <Text style={styles.submitBtnText}>{busy ? "Saving..." : "Create"}</Text>
             </Pressable>
           </Pressable>
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: 14,
-    paddingBottom: 10,
+    paddingBottom: spacing.sm,
   },
   appName: {
     fontSize: fontSize.xxl,

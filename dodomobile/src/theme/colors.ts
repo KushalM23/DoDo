@@ -29,11 +29,10 @@ export const spacing = {
 };
 
 export const radii = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  pill: 100,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 18,
 };
 
 export const fontSize = {
@@ -45,3 +44,9 @@ export const fontSize = {
   xxl: 28,
 };
 
+export const typography = {
+  regular: "System",
+  medium: "System",
+  semibold: "System",
+  bold: "System",
+};

@@ -1,12 +1,12 @@
 import React from "react";
 import { StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import Icon from "react-native-vector-icons/Feather";
 import { TasksScreen } from "../screens/tasks/TasksScreen";
 import { HabitScreen } from "../screens/habit/HabitScreen";
 import { CalendarScreen } from "../screens/calendar/CalendarScreen";
 import { ProfileScreen } from "../screens/profile/ProfileScreen";
 import { colors, fontSize } from "../theme/colors";
+import { AppIcon } from "../components/AppIcon";
 
 export type MainTabsParamList = {
   TasksTab: undefined;
@@ -33,8 +33,8 @@ export function MainTabs() {
         component={TasksScreen}
         options={{
           tabBarLabel: "Tasks",
-          tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
-            <Icon name="check-square" size={20} color={color} />
+          tabBarIcon: ({ color }: { color: string }) => (
+            <AppIcon name="check-square" size={20} color={color} />
           ),
         }}
       />
@@ -43,8 +43,8 @@ export function MainTabs() {
         component={HabitScreen}
         options={{
           tabBarLabel: "Habits",
-          tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
-            <Icon name="repeat" size={20} color={color} />
+          tabBarIcon: ({ color }: { color: string }) => (
+            <AppIcon name="repeat" size={20} color={color} />
           ),
         }}
       />
@@ -53,8 +53,8 @@ export function MainTabs() {
         component={CalendarScreen}
         options={{
           tabBarLabel: "Calendar",
-          tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
-            <Icon name="calendar" size={20} color={color} />
+          tabBarIcon: ({ color }: { color: string }) => (
+            <AppIcon name="calendar" size={20} color={color} />
           ),
         }}
       />
@@ -63,8 +63,8 @@ export function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: "Profile",
-          tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
-            <Icon name="user" size={20} color={color} />
+          tabBarIcon: ({ color }: { color: string }) => (
+            <AppIcon name="user" size={20} color={color} />
           ),
         }}
       />

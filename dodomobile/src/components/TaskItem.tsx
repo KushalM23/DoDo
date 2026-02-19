@@ -1,6 +1,6 @@
-import React, { useRef } from "react";
+import React, { useMemo, useRef } from "react";
 import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
-import Icon from "react-native-vector-icons/Feather";
+import { AppIcon } from "./AppIcon";
 import type { Task } from "../types/task";
 import { colors, spacing, radii, fontSize } from "../theme/colors";
 
@@ -33,66 +33,86 @@ function formatTime(iso: string): string {
   return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
-const SWIPE_THRESHOLD = 80;
+const SWIPE_THRESHOLD = 74;
+const SWIPE_LIMIT = 108;
 
 export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft }: TaskItemProps) {
   const translateX = useRef(new Animated.Value(0)).current;
+  const timerActive = !!task.timerStartedAt && !task.completed;
+
+  const rightActionOpacity = useMemo(
+    () =>
+      translateX.interpolate({
+        inputRange: [-SWIPE_LIMIT, -20, 0],
+        outputRange: [1, 0.2, 0],
+        extrapolate: "clamp",
+      }),
+    [translateX],
+  );
+
+  const leftActionOpacity = useMemo(
+    () =>
+      translateX.interpolate({
+        inputRange: [0, 20, SWIPE_LIMIT],
+        outputRange: [0, 0.2, 1],
+        extrapolate: "clamp",
+      }),
+    [translateX],
+  );
 
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 12 && Math.abs(gs.dx) > Math.abs(gs.dy * 1.5),
+        Math.abs(gs.dx) > 10 && Math.abs(gs.dx) > Math.abs(gs.dy * 1.3),
       onPanResponderMove: (_, gs) => {
-        translateX.setValue(gs.dx);
+        const clampedDx = Math.max(-SWIPE_LIMIT, Math.min(SWIPE_LIMIT, gs.dx));
+        translateX.setValue(clampedDx);
       },
       onPanResponderRelease: (_, gs) => {
-        if (gs.dx < -SWIPE_THRESHOLD) {
-          // Swipe LEFT → start / complete
-          Animated.timing(translateX, { toValue: -300, duration: 200, useNativeDriver: true }).start(() => {
+        if (gs.dx <= -SWIPE_THRESHOLD) {
+          Animated.timing(translateX, { toValue: -SWIPE_LIMIT, duration: 140, useNativeDriver: true }).start(() => {
             onSwipeLeft(task);
             translateX.setValue(0);
           });
-        } else if (gs.dx > SWIPE_THRESHOLD) {
-          // Swipe RIGHT → delete
-          Animated.timing(translateX, { toValue: 300, duration: 200, useNativeDriver: true }).start(() => {
+          return;
+        }
+
+        if (gs.dx >= SWIPE_THRESHOLD) {
+          Animated.timing(translateX, { toValue: SWIPE_LIMIT, duration: 140, useNativeDriver: true }).start(() => {
             onDelete(task.id);
             translateX.setValue(0);
           });
-        } else {
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true, friction: 8 }).start();
+          return;
         }
+
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 90, friction: 9 }).start();
       },
     }),
   ).current;
 
-  const timerActive = !!task.timerStartedAt && !task.completed;
-
   return (
     <View style={styles.outer}>
-      {/* Background actions: left = delete (shown when swiping right), right = start (shown when swiping left) */}
       <View style={styles.actionsRow}>
-        <View style={[styles.actionBg, styles.deleteActionBg]}>
-          <Icon name="trash-2" size={16} color="#fff" />
+        <Animated.View style={[styles.actionPane, styles.deleteActionBg, { opacity: leftActionOpacity }]}>
+          <AppIcon name="trash-2" size={15} color="#fff" />
           <Text style={styles.actionLabel}>Delete</Text>
-        </View>
-        <View style={[styles.actionBg, styles.startActionBg]}>
-          <Icon name={timerActive ? "check" : "play"} size={16} color="#fff" />
-          <Text style={styles.actionLabel}>{timerActive ? "Done" : "Start"}</Text>
-        </View>
+        </Animated.View>
+        <Animated.View style={[styles.actionPane, styles.completeActionBg, { opacity: rightActionOpacity }]}>
+          <AppIcon name="check" size={15} color="#fff" />
+          <Text style={styles.actionLabel}>{task.completed ? "Undo" : "Complete"}</Text>
+        </Animated.View>
       </View>
 
       <Animated.View
         style={[styles.card, task.completed && styles.completedCard, { transform: [{ translateX }] }]}
         {...panResponder.panHandlers}
       >
-        {/* Checkbox */}
         <Pressable style={styles.checkbox} onPress={() => onToggle(task)}>
           <View style={[styles.checkboxInner, task.completed && styles.checkboxChecked]}>
-            {task.completed && <Icon name="check" size={14} color="#fff" />}
+            {task.completed && <AppIcon name="check" size={13} color="#fff" />}
           </View>
         </Pressable>
 
-        {/* Content */}
         <View style={styles.content}>
           <View style={styles.titleRow}>
             <Text style={[styles.title, task.completed && styles.completedText]} numberOfLines={1}>
@@ -100,17 +120,17 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft }: Tas
             </Text>
             {timerActive && (
               <View style={styles.timerBadge}>
-                <Icon name="play" size={10} color={colors.success} />
+                <AppIcon name="play" size={10} color={colors.success} />
               </View>
             )}
             {isHabit && (
               <View style={styles.habitBadge}>
-                <Icon name="repeat" size={10} color={colors.habitBadge} />
+                <AppIcon name="repeat" size={10} color={colors.habitBadge} />
               </View>
             )}
           </View>
           <View style={styles.metaRow}>
-            <Icon name="clock" size={11} color={colors.mutedText} />
+            <AppIcon name="clock" size={11} color={colors.mutedText} />
             <Text style={styles.meta}>{formatTime(task.scheduledAt)}</Text>
             {task.durationMinutes != null && (
               <>
@@ -121,8 +141,7 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft }: Tas
           </View>
         </View>
 
-        {/* Priority pill */}
-        <View style={[styles.priorityPill, { backgroundColor: priorityColor(task.priority) + "20" }]}>
+        <View style={[styles.priorityPill, { backgroundColor: `${priorityColor(task.priority)}22` }]}>
           <Text style={[styles.priorityText, { color: priorityColor(task.priority) }]}>
             {priorityLabel(task.priority)}
           </Text>
@@ -141,23 +160,20 @@ const styles = StyleSheet.create({
   actionsRow: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     borderRadius: radii.md,
+    overflow: "hidden",
   },
-  actionBg: {
-    width: 100,
-    height: "100%",
+  actionPane: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radii.md,
     flexDirection: "row",
     gap: spacing.xs,
   },
   deleteActionBg: {
     backgroundColor: colors.danger,
   },
-  startActionBg: {
+  completeActionBg: {
     backgroundColor: colors.success,
   },
   actionLabel: {
@@ -174,7 +190,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingVertical: 14,
     paddingHorizontal: spacing.md,
-    gap: 10,
+    gap: spacing.sm,
   },
   completedCard: {
     opacity: 0.55,
@@ -185,7 +201,7 @@ const styles = StyleSheet.create({
   checkboxInner: {
     width: 22,
     height: 22,
-    borderRadius: 6,
+    borderRadius: radii.sm,
     borderWidth: 2,
     borderColor: colors.mutedText,
     alignItems: "center",
@@ -230,7 +246,7 @@ const styles = StyleSheet.create({
   timerBadge: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: radii.sm,
     backgroundColor: colors.successLight,
     alignItems: "center",
     justifyContent: "center",
@@ -238,7 +254,7 @@ const styles = StyleSheet.create({
   habitBadge: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: radii.sm,
     backgroundColor: colors.habitBadgeLight,
     alignItems: "center",
     justifyContent: "center",
@@ -253,4 +269,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-

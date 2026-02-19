@@ -1,26 +1,23 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/Feather";
 import { useAuth } from "../../state/AuthContext";
 import { colors, spacing, radii, fontSize } from "../../theme/colors";
+import { AppIcon } from "../../components/AppIcon";
 
 export function ProfileScreen() {
   const { user, signOut } = useAuth();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.appName}>Dodo</Text>
         <Text style={styles.pageName}>Profile</Text>
       </View>
 
       <View style={styles.content}>
-        {/* Avatar placeholder */}
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {user?.email?.charAt(0).toUpperCase() ?? "?"}
-          </Text>
+          <Text style={styles.avatarText}>{user?.email?.charAt(0).toUpperCase() ?? "?"}</Text>
         </View>
 
         <Text style={styles.email}>{user?.email ?? "Not signed in"}</Text>
@@ -28,19 +25,21 @@ export function ProfileScreen() {
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>User ID</Text>
-            <Text style={styles.infoValue} numberOfLines={1}>{user?.id ?? "—"}</Text>
+            <Text style={styles.infoValue} numberOfLines={1}>
+              {user?.id ?? "-"}
+            </Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Joined</Text>
             <Text style={styles.infoValue}>
-              {user?.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
+              {user?.created_at ? new Date(user.created_at).toLocaleDateString() : "-"}
             </Text>
           </View>
         </View>
 
         <Pressable style={styles.logoutBtn} onPress={() => void signOut()}>
-          <Icon name="log-out" size={18} color={colors.danger} />
+          <AppIcon name="log-out" size={18} color={colors.danger} />
           <Text style={styles.logoutText}>Log Out</Text>
         </Pressable>
       </View>
@@ -54,8 +53,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 14,
     paddingBottom: spacing.sm,
   },
   appName: {
@@ -77,7 +76,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 80,
     height: 80,
-    borderRadius: radii.pill,
+    borderRadius: 40,
     backgroundColor: colors.accentLight,
     alignItems: "center",
     justifyContent: "center",
