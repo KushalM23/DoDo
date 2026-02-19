@@ -3,6 +3,8 @@ import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react
 import { AppIcon } from "./AppIcon";
 import type { Task } from "../types/task";
 import { colors, spacing, radii, fontSize } from "../theme/colors";
+import { usePreferences } from "../state/PreferencesContext";
+import { formatTime } from "../utils/dateTime";
 
 type TaskItemProps = {
   task: Task;
@@ -17,15 +19,6 @@ function priorityColor(priority: number): string {
   if (priority === 3) return colors.highPriority;
   if (priority === 2) return colors.mediumPriority;
   return colors.lowPriority;
-}
-
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  const h = d.getHours();
-  const m = d.getMinutes();
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
 function getSwipeLeftIcon(task: Task): "play" | "check" {
@@ -43,6 +36,7 @@ const SWIPE_THRESHOLD = 74;
 const SWIPE_LIMIT = 108;
 
 export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft, onPress }: TaskItemProps) {
+  const { preferences } = usePreferences();
   const translateX = useRef(new Animated.Value(0)).current;
   const timerActive = !!task.timerStartedAt && !task.completed;
 
@@ -139,7 +133,7 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft, onPre
           </View>
           <View style={styles.metaRow}>
             <AppIcon name="clock" size={11} color={colors.mutedText} />
-            <Text style={styles.meta}>{formatTime(task.scheduledAt)}</Text>
+            <Text style={styles.meta}>{formatTime(task.scheduledAt, preferences.timeFormat)}</Text>
             {task.durationMinutes != null && (
               <>
                 <Text style={styles.metaDot}> · </Text>

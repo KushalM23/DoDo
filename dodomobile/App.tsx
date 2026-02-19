@@ -7,6 +7,7 @@ import { AuthProvider } from "./src/state/AuthContext";
 import { TasksProvider } from "./src/state/TasksContext";
 import { CategoriesProvider } from "./src/state/CategoriesContext";
 import { HabitsProvider } from "./src/state/HabitsContext";
+import { PreferencesProvider } from "./src/state/PreferencesContext";
 import { colors } from "./src/theme/colors";
 
 const navTheme = {
@@ -25,17 +26,19 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" backgroundColor={colors.background} />
-      <AuthProvider>
-        <CategoriesProvider>
-          <HabitsProvider>
-            <TasksProvider>
-              <NavigationContainer theme={navTheme}>
-                <RootNavigator />
-              </NavigationContainer>
-            </TasksProvider>
-          </HabitsProvider>
-        </CategoriesProvider>
-      </AuthProvider>
+      <PreferencesProvider>
+        <AuthProvider>
+          <CategoriesProvider>
+            <HabitsProvider>
+              <TasksProvider>
+                <NavigationContainer theme={navTheme}>
+                  <RootNavigator />
+                </NavigationContainer>
+              </TasksProvider>
+            </HabitsProvider>
+          </CategoriesProvider>
+        </AuthProvider>
+      </PreferencesProvider>
     </SafeAreaProvider>
   );
 }

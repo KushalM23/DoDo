@@ -15,6 +15,8 @@ def _to_habit_dto(row: dict) -> dict:
         "id": row["id"],
         "title": row["title"],
         "frequency": row["frequency"],
+        "startMinute": row.get("start_minute"),
+        "durationMinutes": row.get("duration_minutes"),
         "createdAt": row["created_at"],
     }
 
@@ -22,11 +24,15 @@ def _to_habit_dto(row: dict) -> dict:
 class CreateHabit(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     frequency: Literal["daily", "weekly"] = "daily"
+    startMinute: Optional[int] = Field(default=None, ge=0, le=1439)
+    durationMinutes: Optional[int] = Field(default=None, ge=1, le=720)
 
 
 class UpdateHabit(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=100)
     frequency: Optional[Literal["daily", "weekly"]] = None
+    startMinute: Optional[int] = Field(default=None, ge=0, le=1439)
+    durationMinutes: Optional[int] = Field(default=None, ge=1, le=720)
 
 
 @router.get("")
@@ -49,6 +55,8 @@ async def create_habit(body: CreateHabit, auth: AuthState = Depends(require_auth
             "user_id": auth.user_id,
             "title": body.title.strip(),
             "frequency": body.frequency,
+            "start_minute": body.startMinute,
+            "duration_minutes": body.durationMinutes,
         })
         .execute()
     )
@@ -69,6 +77,10 @@ async def update_habit(
         payload["title"] = updates["title"].strip()
     if "frequency" in updates:
         payload["frequency"] = updates["frequency"]
+    if "startMinute" in updates:
+        payload["start_minute"] = updates["startMinute"]
+    if "durationMinutes" in updates:
+        payload["duration_minutes"] = updates["durationMinutes"]
 
     resp = (
         auth.supabase.table("habits")

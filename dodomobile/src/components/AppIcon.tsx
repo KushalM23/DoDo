@@ -18,18 +18,26 @@ export type AppIconName =
   | "clock"
   | "edit"
   | "file-text"
+  | "flame"
+  | "flame-kindling"
   | "inbox"
   | "log-out"
+  | "key-round"
   | "minus-circle"
   | "package"
   | "play"
   | "plus"
+  | "percent"
+  | "rotate-ccw"
   | "repeat"
   | "save"
+  | "settings"
   | "sliders"
   | "sun"
+  | "moon"
   | "sunrise"
   | "sunset"
+  | "square"
   | "trash-2"
   | "user"
   | "x"
@@ -57,18 +65,26 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   clock: "clock",
   edit: "pencil",
   "file-text": "file-text",
+  flame: "flame",
+  "flame-kindling": "flame-kindling",
   inbox: "inbox",
   "log-out": "log-out",
+  "key-round": "key-round",
   "minus-circle": "circle-minus",
   package: "package",
   play: "play",
   plus: "plus",
+  percent: "percent",
+  "rotate-ccw": "rotate-ccw",
   repeat: "repeat",
   save: "save",
+  settings: "settings",
   sliders: "sliders-horizontal",
   sun: "sun",
+  moon: "moon",
   sunrise: "sunrise",
   sunset: "sunset",
+  square: "square",
   "trash-2": "trash-2",
   user: "user",
   x: "x",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date as date_type
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -9,6 +10,27 @@ from pydantic import BaseModel, Field
 from app.auth import AuthState, require_auth
 
 router = APIRouter(prefix="/tasks")
+
+
+def _parse_iso_datetime(value: str, field_name: str) -> datetime:
+    raw = value.strip()
+    if raw.endswith("Z"):
+        raw = f"{raw[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name} datetime.") from exc
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _parse_date(value: str) -> date_type:
+    try:
+        return date_type.fromisoformat(value.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid date value.") from exc
 
 
 def _to_task_dto(row: dict) -> dict:
@@ -42,11 +64,44 @@ class CreateTask(BaseModel):
 async def list_tasks(
     auth: AuthState = Depends(require_auth),
     categoryId: Optional[str] = Query(default=None),
+    startAt: Optional[str] = Query(default=None),
+    endAt: Optional[str] = Query(default=None),
+    date: Optional[str] = Query(default=None),
 ):
+    if date and (startAt or endAt):
+        raise HTTPException(
+            status_code=400,
+            detail="Use either date or startAt/endAt filters, not both.",
+        )
+
     query = auth.supabase.table("tasks").select("*").eq("user_id", auth.user_id)
 
     if categoryId:
         query = query.eq("category_id", categoryId)
+
+    if date:
+        day_start = datetime.combine(_parse_date(date), datetime.min.time()).replace(
+            tzinfo=timezone.utc
+        )
+        day_end = day_start + timedelta(days=1)
+        query = query.gte("scheduled_at", day_start.isoformat()).lt(
+            "scheduled_at", day_end.isoformat()
+        )
+    elif startAt or endAt:
+        if not startAt or not endAt:
+            raise HTTPException(
+                status_code=400,
+                detail="Both startAt and endAt are required for range filtering.",
+            )
+
+        start_dt = _parse_iso_datetime(startAt, "startAt")
+        end_dt = _parse_iso_datetime(endAt, "endAt")
+        if end_dt <= start_dt:
+            raise HTTPException(status_code=400, detail="endAt must be after startAt.")
+
+        query = query.gte("scheduled_at", start_dt.isoformat()).lt(
+            "scheduled_at", end_dt.isoformat()
+        )
 
     query = (
         query.order("completed", desc=False)

@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     port: int = 4000
     supabase_url: str
     supabase_anon_key: str
+    supabase_service_role_key: str | None = None
     cors_origin: str = "*"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}

@@ -47,7 +47,6 @@ export function HabitScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.appName}>Dodo</Text>
-        <Text style={styles.pageName}>Habits</Text>
       </View>
 
       <FlatList
@@ -153,11 +152,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xxl,
     fontWeight: "800",
     color: colors.accent,
-  },
-  pageName: {
-    fontSize: fontSize.lg,
-    color: colors.mutedText,
-    marginTop: 2,
   },
   list: {
     paddingHorizontal: 14,

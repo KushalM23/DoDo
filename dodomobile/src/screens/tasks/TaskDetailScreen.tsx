@@ -5,33 +5,21 @@ import { useNavigation, useRoute, type RouteProp } from "@react-navigation/nativ
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTasks } from "../../state/TasksContext";
 import { useCategories } from "../../state/CategoriesContext";
+import { usePreferences } from "../../state/PreferencesContext";
 import { AppIcon } from "../../components/AppIcon";
 import { TaskForm } from "../../components/TaskForm";
 import { CustomDateTimePicker } from "../../components/CustomDateTimePicker";
 import { colors, spacing, radii, fontSize } from "../../theme/colors";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import type { CreateTaskInput, Priority } from "../../types/task";
+import { formatDateTime, toLocalDateKey } from "../../utils/dateTime";
 
 type UndoState =
   | { kind: "complete"; task: CreateTaskInput & { id: string; completed: boolean; completedAt: string | null; timerStartedAt: string | null; createdAt: string }; message: string }
   | { kind: "delete"; taskId: string; message: string };
 
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const h = d.getHours();
-  const m = d.getMinutes();
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${months[d.getMonth()]} ${d.getDate()}, ${h12}:${String(m).padStart(2, "0")} ${ampm}`;
-}
-
 function localDateOnly(iso: string): string {
-  const d = new Date(iso);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return toLocalDateKey(iso);
 }
 
 function priorityMeta(priority: Priority): { label: string; color: string; icon: "arrow-down-circle" | "minus-circle" | "arrow-up-circle" } {
@@ -45,6 +33,7 @@ export function TaskDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { tasks, toggleTaskCompletion, startTimer, pauseTimer, removeTask, updateTaskDetails } = useTasks();
   const { categories } = useCategories();
+  const { preferences } = usePreferences();
 
   const taskId = route.params.taskId;
   const task = tasks.find((t) => t.id === taskId);
@@ -284,7 +273,13 @@ export function TaskDetailScreen() {
             <View style={styles.infoRow}>
               <AppIcon name="calendar" size={14} color={colors.mutedText} />
               <Text style={styles.infoLabel}>Scheduled</Text>
-              <Text style={styles.infoValue}>{formatDateTime(task.scheduledAt)}</Text>
+              <Text style={styles.infoValue}>
+                {formatDateTime(task.scheduledAt, {
+                  dateFormat: preferences.dateFormat,
+                  timeFormat: preferences.timeFormat,
+                  weekStart: preferences.weekStart,
+                })}
+              </Text>
             </View>
             <View style={styles.infoSep} />
             <View style={styles.infoRow}>
@@ -446,7 +441,12 @@ export function TaskDetailScreen() {
               </View>
             ) : (
               <>
-                <CustomDateTimePicker value={postponeDate} onChange={setPostponeDate} />
+                <CustomDateTimePicker
+                  value={postponeDate}
+                  onChange={setPostponeDate}
+                  timeFormat={preferences.timeFormat}
+                  weekStart={preferences.weekStart}
+                />
                 <View style={styles.postponeActions}>
                   <Pressable style={styles.postponeCancelBtn} onPress={() => setPostponeMode("options")}>
                     <Text style={styles.postponeCancelText}>Back</Text>

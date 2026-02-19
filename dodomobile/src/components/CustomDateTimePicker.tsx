@@ -2,18 +2,20 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { AppIcon } from "./AppIcon";
 import { colors, spacing, radii, fontSize } from "../theme/colors";
+import type { TimeFormatPreference, WeekStartPreference } from "../state/PreferencesContext";
+import { getCalendarOffset, getWeekdayInitials } from "../utils/dateTime";
 
 type Props = {
   value: Date;
   onChange: (date: Date) => void;
+  timeFormat?: TimeFormatPreference;
+  weekStart?: WeekStartPreference;
 };
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
-
-const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
@@ -23,7 +25,12 @@ function getFirstDayOfWeek(year: number, month: number): number {
   return new Date(year, month, 1).getDay();
 }
 
-export function CustomDateTimePicker({ value, onChange }: Props) {
+export function CustomDateTimePicker({
+  value,
+  onChange,
+  timeFormat = "12h",
+  weekStart = "sunday",
+}: Props) {
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [viewMonth, setViewMonth] = useState(value.getMonth());
   const [hourInput, setHourInput] = useState("12");
@@ -36,16 +43,21 @@ export function CustomDateTimePicker({ value, onChange }: Props) {
   const hours24 = value.getHours();
   const minutes = value.getMinutes();
   const isPM = hours24 >= 12;
-  const hours12 = hours24 % 12 || 12;
-
   useEffect(() => {
-    setHourInput(String(hours12).padStart(2, "0"));
+    if (timeFormat === "24h") {
+      setHourInput(String(hours24).padStart(2, "0"));
+    } else {
+      const hours12 = hours24 % 12 || 12;
+      setHourInput(String(hours12).padStart(2, "0"));
+    }
     setMinuteInput(String(minutes).padStart(2, "0"));
-  }, [hours12, minutes]);
+  }, [hours24, minutes, timeFormat]);
+
+  const dayLabels = useMemo(() => getWeekdayInitials(weekStart), [weekStart]);
 
   const weeks = useMemo(() => {
     const daysInMonth = getDaysInMonth(viewYear, viewMonth);
-    const firstDay = getFirstDayOfWeek(viewYear, viewMonth);
+    const firstDay = getCalendarOffset(getFirstDayOfWeek(viewYear, viewMonth), weekStart);
     const days: (number | null)[] = [];
     for (let i = 0; i < firstDay; i++) days.push(null);
     for (let d = 1; d <= daysInMonth; d++) days.push(d);
@@ -55,7 +67,7 @@ export function CustomDateTimePicker({ value, onChange }: Props) {
       rows.push(days.slice(i, i + 7));
     }
     return rows;
-  }, [viewYear, viewMonth]);
+  }, [viewYear, viewMonth, weekStart]);
 
   function prevMonth() {
     if (viewMonth === 0) {
@@ -86,19 +98,26 @@ export function CustomDateTimePicker({ value, onChange }: Props) {
     const parsedMinute = Number(nextMinuteText);
     if (!Number.isFinite(parsedHour) || !Number.isFinite(parsedMinute)) return;
 
-    const clampedHour12 = Math.max(1, Math.min(12, Math.trunc(parsedHour)));
     const clampedMinute = Math.max(0, Math.min(59, Math.trunc(parsedMinute)));
-
-    const hour24 = (clampedHour12 % 12) + (nextIsPm ? 12 : 0);
+    let hour24 = 0;
+    if (timeFormat === "24h") {
+      const clampedHour24 = Math.max(0, Math.min(23, Math.trunc(parsedHour)));
+      hour24 = clampedHour24;
+      setHourInput(String(clampedHour24).padStart(2, "0"));
+    } else {
+      const clampedHour12 = Math.max(1, Math.min(12, Math.trunc(parsedHour)));
+      hour24 = (clampedHour12 % 12) + (nextIsPm ? 12 : 0);
+      setHourInput(String(clampedHour12).padStart(2, "0"));
+    }
     const next = new Date(value);
     next.setHours(hour24, clampedMinute, 0, 0);
 
-    setHourInput(String(clampedHour12).padStart(2, "0"));
     setMinuteInput(String(clampedMinute).padStart(2, "0"));
     onChange(next);
   }
 
   function toggleAmPm() {
+    if (timeFormat === "24h") return;
     applyTimeFromInputs(hourInput, minuteInput, !isPM);
   }
 
@@ -113,7 +132,7 @@ export function CustomDateTimePicker({ value, onChange }: Props) {
     const clean = raw.replace(/[^0-9]/g, "").slice(0, 2);
     setMinuteInput(clean);
     if (clean.length !== 2) return;
-    applyTimeFromInputs(hourInput || "12", clean, isPM);
+    applyTimeFromInputs(hourInput || (timeFormat === "24h" ? "00" : "12"), clean, isPM);
   }
 
   const isSelectedMonth = viewMonth === selectedMonth && viewYear === selectedYear;
@@ -137,7 +156,7 @@ export function CustomDateTimePicker({ value, onChange }: Props) {
 
       {/* Day of week headers */}
       <View style={styles.weekRow}>
-        {DAY_LABELS.map((label, i) => (
+        {dayLabels.map((label, i) => (
           <View key={i} style={styles.dayHeaderCell}>
             <Text style={styles.dayHeaderText}>{label}</Text>
           </View>
@@ -178,11 +197,13 @@ export function CustomDateTimePicker({ value, onChange }: Props) {
             style={styles.timeInput}
             value={hourInput}
             onChangeText={applyHourInput}
-            onBlur={() => applyTimeFromInputs(hourInput || "12", minuteInput || "0", isPM)}
+            onBlur={() =>
+              applyTimeFromInputs(hourInput || (timeFormat === "24h" ? "00" : "12"), minuteInput || "0", isPM)
+            }
             keyboardType="number-pad"
             maxLength={2}
             textAlign="center"
-            placeholder="HH"
+            placeholder={timeFormat === "24h" ? "00" : "12"}
             placeholderTextColor={colors.mutedText}
           />
           <Text style={styles.timeColon}>:</Text>
@@ -190,7 +211,9 @@ export function CustomDateTimePicker({ value, onChange }: Props) {
             style={styles.timeInput}
             value={minuteInput}
             onChangeText={applyMinuteInput}
-            onBlur={() => applyTimeFromInputs(hourInput || "12", minuteInput || "0", isPM)}
+            onBlur={() =>
+              applyTimeFromInputs(hourInput || (timeFormat === "24h" ? "00" : "12"), minuteInput || "0", isPM)
+            }
             keyboardType="number-pad"
             maxLength={2}
             textAlign="center"
@@ -199,14 +222,16 @@ export function CustomDateTimePicker({ value, onChange }: Props) {
           />
         </View>
 
-        <View style={styles.ampmGroup}>
-          <Pressable onPress={() => isPM && toggleAmPm()} style={[styles.ampmBtn, !isPM && styles.ampmBtnActive]}>
-            <Text style={[styles.ampmText, !isPM && styles.ampmTextActive]}>AM</Text>
-          </Pressable>
-          <Pressable onPress={() => !isPM && toggleAmPm()} style={[styles.ampmBtn, isPM && styles.ampmBtnActive]}>
-            <Text style={[styles.ampmText, isPM && styles.ampmTextActive]}>PM</Text>
-          </Pressable>
-        </View>
+        {timeFormat === "12h" && (
+          <View style={styles.ampmGroup}>
+            <Pressable onPress={() => isPM && toggleAmPm()} style={[styles.ampmBtn, !isPM && styles.ampmBtnActive]}>
+              <Text style={[styles.ampmText, !isPM && styles.ampmTextActive]}>AM</Text>
+            </Pressable>
+            <Pressable onPress={() => !isPM && toggleAmPm()} style={[styles.ampmBtn, isPM && styles.ampmBtnActive]}>
+              <Text style={[styles.ampmText, isPM && styles.ampmTextActive]}>PM</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   );

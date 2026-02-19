@@ -10,6 +10,7 @@ Create `backend/.env`:
 PORT=4000
 SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 CORS_ORIGIN=*
 ```
 
@@ -25,6 +26,8 @@ python run.py
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET  /api/auth/me`
+- `POST /api/auth/change-password`
+- `DELETE /api/auth/delete-account`
 - `GET/POST/PATCH/DELETE /api/tasks`
 - `GET/POST/PATCH/DELETE /api/categories`
 - `GET/POST/PATCH/DELETE /api/habits`

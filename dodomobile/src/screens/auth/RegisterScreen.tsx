@@ -9,14 +9,20 @@ type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 
 export function RegisterScreen({ navigation }: Props) {
   const { signUp } = useAuth();
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function onSubmit() {
+    if (!displayName.trim()) {
+      Alert.alert("Display name required", "Please enter your display name.");
+      return;
+    }
+
     setBusy(true);
     try {
-      await signUp(email, password);
+      await signUp(email, password, displayName);
       Alert.alert("Registration successful", "If email confirmation is enabled, confirm your email before login.");
       navigation.navigate("Login");
     } catch (error) {
@@ -30,6 +36,14 @@ export function RegisterScreen({ navigation }: Props) {
     <View style={styles.container}>
       <Text style={styles.title}>Create Account</Text>
       <Text style={styles.subtitle}>Use email + password to get started</Text>
+
+      <TextInput
+        placeholder="Display name"
+        placeholderTextColor={colors.mutedText}
+        style={styles.input}
+        value={displayName}
+        onChangeText={setDisplayName}
+      />
 
       <TextInput
         autoCapitalize="none"

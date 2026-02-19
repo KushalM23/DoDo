@@ -16,3 +16,10 @@ def get_client_for_token(token: str) -> Client:
         persist_session=False,
     )
     return create_client(s.supabase_url, s.supabase_anon_key, options=opts)
+
+
+def get_service_client() -> Client:
+    s = get_settings()
+    if not s.supabase_service_role_key:
+        raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is required for this operation.")
+    return create_client(s.supabase_url, s.supabase_service_role_key)

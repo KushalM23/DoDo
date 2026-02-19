@@ -5,6 +5,7 @@ import { useAuth } from "../state/AuthContext";
 import { LoginScreen } from "../screens/auth/LoginScreen";
 import { RegisterScreen } from "../screens/auth/RegisterScreen";
 import { TaskDetailScreen } from "../screens/tasks/TaskDetailScreen";
+import { SettingsScreen } from "../screens/profile/SettingsScreen";
 import { MainTabs } from "./MainTabs";
 import { colors } from "../theme/colors";
 
@@ -13,6 +14,7 @@ export type RootStackParamList = {
   Register: undefined;
   Main: undefined;
   TaskDetail: { taskId: string };
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -34,6 +36,7 @@ export function RootNavigator() {
         <>
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="TaskDetail" component={TaskDetailScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
         </>
       ) : (
         <>

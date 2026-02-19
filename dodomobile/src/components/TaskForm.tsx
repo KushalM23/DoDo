@@ -5,6 +5,8 @@ import { AppIcon } from "./AppIcon";
 import type { CreateTaskInput, Priority } from "../types/task";
 import type { Category } from "../types/category";
 import { colors, spacing, radii, fontSize } from "../theme/colors";
+import { usePreferences } from "../state/PreferencesContext";
+import { formatDate, formatTime } from "../utils/dateTime";
 
 type TaskFormProps = {
   visible: boolean;
@@ -29,23 +31,6 @@ const DURATION_OPTIONS = [
   { label: "5h", value: 300 },
 ];
 
-function padTwo(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function formatDateDisplay(d: Date): string {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${months[d.getMonth()]} ${d.getDate()}`;
-}
-
-function formatTimeDisplay(d: Date): string {
-  const h = d.getHours();
-  const m = d.getMinutes();
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${padTwo(m)} ${ampm}`;
-}
-
 function roundToNextInterval(date: Date, intervalMinutes: number): Date {
   const next = new Date(date);
   const minutes = next.getMinutes();
@@ -66,6 +51,7 @@ export function TaskForm({
   onCancel,
   onSubmit,
 }: TaskFormProps) {
+  const { preferences } = usePreferences();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Priority>(2);
@@ -164,7 +150,7 @@ export function TaskForm({
             {/* Title */}
             <TextInput
               style={styles.input}
-              placeholder="What needs to be done?"
+              placeholder="Dodo's task"
               placeholderTextColor={colors.mutedText}
               value={title}
               onChangeText={setTitle}
@@ -215,12 +201,17 @@ export function TaskForm({
             >
               <AppIcon name="calendar" size={16} color={colors.accent} />
               <Text style={styles.pickerBtnText}>
-                {formatDateDisplay(scheduledAt)}, {formatTimeDisplay(scheduledAt)}
+                {formatDate(scheduledAt, preferences.dateFormat)}, {formatTime(scheduledAt, preferences.timeFormat)}
               </Text>
               <AppIcon name="chevron-down" size={16} color={colors.mutedText} />
             </Pressable>
             {showPicker && (
-              <CustomDateTimePicker value={scheduledAt} onChange={setScheduledAt} />
+              <CustomDateTimePicker
+                value={scheduledAt}
+                onChange={setScheduledAt}
+                timeFormat={preferences.timeFormat}
+                weekStart={preferences.weekStart}
+              />
             )}
 
             {/* Duration */}

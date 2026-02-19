@@ -48,7 +48,7 @@ async function apiRequest<T>(path: string, method: ApiMethod, body?: object, req
   return data;
 }
 
-export async function register(email: string, password: string): Promise<{
+export async function register(email: string, password: string, displayName: string): Promise<{
   user: AuthUser;
   token: string | null;
   requiresEmailConfirmation: boolean;
@@ -56,7 +56,7 @@ export async function register(email: string, password: string): Promise<{
   return apiRequest(
     "/auth/register",
     "POST",
-    { email: email.trim(), password },
+    { email: email.trim(), password, displayName: displayName.trim() },
     false,
   );
 }
@@ -75,8 +75,28 @@ export async function fetchMe(): Promise<AuthUser> {
   return data.user;
 }
 
+export async function changePassword(newPassword: string): Promise<void> {
+  await apiRequest<void>("/auth/change-password", "POST", { newPassword });
+}
+
+export async function deleteAccount(): Promise<void> {
+  await apiRequest<void>("/auth/delete-account", "DELETE");
+}
+
 export async function fetchTasks(categoryId?: string): Promise<Task[]> {
   const qs = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : "";
+  const data = await apiRequest<{ tasks: Task[] }>(`/tasks${qs}`, "GET");
+  return data.tasks;
+}
+
+export async function fetchTasksByDate(date: string): Promise<Task[]> {
+  const qs = `?date=${encodeURIComponent(date)}`;
+  const data = await apiRequest<{ tasks: Task[] }>(`/tasks${qs}`, "GET");
+  return data.tasks;
+}
+
+export async function fetchTasksInRange(startAt: string, endAt: string): Promise<Task[]> {
+  const qs = `?startAt=${encodeURIComponent(startAt)}&endAt=${encodeURIComponent(endAt)}`;
   const data = await apiRequest<{ tasks: Task[] }>(`/tasks${qs}`, "GET");
   return data.tasks;
 }
