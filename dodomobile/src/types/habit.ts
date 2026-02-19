@@ -1,17 +1,30 @@
-export type HabitFrequency = "daily" | "weekly";
+export type HabitFrequencyType = "daily" | "interval" | "custom_days";
 
 export type Habit = {
   id: string;
   title: string;
-  frequency: HabitFrequency;
-  startMinute?: number | null;
-  durationMinutes?: number | null;
+  frequencyType: HabitFrequencyType;
+  intervalDays: number | null;
+  customDays: number[];
+  timeMinute: number | null;
+  durationMinutes: number | null;
+  currentStreak: number;
+  bestStreak: number;
+  lastCompletedOn: string | null;
+  nextOccurrenceOn: string | null;
   createdAt: string;
 };
 
 export type CreateHabitInput = {
   title: string;
-  frequency: HabitFrequency;
-  startMinute?: number | null;
+  frequencyType: HabitFrequencyType;
+  intervalDays?: number | null;
+  customDays?: number[];
+  timeMinute?: number | null;
   durationMinutes?: number | null;
+};
+
+export type HabitCompletionRecord = {
+  habitId: string;
+  date: string;
 };

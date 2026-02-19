@@ -3,6 +3,10 @@ import {
   fetchHabits,
   createHabit as apiCreateHabit,
   deleteHabit as apiDeleteHabit,
+  updateHabit as apiUpdateHabit,
+  fetchHabitHistory,
+  completeHabit as apiCompleteHabit,
+  uncompleteHabit as apiUncompleteHabit,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
 import type { CreateHabitInput, Habit } from "../types/habit";
@@ -14,9 +18,14 @@ function tempId(): string {
 type HabitsContextValue = {
   habits: Habit[];
   loading: boolean;
+  completionMap: Record<string, Record<string, boolean>>;
   refresh: () => Promise<void>;
   addHabit: (input: CreateHabitInput) => Promise<void>;
+  editHabit: (habitId: string, input: Partial<CreateHabitInput>) => Promise<void>;
   removeHabit: (id: string) => Promise<void>;
+  loadHistory: (params: { startDate?: string; endDate?: string; days?: number; habitId?: string }) => Promise<void>;
+  isHabitCompletedOn: (habitId: string, date: string) => boolean;
+  setHabitCompletedOn: (habitId: string, date: string, completed: boolean) => Promise<void>;
 };
 
 const HabitsContext = createContext<HabitsContextValue | undefined>(undefined);
@@ -24,11 +33,13 @@ const HabitsContext = createContext<HabitsContextValue | undefined>(undefined);
 export function HabitsProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [completionMap, setCompletionMap] = useState<Record<string, Record<string, boolean>>>({});
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!user) {
       setHabits([]);
+      setCompletionMap({});
       return;
     }
     setLoading(true);
@@ -48,7 +59,15 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
     const optimistic: Habit = {
       id,
       title: input.title,
-      frequency: input.frequency,
+      frequencyType: input.frequencyType,
+      intervalDays: input.intervalDays ?? null,
+      customDays: input.customDays ?? [],
+      timeMinute: input.timeMinute ?? null,
+      durationMinutes: input.durationMinutes ?? null,
+      currentStreak: 0,
+      bestStreak: 0,
+      lastCompletedOn: null,
+      nextOccurrenceOn: null,
       createdAt: new Date().toISOString(),
     };
     setHabits((prev) => [...prev, optimistic]);
@@ -62,6 +81,29 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
         console.error('[HabitsContext] addHabit sync error:', err);
       });
   }, []);
+
+  const editHabit = useCallback(async (habitId: string, input: Partial<CreateHabitInput>) => {
+    const before = habits.find((h) => h.id === habitId);
+    if (!before) return;
+
+    setHabits((prev) => prev.map((h) => (h.id === habitId ? {
+      ...h,
+      title: input.title ?? h.title,
+      frequencyType: input.frequencyType ?? h.frequencyType,
+      intervalDays: input.intervalDays ?? h.intervalDays,
+      customDays: input.customDays ?? h.customDays,
+      timeMinute: input.timeMinute ?? h.timeMinute,
+      durationMinutes: input.durationMinutes ?? h.durationMinutes,
+    } : h)));
+
+    try {
+      const updated = await apiUpdateHabit(habitId, input);
+      setHabits((prev) => prev.map((h) => (h.id === habitId ? updated : h)));
+    } catch (err) {
+      setHabits((prev) => prev.map((h) => (h.id === habitId ? before : h)));
+      throw err;
+    }
+  }, [habits]);
 
   // Optimistic remove
   const removeHabit = useCallback(async (id: string) => {
@@ -77,6 +119,54 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
       }
       console.error('[HabitsContext] removeHabit sync error:', err);
     });
+    setCompletionMap((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  const loadHistory = useCallback(async (params: { startDate?: string; endDate?: string; days?: number; habitId?: string }) => {
+    const rows = await fetchHabitHistory(params);
+    setCompletionMap((prev) => {
+      const next = { ...prev };
+      for (const row of rows) {
+        if (!next[row.habitId]) next[row.habitId] = {};
+        next[row.habitId] = { ...next[row.habitId], [row.date]: true };
+      }
+      return next;
+    });
+  }, []);
+
+  const isHabitCompletedOn = useCallback((habitId: string, date: string) => {
+    return !!completionMap[habitId]?.[date];
+  }, [completionMap]);
+
+  const setHabitCompletedOn = useCallback(async (habitId: string, date: string, completed: boolean) => {
+    setCompletionMap((prev) => ({
+      ...prev,
+      [habitId]: {
+        ...(prev[habitId] ?? {}),
+        [date]: completed,
+      },
+    }));
+
+    try {
+      const updated = completed
+        ? await apiCompleteHabit(habitId, date)
+        : await apiUncompleteHabit(habitId, date);
+      setHabits((prev) => prev.map((h) => (h.id === habitId ? updated : h)));
+    } catch (err) {
+      setCompletionMap((prev) => ({
+        ...prev,
+        [habitId]: {
+          ...(prev[habitId] ?? {}),
+          [date]: !completed,
+        },
+      }));
+      throw err;
+    }
   }, []);
 
   useEffect(() => {
@@ -84,8 +174,30 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const value = useMemo<HabitsContextValue>(
-    () => ({ habits, loading, refresh, addHabit, removeHabit }),
-    [habits, loading, refresh, addHabit, removeHabit],
+    () => ({
+      habits,
+      loading,
+      completionMap,
+      refresh,
+      addHabit,
+      editHabit,
+      removeHabit,
+      loadHistory,
+      isHabitCompletedOn,
+      setHabitCompletedOn,
+    }),
+    [
+      habits,
+      loading,
+      completionMap,
+      refresh,
+      addHabit,
+      editHabit,
+      removeHabit,
+      loadHistory,
+      isHabitCompletedOn,
+      setHabitCompletedOn,
+    ],
   );
 
   return <HabitsContext.Provider value={value}>{children}</HabitsContext.Provider>;

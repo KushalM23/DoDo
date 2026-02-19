@@ -7,6 +7,7 @@ import { usePreferences } from "../../state/PreferencesContext";
 import { colors, spacing, radii, fontSize } from "../../theme/colors";
 import { AppIcon } from "../../components/AppIcon";
 import { formatDate, formatTime, getCalendarOffset, getWeekdayLabels, toLocalDateKey } from "../../utils/dateTime";
+import { habitAppliesToDate } from "../../utils/habits";
 import type { Habit } from "../../types/habit";
 import type { Task } from "../../types/task";
 
@@ -115,7 +116,11 @@ function taskStatusByDate(tasks: Task[]): Record<string, DayTaskStatus> {
   return result;
 }
 
-function habitStatusByDate(habits: Habit[], dates: string[]): Record<string, DayHabitStatus> {
+function habitStatusByDate(
+  habits: Habit[],
+  dates: string[],
+  completionMap: Record<string, Record<string, boolean>>,
+): Record<string, DayHabitStatus> {
   const result: Record<string, DayHabitStatus> = {};
 
   dates.forEach((dateKey) => {
@@ -125,18 +130,15 @@ function habitStatusByDate(habits: Habit[], dates: string[]): Record<string, Day
       return;
     }
 
-    // Habit completion data is not currently tracked here, so presence is treated as filled.
-    result[dateKey] = "done";
+    const completed = applies.filter((habit) => !!completionMap[habit.id]?.[dateKey]).length;
+    if (completed === applies.length) {
+      result[dateKey] = "done";
+      return;
+    }
+    result[dateKey] = "partial";
   });
 
   return result;
-}
-
-function habitAppliesToDate(habit: Habit, dateKey: string): boolean {
-  if (habit.frequency === "daily") return true;
-  const created = new Date(habit.createdAt);
-  const target = parseDateKey(dateKey);
-  return created.getDay() === target.getDay();
 }
 
 function fallbackHabitStartMinute(habit: Habit, index: number): number {
@@ -169,8 +171,8 @@ function toTaskEvent(task: Task): TimelineEvent {
 }
 
 function toHabitEvent(habit: Habit, dateKey: string, index: number): TimelineEvent {
-  const startMinute = habit.startMinute ?? fallbackHabitStartMinute(habit, index);
-  const duration = habit.durationMinutes ?? 30;
+  const startMinute = habit.timeMinute ?? fallbackHabitStartMinute(habit, index);
+  const duration = 30;
   const endMinute = Math.min(DAY_MINUTES, startMinute + Math.max(MIN_DURATION_MINUTES, duration));
 
   return {
@@ -216,7 +218,7 @@ function touchDistance(event: GestureResponderEvent): number {
 }
 
 export function CalendarScreen() {
-  const { habits } = useHabits();
+  const { habits, completionMap, loadHistory } = useHabits();
   const { preferences } = usePreferences();
 
   const today = useMemo(() => new Date(), []);
@@ -256,10 +258,17 @@ export function CalendarScreen() {
       });
   }, [currentMonth]);
 
+  useEffect(() => {
+    if (monthCells.length === 0) return;
+    const startDate = monthCells[0].dateKey;
+    const endDate = monthCells[monthCells.length - 1].dateKey;
+    void loadHistory({ startDate, endDate }).catch(() => {});
+  }, [monthCells, loadHistory]);
+
   const statusMap = useMemo(() => taskStatusByDate(monthTasks), [monthTasks]);
   const habitStatusMap = useMemo(
-    () => habitStatusByDate(habits, monthCells.map((cell) => cell.dateKey)),
-    [habits, monthCells],
+    () => habitStatusByDate(habits, monthCells.map((cell) => cell.dateKey), completionMap),
+    [habits, monthCells, completionMap],
   );
 
   const tasksForSelectedDate = useMemo(
@@ -274,9 +283,12 @@ export function CalendarScreen() {
 
   const rowLayout = useMemo(() => {
     const taskEvents = tasksForSelectedDate.map(toTaskEvent);
-    const habitEvents = habitsForSelectedDate.map((habit, idx) => toHabitEvent(habit, selectedDate, idx));
+    const habitEvents = habitsForSelectedDate.map((habit, idx) => {
+      const event = toHabitEvent(habit, selectedDate, idx);
+      return { ...event, completed: !!completionMap[habit.id]?.[selectedDate] };
+    });
     return layoutEventsIntoRows([...taskEvents, ...habitEvents]);
-  }, [tasksForSelectedDate, habitsForSelectedDate, selectedDate]);
+  }, [tasksForSelectedDate, habitsForSelectedDate, selectedDate, completionMap]);
 
   const selectedDateLabel = useMemo(
     () => formatDate(parseDateKey(selectedDate), preferences.dateFormat, true),
@@ -495,6 +507,7 @@ export function CalendarScreen() {
                           style={[
                             styles.eventTitle,
                             !event.isHabit && !event.completed && styles.taskEventTitleOnAccent,
+                            event.isHabit && !event.completed && styles.habitEventTitleOnAccent,
                           ]}
                         >
                           {event.title}
@@ -504,6 +517,7 @@ export function CalendarScreen() {
                           style={[
                             styles.eventMeta,
                             !event.isHabit && !event.completed && styles.taskEventMetaOnAccent,
+                            event.isHabit && !event.completed && styles.habitEventMetaOnAccent,
                           ]}
                         >
                           {event.isHabit ? "Habit" : "Task"}
@@ -764,7 +778,7 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   habitEventBase: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.habitBadge,
     borderColor: colors.habitBadge,
   },
   taskEventCompleted: {
@@ -772,6 +786,7 @@ const styles = StyleSheet.create({
   },
   habitEventCompleted: {
     backgroundColor: colors.habitBadgeLight,
+    borderColor: colors.habitBadge,
   },
   eventTitle: {
     color: colors.text,
@@ -790,5 +805,13 @@ const styles = StyleSheet.create({
   },
   taskEventMetaOnAccent: {
     color: colors.background,
+  },
+  habitEventTitleOnAccent: {
+    color: colors.text,
+    fontWeight: "800",
+  },
+  habitEventMetaOnAccent: {
+    color: colors.background,
+    opacity: 0.9,
   },
 });

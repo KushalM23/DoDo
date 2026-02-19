@@ -2,7 +2,7 @@ import { env } from "../config/env";
 import type { AuthUser } from "../types/auth";
 import type { CreateTaskInput, Task } from "../types/task";
 import type { Category, CreateCategoryInput } from "../types/category";
-import type { CreateHabitInput, Habit } from "../types/habit";
+import type { CreateHabitInput, Habit, HabitCompletionRecord } from "../types/habit";
 
 type ApiMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
@@ -157,4 +157,31 @@ export async function updateHabit(
 
 export async function deleteHabit(habitId: string): Promise<void> {
   await apiRequest<void>(`/habits/${habitId}`, "DELETE");
+}
+
+export async function fetchHabitHistory(params?: {
+  habitId?: string;
+  startDate?: string;
+  endDate?: string;
+  days?: number;
+}): Promise<HabitCompletionRecord[]> {
+  const search = new URLSearchParams();
+  if (params?.habitId) search.set("habitId", params.habitId);
+  if (params?.startDate) search.set("startDate", params.startDate);
+  if (params?.endDate) search.set("endDate", params.endDate);
+  if (params?.days != null) search.set("days", String(params.days));
+  const qs = search.toString();
+  const data = await apiRequest<{ history: HabitCompletionRecord[] }>(`/habits/history${qs ? `?${qs}` : ""}`, "GET");
+  return data.history;
+}
+
+export async function completeHabit(habitId: string, date?: string): Promise<Habit> {
+  const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}/complete`, "POST", date ? { date } : {});
+  return data.habit;
+}
+
+export async function uncompleteHabit(habitId: string, date?: string): Promise<Habit> {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+  const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}/complete${qs}`, "DELETE");
+  return data.habit;
 }

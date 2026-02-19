@@ -10,6 +10,7 @@ type Props = {
   onChange: (date: Date) => void;
   timeFormat?: TimeFormatPreference;
   weekStart?: WeekStartPreference;
+  mode?: "datetime" | "time";
 };
 
 const MONTHS = [
@@ -30,6 +31,7 @@ export function CustomDateTimePicker({
   onChange,
   timeFormat = "12h",
   weekStart = "sunday",
+  mode = "datetime",
 }: Props) {
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [viewMonth, setViewMonth] = useState(value.getMonth());
@@ -138,57 +140,62 @@ export function CustomDateTimePicker({
   const isSelectedMonth = viewMonth === selectedMonth && viewYear === selectedYear;
   const today = new Date();
   const isTodayMonth = viewMonth === today.getMonth() && viewYear === today.getFullYear();
+  const showCalendar = mode === "datetime";
 
   return (
     <View style={styles.container}>
-      {/* Month navigation */}
-      <View style={styles.monthRow}>
-        <Pressable onPress={prevMonth} hitSlop={12} style={styles.monthNavBtn}>
-          <AppIcon name="chevron-left" size={18} color={colors.text} />
-        </Pressable>
-        <Text style={styles.monthLabel}>
-          {MONTHS[viewMonth]} {viewYear}
-        </Text>
-        <Pressable onPress={nextMonth} hitSlop={12} style={styles.monthNavBtn}>
-          <AppIcon name="chevron-right" size={18} color={colors.text} />
-        </Pressable>
-      </View>
-
-      {/* Day of week headers */}
-      <View style={styles.weekRow}>
-        {dayLabels.map((label, i) => (
-          <View key={i} style={styles.dayHeaderCell}>
-            <Text style={styles.dayHeaderText}>{label}</Text>
+      {showCalendar && (
+        <>
+          {/* Month navigation */}
+          <View style={styles.monthRow}>
+            <Pressable onPress={prevMonth} hitSlop={12} style={styles.monthNavBtn}>
+              <AppIcon name="chevron-left" size={18} color={colors.text} />
+            </Pressable>
+            <Text style={styles.monthLabel}>
+              {MONTHS[viewMonth]} {viewYear}
+            </Text>
+            <Pressable onPress={nextMonth} hitSlop={12} style={styles.monthNavBtn}>
+              <AppIcon name="chevron-right" size={18} color={colors.text} />
+            </Pressable>
           </View>
-        ))}
-      </View>
 
-      {/* Calendar grid */}
-      {weeks.map((week, wi) => (
-        <View key={wi} style={styles.weekRow}>
-          {week.map((day, di) => {
-            if (day == null) {
-              return <View key={`e${di}`} style={styles.dayCell} />;
-            }
-            const sel = isSelectedMonth && day === selectedDay;
-            const isToday = isTodayMonth && day === today.getDate() && !sel;
-            return (
-              <Pressable
-                key={day}
-                style={[styles.dayCell, sel && styles.dayCellSelected]}
-                onPress={() => selectDay(day)}
-              >
-                <Text style={[styles.dayText, sel && styles.dayTextSelected, isToday && styles.dayTextToday]}>
-                  {day}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ))}
+          {/* Day of week headers */}
+          <View style={styles.weekRow}>
+            {dayLabels.map((label, i) => (
+              <View key={i} style={styles.dayHeaderCell}>
+                <Text style={styles.dayHeaderText}>{label}</Text>
+              </View>
+            ))}
+          </View>
 
-      {/* Divider */}
-      <View style={styles.divider} />
+          {/* Calendar grid */}
+          {weeks.map((week, wi) => (
+            <View key={wi} style={styles.weekRow}>
+              {week.map((day, di) => {
+                if (day == null) {
+                  return <View key={`e${di}`} style={styles.dayCell} />;
+                }
+                const sel = isSelectedMonth && day === selectedDay;
+                const isToday = isTodayMonth && day === today.getDate() && !sel;
+                return (
+                  <Pressable
+                    key={day}
+                    style={[styles.dayCell, sel && styles.dayCellSelected]}
+                    onPress={() => selectDay(day)}
+                  >
+                    <Text style={[styles.dayText, sel && styles.dayTextSelected, isToday && styles.dayTextToday]}>
+                      {day}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+
+          {/* Divider */}
+          <View style={styles.divider} />
+        </>
+      )}
 
       {/* Time picker */}
       <View style={styles.timeRow}>

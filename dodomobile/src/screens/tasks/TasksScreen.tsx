@@ -13,6 +13,7 @@ import { DateStrip } from "../../components/DateStrip";
 import { SortModal } from "../../components/SortModal";
 import { AppIcon } from "../../components/AppIcon";
 import { sortTasks } from "../../utils/taskSort";
+import { habitAppliesToDate, minuteToIso } from "../../utils/habits";
 import { colors, spacing, radii, fontSize } from "../../theme/colors";
 import type { CreateTaskInput, Task } from "../../types/task";
 import type { Habit } from "../../types/habit";
@@ -38,20 +39,11 @@ function isSameDay(isoString: string, dateStr: string): boolean {
   return toLocalDateStr(isoString) === dateStr;
 }
 
-/** Check if a habit should appear on the given date */
-function habitAppliesToDate(habit: Habit, dateStr: string): boolean {
-  if (habit.frequency === "daily") return true;
-  if (habit.frequency === "weekly") {
-    const created = new Date(habit.createdAt);
-    const target = new Date(dateStr + "T00:00:00");
-    return created.getDay() === target.getDay();
-  }
-  return false;
-}
-
 /** Convert a habit into a Task-shaped object for display */
-function habitToTask(habit: Habit, dateStr: string): Task & { _isHabit: true; _habitId: string } {
-  const scheduledAt = new Date(`${dateStr}T09:00:00`).toISOString();
+function habitToTask(habit: Habit, dateStr: string, completed: boolean): Task & { _isHabit: true; _habitId: string } {
+  const minute = habit.timeMinute ?? 9 * 60;
+  const durationMinutes = habit.durationMinutes ?? 30;
+  const scheduledAt = minuteToIso(dateStr, minute);
   return {
     id: `habit_${habit.id}_${dateStr}`,
     _isHabit: true,
@@ -60,11 +52,11 @@ function habitToTask(habit: Habit, dateStr: string): Task & { _isHabit: true; _h
     description: "",
     categoryId: null,
     scheduledAt,
-    deadline: new Date(`${dateStr}T10:00:00`).toISOString(),
-    durationMinutes: 60,
+    deadline: minuteToIso(dateStr, Math.min(1439, minute + durationMinutes)),
+    durationMinutes,
     priority: 2,
-    completed: false,
-    completedAt: null,
+    completed,
+    completedAt: completed ? new Date().toISOString() : null,
     timerStartedAt: null,
     createdAt: habit.createdAt,
   };
@@ -73,11 +65,12 @@ function habitToTask(habit: Habit, dateStr: string): Task & { _isHabit: true; _h
 type DisplayTask = Task & { _isHabit?: boolean; _habitId?: string };
 type UndoState =
   | { kind: "complete"; task: Task; message: string }
+  | { kind: "habit-complete"; habitId: string; date: string; message: string }
   | { kind: "delete"; task: Task; message: string };
 
 export function TasksScreen() {
   const { tasks, loading, error, sortMode, setSortMode, refresh, addTask, removeTask, toggleTaskCompletion, startTimer } = useTasks();
-  const { habits } = useHabits();
+  const { habits, loadHistory, isHabitCompletedOn, setHabitCompletedOn } = useHabits();
   const { categories } = useCategories();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -91,9 +84,11 @@ export function TasksScreen() {
   const [undoProgress, setUndoProgress] = useState(0);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isTodaySelected = selectedDate === todayStr();
 
-  // Track local habit completion/timer state for the session
-  const [habitState, setHabitState] = useState<Record<string, { completed?: boolean; timerStartedAt?: string | null }>>({});
+  useEffect(() => {
+    void loadHistory({ startDate: selectedDate, endDate: selectedDate }).catch(() => {});
+  }, [selectedDate, loadHistory]);
 
   // Filter tasks and merge habits
   const filteredTasks = useMemo(() => {
@@ -108,22 +103,18 @@ export function TasksScreen() {
     });
 
     // Habit-derived tasks (only in Overview / no category filter)
-    const habitTasks: DisplayTask[] = selectedCategory === null
+    const habitTasks: DisplayTask[] = selectedCategory === null && isTodaySelected
       ? habits
           .filter((h) => habitAppliesToDate(h, selectedDate))
           .reduce<DisplayTask[]>((acc, h) => {
-            const base = habitToTask(h, selectedDate);
-            const state = habitState[base.id];
-            const next = state
-              ? { ...base, completed: state.completed ?? false, timerStartedAt: state.timerStartedAt ?? null }
-              : base;
+            const next = habitToTask(h, selectedDate, isHabitCompletedOn(h.id, selectedDate));
             if (!next.completed) acc.push(next);
             return acc;
           }, [])
       : [];
 
     return sortTasks([...dateTasks, ...habitTasks], sortMode);
-  }, [tasks, habits, selectedDate, selectedCategory, habitState, sortMode]);
+  }, [tasks, habits, selectedDate, selectedCategory, isHabitCompletedOn, sortMode, isTodaySelected]);
 
   const archivedTasks = useMemo(() => {
     return [...tasks]
@@ -215,6 +206,12 @@ export function TasksScreen() {
       void toggleTaskCompletion(undoState.task);
     }
 
+    if (undoState.kind === "habit-complete") {
+      void setHabitCompletedOn(undoState.habitId, undoState.date, false).catch((err) => {
+        Alert.alert("Failed to undo habit", err instanceof Error ? err.message : "Unknown error");
+      });
+    }
+
     if (undoState.kind === "delete") {
       setPendingDeleteId(null);
     }
@@ -245,10 +242,24 @@ export function TasksScreen() {
 
   function handleToggleTask(task: DisplayTask) {
     if (task._isHabit) {
-      setHabitState((prev) => ({
-        ...prev,
-        [task.id]: { ...prev[task.id], completed: !task.completed },
-      }));
+      if (!isTodaySelected) {
+        Alert.alert("Habits are only for today", "You can complete habits only on the current date.");
+        return;
+      }
+      const nextCompleted = !task.completed;
+      const habitId = task._habitId!;
+      void setHabitCompletedOn(habitId, selectedDate, nextCompleted).catch((err) => {
+        Alert.alert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
+      });
+
+      if (nextCompleted) {
+        scheduleUndo({
+          kind: "habit-complete",
+          habitId,
+          date: selectedDate,
+          message: "Habit completed",
+        });
+      }
       return;
     }
     void toggleTaskCompletion(task).catch((err) => {
@@ -270,10 +281,24 @@ export function TasksScreen() {
 
   function handleSwipeLeft(task: DisplayTask) {
     if (task._isHabit) {
-      setHabitState((prev) => ({
-        ...prev,
-        [task.id]: { ...prev[task.id], completed: !task.completed },
-      }));
+      if (!isTodaySelected) {
+        Alert.alert("Habits are only for today", "You can complete habits only on the current date.");
+        return;
+      }
+      const nextCompleted = !task.completed;
+      const habitId = task._habitId!;
+      void setHabitCompletedOn(habitId, selectedDate, nextCompleted).catch((err) => {
+        Alert.alert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
+      });
+
+      if (nextCompleted) {
+        scheduleUndo({
+          kind: "habit-complete",
+          habitId,
+          date: selectedDate,
+          message: "Habit completed",
+        });
+      }
       return;
     }
 
@@ -296,7 +321,10 @@ export function TasksScreen() {
   }
 
   function handleTaskPress(task: DisplayTask) {
-    if (task._isHabit) return;
+    if (task._isHabit && task._habitId) {
+      navigation.navigate("HabitDetail", { habitId: task._habitId });
+      return;
+    }
     navigation.navigate("TaskDetail", { taskId: task.id });
   }
 
