@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "../state/AuthContext";
 import { LoginScreen } from "../screens/auth/LoginScreen";
 import { RegisterScreen } from "../screens/auth/RegisterScreen";
+import { TaskDetailScreen } from "../screens/tasks/TaskDetailScreen";
 import { MainTabs } from "./MainTabs";
 import { colors } from "../theme/colors";
 
@@ -11,6 +12,7 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Main: undefined;
+  TaskDetail: { taskId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -29,7 +31,10 @@ export function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
-        <Stack.Screen name="Main" component={MainTabs} />
+        <>
+          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen name="TaskDetail" component={TaskDetailScreen} />
+        </>
       ) : (
         <>
           <Stack.Screen name="Login" component={LoginScreen} options={{ title: "Welcome Back" }} />

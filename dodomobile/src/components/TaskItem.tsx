@@ -10,18 +10,13 @@ type TaskItemProps = {
   onToggle: (task: Task) => void;
   onDelete: (taskId: string) => void;
   onSwipeLeft: (task: Task) => void;
+  onPress?: (task: Task) => void;
 };
 
 function priorityColor(priority: number): string {
   if (priority === 3) return colors.highPriority;
   if (priority === 2) return colors.mediumPriority;
   return colors.lowPriority;
-}
-
-function priorityLabel(priority: number): string {
-  if (priority === 3) return "High";
-  if (priority === 2) return "Med";
-  return "Low";
 }
 
 function formatTime(iso: string): string {
@@ -33,12 +28,37 @@ function formatTime(iso: string): string {
   return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+function getSwipeLeftIcon(task: Task): "play" | "check" {
+  if (task.completed || task.timerStartedAt) return "check";
+  return "play";
+}
+
+function priorityIcon(priority: number): "arrow-up-circle" | "minus-circle" | "arrow-down-circle" {
+  if (priority === 3) return "arrow-up-circle";
+  if (priority === 2) return "minus-circle";
+  return "arrow-down-circle";
+}
+
 const SWIPE_THRESHOLD = 74;
 const SWIPE_LIMIT = 108;
 
-export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft }: TaskItemProps) {
+export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft, onPress }: TaskItemProps) {
   const translateX = useRef(new Animated.Value(0)).current;
   const timerActive = !!task.timerStartedAt && !task.completed;
+
+  // Keep refs so the PanResponder always uses latest values
+  const taskRef = useRef(task);
+  taskRef.current = task;
+  const onSwipeLeftRef = useRef(onSwipeLeft);
+  onSwipeLeftRef.current = onSwipeLeft;
+  const onDeleteRef = useRef(onDelete);
+  onDeleteRef.current = onDelete;
+  const onToggleRef = useRef(onToggle);
+  onToggleRef.current = onToggle;
+  const onPressRef = useRef(onPress);
+  onPressRef.current = onPress;
+
+  const swipeLeftIcon = getSwipeLeftIcon(task);
 
   const rightActionOpacity = useMemo(
     () =>
@@ -71,7 +91,7 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft }: Tas
       onPanResponderRelease: (_, gs) => {
         if (gs.dx <= -SWIPE_THRESHOLD) {
           Animated.timing(translateX, { toValue: -SWIPE_LIMIT, duration: 140, useNativeDriver: true }).start(() => {
-            onSwipeLeft(task);
+            onSwipeLeftRef.current(taskRef.current);
             translateX.setValue(0);
           });
           return;
@@ -79,7 +99,7 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft }: Tas
 
         if (gs.dx >= SWIPE_THRESHOLD) {
           Animated.timing(translateX, { toValue: SWIPE_LIMIT, duration: 140, useNativeDriver: true }).start(() => {
-            onDelete(task.id);
+            onDeleteRef.current(taskRef.current.id);
             translateX.setValue(0);
           });
           return;
@@ -93,13 +113,11 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft }: Tas
   return (
     <View style={styles.outer}>
       <View style={styles.actionsRow}>
-        <Animated.View style={[styles.actionPane, styles.deleteActionBg, { opacity: leftActionOpacity }]}>
+        <Animated.View style={[styles.actionPane, styles.actionPaneLeft, styles.deleteActionBg, { opacity: leftActionOpacity }]}>
           <AppIcon name="trash-2" size={15} color="#fff" />
-          <Text style={styles.actionLabel}>Delete</Text>
         </Animated.View>
-        <Animated.View style={[styles.actionPane, styles.completeActionBg, { opacity: rightActionOpacity }]}>
-          <AppIcon name="check" size={15} color="#fff" />
-          <Text style={styles.actionLabel}>{task.completed ? "Undo" : "Complete"}</Text>
+        <Animated.View style={[styles.actionPane, styles.actionPaneRight, styles.completeActionBg, { opacity: rightActionOpacity }]}>
+          <AppIcon name={swipeLeftIcon} size={15} color="#fff" />
         </Animated.View>
       </View>
 
@@ -107,27 +125,17 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft }: Tas
         style={[styles.card, task.completed && styles.completedCard, { transform: [{ translateX }] }]}
         {...panResponder.panHandlers}
       >
-        <Pressable style={styles.checkbox} onPress={() => onToggle(task)}>
+        <Pressable style={styles.checkbox} onPress={() => onToggleRef.current(taskRef.current)}>
           <View style={[styles.checkboxInner, task.completed && styles.checkboxChecked]}>
             {task.completed && <AppIcon name="check" size={13} color="#fff" />}
           </View>
         </Pressable>
 
-        <View style={styles.content}>
+        <Pressable style={styles.content} onPress={() => onPressRef.current?.(taskRef.current)}>
           <View style={styles.titleRow}>
             <Text style={[styles.title, task.completed && styles.completedText]} numberOfLines={1}>
               {task.title}
             </Text>
-            {timerActive && (
-              <View style={styles.timerBadge}>
-                <AppIcon name="play" size={10} color={colors.success} />
-              </View>
-            )}
-            {isHabit && (
-              <View style={styles.habitBadge}>
-                <AppIcon name="repeat" size={10} color={colors.habitBadge} />
-              </View>
-            )}
           </View>
           <View style={styles.metaRow}>
             <AppIcon name="clock" size={11} color={colors.mutedText} />
@@ -139,12 +147,22 @@ export function TaskItem({ task, isHabit, onToggle, onDelete, onSwipeLeft }: Tas
               </>
             )}
           </View>
-        </View>
+        </Pressable>
 
-        <View style={[styles.priorityPill, { backgroundColor: `${priorityColor(task.priority)}22` }]}>
-          <Text style={[styles.priorityText, { color: priorityColor(task.priority) }]}>
-            {priorityLabel(task.priority)}
-          </Text>
+        <View style={styles.badgesCol}>
+          <View style={[styles.priorityPill, { backgroundColor: `${priorityColor(task.priority)}22` }]}>
+            <AppIcon name={priorityIcon(task.priority)} size={13} color={priorityColor(task.priority)} />
+          </View>
+          {timerActive && (
+            <View style={styles.timerBadge}>
+              <AppIcon name="play" size={10} color={colors.success} />
+            </View>
+          )}
+          {isHabit && (
+            <View style={styles.habitBadge}>
+              <AppIcon name="repeat" size={10} color={colors.habitBadge} />
+            </View>
+          )}
         </View>
       </Animated.View>
     </View>
@@ -167,19 +185,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row",
-    gap: spacing.xs,
+  },
+  actionPaneLeft: {
+    alignItems: "flex-start",
+    paddingLeft: spacing.lg,
+  },
+  actionPaneRight: {
+    alignItems: "flex-end",
+    paddingRight: spacing.lg,
   },
   deleteActionBg: {
     backgroundColor: colors.danger,
   },
   completeActionBg: {
     backgroundColor: colors.success,
-  },
-  actionLabel: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: fontSize.xs,
   },
   card: {
     flexDirection: "row",
@@ -217,7 +236,6 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
   },
   title: {
     fontSize: fontSize.md,
@@ -260,12 +278,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   priorityPill: {
+    width: 24,
+    height: 24,
     borderRadius: radii.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  priorityText: {
-    fontSize: fontSize.xs,
-    fontWeight: "700",
+  badgesCol: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
   },
 });

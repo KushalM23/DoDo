@@ -14,7 +14,12 @@ type TasksContextValue = {
   addTask: (input: CreateTaskInput) => Promise<void>;
   toggleTaskCompletion: (task: Task) => Promise<void>;
   startTimer: (task: Task) => Promise<void>;
+  pauseTimer: (task: Task) => Promise<void>;
   removeTask: (taskId: string) => Promise<void>;
+  updateTaskDetails: (
+    taskId: string,
+    updates: Partial<CreateTaskInput> & { completed?: boolean; timerStartedAt?: string | null },
+  ) => Promise<void>;
 };
 
 const TasksContext = createContext<TasksContextValue | undefined>(undefined);
@@ -49,16 +54,53 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
   const addTask = useCallback(
     async (input: CreateTaskInput) => {
-      const created = await createTask(input);
-      setTasks((prev) => sortTasks([created, ...prev], sortMode));
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const optimisticTask: Task = {
+        id: tempId,
+        title: input.title,
+        description: input.description,
+        categoryId: input.categoryId,
+        scheduledAt: input.scheduledAt,
+        deadline: input.deadline,
+        durationMinutes: input.durationMinutes,
+        priority: input.priority,
+        completed: false,
+        completedAt: null,
+        timerStartedAt: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      setTasks((prev) => sortTasks([optimisticTask, ...prev], sortMode));
+
+      try {
+        const created = await createTask(input);
+        setTasks((prev) =>
+          sortTasks(prev.map((t) => (t.id === tempId ? created : t)), sortMode),
+        );
+      } catch (err) {
+        setTasks((prev) => sortTasks(prev.filter((t) => t.id !== tempId), sortMode));
+        throw err;
+      }
     },
     [sortMode],
   );
 
   const toggleTaskCompletion = useCallback(
     async (task: Task) => {
-      const updated = await updateTask(task.id, { completed: !task.completed });
-      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? updated : t)), sortMode));
+      const newCompleted = !task.completed;
+      const optimistic: Task = {
+        ...task,
+        completed: newCompleted,
+        completedAt: newCompleted ? new Date().toISOString() : null,
+      };
+      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? optimistic : t)), sortMode));
+
+      try {
+        const updated = await updateTask(task.id, { completed: newCompleted });
+        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? updated : t)), sortMode));
+      } catch {
+        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? task : t)), sortMode));
+      }
     },
     [sortMode],
   );
@@ -66,16 +108,61 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const startTimer = useCallback(
     async (task: Task) => {
       const now = new Date().toISOString();
-      const updated = await updateTask(task.id, { timerStartedAt: now });
-      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? updated : t)), sortMode));
+      const optimistic: Task = { ...task, timerStartedAt: now };
+      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? optimistic : t)), sortMode));
+
+      try {
+        const updated = await updateTask(task.id, { timerStartedAt: now });
+        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? updated : t)), sortMode));
+      } catch {
+        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? task : t)), sortMode));
+      }
+    },
+    [sortMode],
+  );
+
+  const pauseTimer = useCallback(
+    async (task: Task) => {
+      const optimistic: Task = { ...task, timerStartedAt: null };
+      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? optimistic : t)), sortMode));
+
+      try {
+        const updated = await updateTask(task.id, { timerStartedAt: null });
+        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? updated : t)), sortMode));
+      } catch {
+        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? task : t)), sortMode));
+      }
+    },
+    [sortMode],
+  );
+
+  const updateTaskDetails = useCallback(
+    async (
+      taskId: string,
+      updates: Partial<CreateTaskInput> & { completed?: boolean; timerStartedAt?: string | null },
+    ) => {
+      const updated = await updateTask(taskId, updates);
+      setTasks((prev) => sortTasks(prev.map((t) => (t.id === taskId ? updated : t)), sortMode));
     },
     [sortMode],
   );
 
   const removeTask = useCallback(
     async (taskId: string) => {
-      await deleteTask(taskId);
-      setTasks((prev) => sortTasks(prev.filter((t) => t.id !== taskId), sortMode));
+      let removedTask: Task | null = null;
+      setTasks((prev) => {
+        removedTask = prev.find((t) => t.id === taskId) ?? null;
+        return sortTasks(prev.filter((t) => t.id !== taskId), sortMode);
+      });
+
+      try {
+        await deleteTask(taskId);
+      } catch (err) {
+        if (removedTask) {
+          setTasks((prev) => sortTasks([removedTask as Task, ...prev], sortMode));
+        }
+        throw err;
+      }
     },
     [sortMode],
   );
@@ -99,9 +186,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       addTask,
       toggleTaskCompletion,
       startTimer,
+      pauseTimer,
       removeTask,
+      updateTaskDetails,
     }),
-    [addTask, error, loading, refresh, removeTask, sortMode, startTimer, tasks, toggleTaskCompletion],
+    [addTask, error, loading, pauseTimer, refresh, removeTask, sortMode, startTimer, tasks, toggleTaskCompletion, updateTaskDetails],
   );
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;

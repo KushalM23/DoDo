@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, spacing, radii, fontSize } from "../theme/colors";
 
@@ -36,14 +36,14 @@ const ITEM_WIDTH = 52;
 
 export function DateStrip({ selectedDate, onSelectDate }: Props) {
   const listRef = useRef<FlatList>(null);
-
-  useEffect(() => {
+  const hasInitialCenteredRef = useRef(false);
+  const initialIndex = useMemo(() => {
     const idx = DAYS.findIndex((d) => d.dateStr === selectedDate);
-    if (idx >= 0 && listRef.current) {
-      setTimeout(() => {
-        listRef.current?.scrollToIndex({ index: idx, animated: false, viewPosition: 0.5 });
-      }, 100);
-    }
+    return idx >= 0 ? idx : CENTER_INDEX;
+  }, [selectedDate]);
+
+  const centerIndex = useCallback((index: number, animated: boolean) => {
+    listRef.current?.scrollToIndex({ index, animated, viewPosition: 0.5 });
   }, []);
 
   const renderItem = useCallback(
@@ -69,10 +69,19 @@ export function DateStrip({ selectedDate, onSelectDate }: Props) {
       ref={listRef}
       data={DAYS}
       horizontal
+      initialScrollIndex={initialIndex}
+      onLayout={() => {
+        if (hasInitialCenteredRef.current) return;
+        hasInitialCenteredRef.current = true;
+        requestAnimationFrame(() => centerIndex(initialIndex, false));
+      }}
       showsHorizontalScrollIndicator={false}
       renderItem={renderItem}
       keyExtractor={(item) => item.key}
       contentContainerStyle={styles.container}
+      onScrollToIndexFailed={() => {
+        requestAnimationFrame(() => centerIndex(initialIndex, false));
+      }}
       getItemLayout={(_, index) => ({
         length: ITEM_WIDTH + 6,
         offset: (ITEM_WIDTH + 6) * index,

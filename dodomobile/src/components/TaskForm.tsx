@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { CustomDateTimePicker } from "./CustomDateTimePicker";
 import { AppIcon } from "./AppIcon";
 import type { CreateTaskInput, Priority } from "../types/task";
 import type { Category } from "../types/category";
@@ -11,6 +11,9 @@ type TaskFormProps = {
   categories: Category[];
   defaultDate: string; // YYYY-MM-DD
   defaultCategoryId: string | null;
+  mode?: "create" | "edit";
+  initialValues?: Partial<CreateTaskInput>;
+  submitLabel?: string;
   onCancel: () => void;
   onSubmit: (input: CreateTaskInput) => Promise<void>;
 };
@@ -20,7 +23,6 @@ const DURATION_OPTIONS = [
   { label: "30m", value: 30 },
   { label: "45m", value: 45 },
   { label: "1h", value: 60 },
-  { label: "1.5h", value: 90 },
   { label: "2h", value: 120 },
   { label: "3h", value: 180 },
   { label: "4h", value: 240 },
@@ -33,8 +35,7 @@ function padTwo(n: number): string {
 
 function formatDateDisplay(d: Date): string {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  return `${months[d.getMonth()]} ${d.getDate()}`;
 }
 
 function formatTimeDisplay(d: Date): string {
@@ -54,44 +55,78 @@ function roundToNextInterval(date: Date, intervalMinutes: number): Date {
   return next;
 }
 
-export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, onCancel, onSubmit }: TaskFormProps) {
+export function TaskForm({
+  visible,
+  categories,
+  defaultDate,
+  defaultCategoryId,
+  mode = "create",
+  initialValues,
+  submitLabel,
+  onCancel,
+  onSubmit,
+}: TaskFormProps) {
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Priority>(2);
   const [scheduledAt, setScheduledAt] = useState(new Date());
-  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [durationMinutes, setDurationMinutes] = useState(45);
+  const [durationCustom, setDurationCustom] = useState("45");
+  const [durationUnit, setDurationUnit] = useState<"min" | "hour">("min");
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
     if (visible) {
-      setTitle("");
-      setPriority(2);
+      const editing = mode === "edit" && !!initialValues;
+      const initialDate = editing && initialValues?.scheduledAt ? new Date(initialValues.scheduledAt) : null;
 
-      const [year, month, day] = defaultDate.split("-").map(Number);
-      const dateIsValid = Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day);
-      const nextDate = dateIsValid ? new Date(year, month - 1, day) : new Date();
-      const roundedTime = roundToNextInterval(new Date(), 5);
-      nextDate.setHours(roundedTime.getHours(), roundedTime.getMinutes(), 0, 0);
+      if (editing) {
+        setTitle(initialValues?.title ?? "");
+        setDescription(initialValues?.description ?? "");
+        setPriority((initialValues?.priority as Priority | undefined) ?? 2);
+        setScheduledAt(initialDate && !Number.isNaN(initialDate.getTime()) ? initialDate : new Date());
+        const nextDuration = initialValues?.durationMinutes ?? 60;
+        setDurationMinutes(nextDuration);
+        setDurationCustom(String(nextDuration));
+        setDurationUnit("min");
+        setCategoryId(initialValues?.categoryId ?? null);
+      } else {
+        setTitle("");
+        setDescription("");
+        setPriority(2);
 
-      setScheduledAt(nextDate);
-      setDurationMinutes(60);
-      setCategoryId(defaultCategoryId);
-      setShowDatePicker(false);
-      setShowTimePicker(false);
+        const [year, month, day] = defaultDate.split("-").map(Number);
+        const dateIsValid = Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day);
+        const nextDate = dateIsValid ? new Date(year, month - 1, day) : new Date();
+        const roundedTime = roundToNextInterval(new Date(), 5);
+        nextDate.setHours(roundedTime.getHours(), roundedTime.getMinutes(), 0, 0);
+
+        setScheduledAt(nextDate);
+        setDurationMinutes(45);
+        setDurationCustom("45");
+        setDurationUnit("min");
+        setCategoryId(defaultCategoryId);
+      }
+
+      setShowPicker(false);
     }
-  }, [visible, defaultCategoryId, defaultDate]);
+  }, [visible, defaultCategoryId, defaultDate, initialValues, mode]);
 
   async function handleSubmit() {
     if (!title.trim()) return;
+    if (!Number.isFinite(durationMinutes) || durationMinutes < 1) {
+      Alert.alert("Invalid duration", "Duration must be at least 1 minute.");
+      return;
+    }
     setBusy(true);
     try {
       const deadline = new Date(scheduledAt.getTime() + durationMinutes * 60 * 1000);
 
       await onSubmit({
         title: title.trim(),
-        description: "",
+        description: description.trim(),
         categoryId,
         scheduledAt: scheduledAt.toISOString(),
         deadline: deadline.toISOString(),
@@ -106,26 +141,11 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
     }
   }
 
-  function handleDateChange(event: DateTimePickerEvent, date?: Date) {
-    if (Platform.OS === "android") setShowDatePicker(false);
-    if (event.type !== "set" || !date) return;
-
-    setScheduledAt((prev) => {
-      const next = new Date(prev);
-      next.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-      return next;
-    });
-  }
-
-  function handleTimeChange(event: DateTimePickerEvent, date?: Date) {
-    if (Platform.OS === "android") setShowTimePicker(false);
-    if (event.type !== "set" || !date) return;
-
-    setScheduledAt((prev) => {
-      const next = new Date(prev);
-      next.setHours(date.getHours(), date.getMinutes(), 0, 0);
-      return next;
-    });
+  function customToMinutes(raw: string, unit: "min" | "hour") {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return durationMinutes;
+    const base = unit === "hour" ? parsed * 60 : parsed;
+    return Math.max(1, Math.min(1440, Math.trunc(base)));
   }
 
   return (
@@ -135,7 +155,7 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Header */}
             <View style={styles.popupHeader}>
-              <Text style={styles.heading}>New Task</Text>
+              <Text style={styles.heading}>{mode === "edit" ? "Edit Task" : "New Task"}</Text>
               <Pressable onPress={onCancel} hitSlop={12}>
                 <AppIcon name="x" size={22} color={colors.mutedText} />
               </Pressable>
@@ -152,6 +172,16 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
               returnKeyType="done"
             />
 
+            <TextInput
+              style={[styles.input, styles.notesInput]}
+              placeholder="Add notes (optional)"
+              placeholderTextColor={colors.mutedText}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              textAlignVertical="top"
+            />
+
             {/* Priority */}
             <Text style={styles.label}>Priority</Text>
             <View style={styles.row}>
@@ -165,7 +195,7 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
                     onPress={() => setPriority(p)}
                   >
                     <AppIcon
-                      name={p === 3 ? "alert-circle" : p === 2 ? "minus-circle" : "arrow-down-circle"}
+                      name={p === 3 ? "arrow-up-circle" : p === 2 ? "minus-circle" : "arrow-down-circle"}
                       size={14}
                       color={active ? col : colors.mutedText}
                     />
@@ -177,49 +207,20 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
               })}
             </View>
 
-            {/* Date */}
-            <Text style={styles.label}>Date</Text>
+            {/* Date & Time */}
+            <Text style={styles.label}>Date & Time</Text>
             <Pressable
               style={styles.pickerBtn}
-              onPress={() => {
-                setShowTimePicker(false);
-                setShowDatePicker((prev) => !prev);
-              }}
+              onPress={() => setShowPicker((prev) => !prev)}
             >
               <AppIcon name="calendar" size={16} color={colors.accent} />
-              <Text style={styles.pickerBtnText}>{formatDateDisplay(scheduledAt)}</Text>
+              <Text style={styles.pickerBtnText}>
+                {formatDateDisplay(scheduledAt)}, {formatTimeDisplay(scheduledAt)}
+              </Text>
               <AppIcon name="chevron-down" size={16} color={colors.mutedText} />
             </Pressable>
-            {showDatePicker && (
-              <DateTimePicker
-                value={scheduledAt}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={handleDateChange}
-              />
-            )}
-
-            {/* Time */}
-            <Text style={styles.label}>Time</Text>
-            <Pressable
-              style={styles.pickerBtn}
-              onPress={() => {
-                setShowDatePicker(false);
-                setShowTimePicker((prev) => !prev);
-              }}
-            >
-              <AppIcon name="clock" size={16} color={colors.accent} />
-              <Text style={styles.pickerBtnText}>{formatTimeDisplay(scheduledAt)}</Text>
-              <AppIcon name="chevron-down" size={16} color={colors.mutedText} />
-            </Pressable>
-            {showTimePicker && (
-              <DateTimePicker
-                value={scheduledAt}
-                mode="time"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                minuteInterval={Platform.OS === "ios" ? 5 : undefined}
-                onChange={handleTimeChange}
-              />
+            {showPicker && (
+              <CustomDateTimePicker value={scheduledAt} onChange={setScheduledAt} />
             )}
 
             {/* Duration */}
@@ -231,13 +232,59 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
                   <Pressable
                     key={opt.value}
                     style={[styles.durationChip, active && styles.durationChipActive]}
-                    onPress={() => setDurationMinutes(opt.value)}
+                    onPress={() => {
+                      setDurationMinutes(opt.value);
+                      setDurationCustom(String(opt.value));
+                      setDurationUnit("min");
+                    }}
                   >
                     <Text style={[styles.durationText, active && styles.durationTextActive]}>{opt.label}</Text>
                   </Pressable>
                 );
               })}
             </ScrollView>
+            <View style={styles.customDurationRow}>
+              <TextInput
+                style={styles.customDurationInput}
+                value={durationCustom}
+                onChangeText={(raw) => {
+                  const clean = raw.replace(/[^0-9]/g, "").slice(0, 4);
+                  setDurationCustom(clean);
+                  if (clean.length === 0) return;
+                  setDurationMinutes(customToMinutes(clean, durationUnit));
+                }}
+                onBlur={() => {
+                  const normalized = customToMinutes(durationCustom, durationUnit);
+                  setDurationMinutes(normalized);
+                  const display = durationUnit === "hour" ? Math.max(1, Math.round(normalized / 60)) : normalized;
+                  setDurationCustom(String(display));
+                }}
+                keyboardType="number-pad"
+                maxLength={4}
+                placeholder="Custom duration"
+                placeholderTextColor={colors.mutedText}
+              />
+              <View style={styles.unitToggleTrack}>
+                <Pressable
+                  style={[styles.unitToggleOption, durationUnit === "min" && styles.unitToggleOptionActive]}
+                  onPress={() => {
+                    setDurationUnit("min");
+                    setDurationCustom(String(durationMinutes));
+                  }}
+                >
+                  <Text style={[styles.unitToggleText, durationUnit === "min" && styles.unitToggleTextActive]}>min</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.unitToggleOption, durationUnit === "hour" && styles.unitToggleOptionActive]}
+                  onPress={() => {
+                    setDurationUnit("hour");
+                    setDurationCustom(String(Math.max(1, Math.round(durationMinutes / 60))));
+                  }}
+                >
+                  <Text style={[styles.unitToggleText, durationUnit === "hour" && styles.unitToggleTextActive]}>hour</Text>
+                </Pressable>
+              </View>
+            </View>
 
             {/* Category */}
             {categories.length > 0 && (
@@ -266,8 +313,8 @@ export function TaskForm({ visible, categories, defaultDate, defaultCategoryId, 
               onPress={handleSubmit}
               disabled={busy || !title.trim()}
             >
-              <AppIcon name="plus" size={18} color="#fff" />
-              <Text style={styles.submitText}>{busy ? "Saving..." : "Add Task"}</Text>
+              <AppIcon name={mode === "edit" ? "save" : "plus"} size={18} color="#fff" />
+              <Text style={styles.submitText}>{busy ? "Saving..." : submitLabel ?? (mode === "edit" ? "Save Changes" : "Add Task")}</Text>
             </Pressable>
           </ScrollView>
         </Pressable>
@@ -322,6 +369,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
   },
+  notesInput: {
+    minHeight: 90,
+    marginTop: spacing.sm,
+  },
   row: {
     flexDirection: "row",
     gap: spacing.sm,
@@ -363,6 +414,47 @@ const styles = StyleSheet.create({
   },
   durationRow: {
     gap: spacing.sm,
+  },
+  customDurationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  customDurationInput: {
+    flex: 1,
+    backgroundColor: colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+  },
+  unitToggleTrack: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  unitToggleOption: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  unitToggleOptionActive: {
+    backgroundColor: colors.accentLight,
+  },
+  unitToggleText: {
+    color: colors.mutedText,
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+  },
+  unitToggleTextActive: {
+    color: colors.accent,
   },
   durationChip: {
     paddingHorizontal: 14,

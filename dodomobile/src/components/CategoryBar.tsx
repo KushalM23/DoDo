@@ -107,29 +107,31 @@ export function CategoryBar({ selected, onSelect }: Props) {
 
   return (
     <View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.container}>
-        <Pressable style={[styles.chip, isOverview && styles.chipActive]} onPress={() => onSelect(null)}>
-          <Text style={[styles.chipText, isOverview && styles.chipTextActive]}>Overview</Text>
-        </Pressable>
+      <View style={styles.outerRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent} style={styles.scrollView}>
+          <Pressable style={[styles.chip, isOverview && styles.chipActive]} onPress={() => onSelect(null)}>
+            <Text style={[styles.chipText, isOverview && styles.chipTextActive]}>Overview</Text>
+          </Pressable>
 
-        {categories.map((cat) => {
-          const active = selected === cat.id;
-          return (
-            <Pressable key={cat.id} style={[styles.chip, active && styles.chipActive]} onPress={() => onSelect(cat.id)}>
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat.name}</Text>
-            </Pressable>
-          );
-        })}
+          {categories.map((cat) => {
+            const active = selected === cat.id;
+            return (
+              <Pressable key={cat.id} style={[styles.chip, active && styles.chipActive]} onPress={() => onSelect(cat.id)}>
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat.name}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
-        <Pressable style={styles.controlChip} onPress={handleAdd}>
-          <AppIcon name="plus" size={14} color={colors.accent} />
-          <Text style={styles.controlChipText}>Add</Text>
-        </Pressable>
-
-        <Pressable style={styles.controlChip} onPress={() => setManageModalVisible(true)}>
-          <Text style={styles.controlChipText}>Edit</Text>
-        </Pressable>
-      </ScrollView>
+        <View style={styles.stickyButtons}>
+          <Pressable style={styles.iconButton} onPress={handleAdd}>
+            <AppIcon name="plus" size={16} color={colors.accent} />
+          </Pressable>
+          <Pressable style={styles.iconButton} onPress={() => setManageModalVisible(true)}>
+            <AppIcon name="edit" size={16} color={colors.accent} />
+          </Pressable>
+        </View>
+      </View>
 
       <Modal transparent animationType="fade" visible={addModalVisible} onRequestClose={() => setAddModalVisible(false)}>
         <View style={styles.overlay}>
@@ -171,8 +173,6 @@ export function CategoryBar({ selected, onSelect }: Props) {
               </Pressable>
             </View>
 
-            <Text style={styles.manageHint}>Rename, reorder, or delete categories.</Text>
-
             {categories.length === 0 ? (
               <Text style={styles.emptyText}>No categories yet.</Text>
             ) : (
@@ -199,8 +199,8 @@ export function CategoryBar({ selected, onSelect }: Props) {
                       color={index === categories.length - 1 ? colors.border : colors.text}
                     />
                   </Pressable>
-                  <Pressable style={styles.textBtn} onPress={() => openRenameModal(category)}>
-                    <Text style={styles.textBtnLabel}>Rename</Text>
+                  <Pressable style={styles.iconBtn} onPress={() => openRenameModal(category)}>
+                    <AppIcon name="edit" size={14} color={colors.mutedText} />
                   </Pressable>
                   <Pressable style={styles.iconBtn} onPress={() => handleDelete(category)}>
                     <AppIcon name="trash-2" size={14} color={colors.danger} />
@@ -250,12 +250,36 @@ export function CategoryBar({ selected, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.sm,
+  },
+  stickyButtons: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    paddingRight: spacing.lg,
+    paddingLeft: spacing.sm,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
   chip: {
     paddingHorizontal: spacing.lg,
@@ -276,23 +300,6 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: colors.accent,
-  },
-  controlChip: {
-    height: 36,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.md,
-    flexDirection: "row",
-    gap: spacing.xs,
-  },
-  controlChipText: {
-    color: colors.text,
-    fontWeight: "600",
-    fontSize: fontSize.sm,
   },
   overlay: {
     flex: 1,
