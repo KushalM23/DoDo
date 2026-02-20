@@ -1,6 +1,9 @@
 services:
   - type: web
     name: dodo-api
-    runtime: python-3.11
-    buildCommand: pip install -r backend/requirements.txt
+    runtime: python
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+    buildCommand: python -m pip install --upgrade pip && pip install --only-binary=:all: -r backend/requirements.txt
     startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
