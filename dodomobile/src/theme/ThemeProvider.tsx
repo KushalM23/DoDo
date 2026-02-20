@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo } from "react";
 
-export type ThemeMode = "dark" | "light";
+type ThemeMode = "dark" | "light";
 
 export type ThemeColors = {
   background: string;
@@ -23,7 +23,7 @@ export type ThemeColors = {
   habitBadgeLight: string;
 };
 
-export const darkColors: ThemeColors = {
+const darkColors: ThemeColors = {
   background: "#0D0D0D",
   surface: "#1A1A1A",
   surfaceLight: "#252525",
@@ -44,7 +44,7 @@ export const darkColors: ThemeColors = {
   habitBadgeLight: "rgba(139, 92, 246, 0.15)",
 };
 
-export const lightColors: ThemeColors = {
+const lightColors: ThemeColors = {
   background: "#F6F7F9",
   surface: "#FFFFFF",
   surfaceLight: "#F0F2F5",

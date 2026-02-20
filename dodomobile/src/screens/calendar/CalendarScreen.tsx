@@ -8,7 +8,7 @@ import { spacing, radii, fontSize } from "../../theme/colors";
 import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { AppIcon } from "../../components/AppIcon";
 import { LoadingScreen } from "../../components/LoadingScreen";
-import { formatDate, formatTime, getCalendarOffset, getWeekdayLabels, toLocalDateKey } from "../../utils/dateTime";
+import { formatTime, getCalendarOffset, getWeekdayLabels, toLocalDateKey } from "../../utils/dateTime";
 import { habitAppliesToDate } from "../../utils/habits";
 import type { Habit } from "../../types/habit";
 import type { Task } from "../../types/task";
@@ -46,7 +46,6 @@ const MIN_DURATION_MINUTES = 15;
 const BASE_PX_PER_MINUTE = 0.95;
 const MIN_PX_PER_MINUTE = 0.5;
 const MAX_PX_PER_MINUTE = 3.2;
-const ZOOM_STEP = 0.3;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CELL_SIZE = Math.floor((SCREEN_WIDTH - spacing.lg * 2) / 7);
 
@@ -230,7 +229,6 @@ export function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState<string>(() => localDateKey(today));
   const [monthTasks, setMonthTasks] = useState<Task[]>([]);
   const [monthLoading, setMonthLoading] = useState(true);
-  const [monthError, setMonthError] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
   const [timelineHeight, setTimelineHeight] = useState(240);
   const [pxPerMinute, setPxPerMinute] = useState(BASE_PX_PER_MINUTE);
@@ -254,16 +252,13 @@ export function CalendarScreen() {
 
   useEffect(() => {
     const { startAt, endAt } = monthWindow(currentMonth);
-    setMonthError(null);
     setMonthLoading(true);
 
     fetchTasksInRange(startAt, endAt)
       .then((data) => {
         setMonthTasks(data);
       })
-      .catch((err) => {
-        setMonthError(err instanceof Error ? err.message : "Failed to load calendar tasks.");
-      })
+      .catch(() => {})
       .finally(() => {
         setMonthLoading(false);
       });
@@ -300,11 +295,6 @@ export function CalendarScreen() {
     });
     return layoutEventsIntoRows([...taskEvents, ...habitEvents]);
   }, [tasksForSelectedDate, habitsForSelectedDate, selectedDate, completionMap]);
-
-  const selectedDateLabel = useMemo(
-    () => formatDate(parseDateKey(selectedDate), preferences.dateFormat, true),
-    [selectedDate, preferences.dateFormat],
-  );
 
   const timelineWidth = DAY_MINUTES * pxPerMinute;
   const timelineMarks = useMemo(() => {
@@ -371,14 +361,6 @@ export function CalendarScreen() {
 
   function onTimelineLayout(event: LayoutChangeEvent) {
     setTimelineHeight(event.nativeEvent.layout.height);
-  }
-
-  function zoomInTimeline() {
-    setPxPerMinute((prev) => Math.min(MAX_PX_PER_MINUTE, prev + ZOOM_STEP));
-  }
-
-  function zoomOutTimeline() {
-    setPxPerMinute((prev) => Math.max(MIN_PX_PER_MINUTE, prev - ZOOM_STEP));
   }
 
   function startPinch(event: GestureResponderEvent) {
@@ -593,11 +575,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     color: colors.accent,
   },
-  pageName: {
-    fontSize: fontSize.md,
-    color: colors.mutedText,
-    marginTop: 2,
-  },
   content: {
     flex: 1,
     paddingHorizontal: spacing.lg,
@@ -744,48 +721,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.habitBadge,
     backgroundColor: "transparent",
   },
-  errorText: {
-    color: colors.danger,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xs,
-  },
   timelineSection: {
     flex: 1,
     minHeight: 190,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: 4,
-  },
-  dayHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 2,
-  },
-  timelineHeaderRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  sectionTitle: {
-    fontSize: fontSize.md,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  sectionMeta: {
-    color: colors.mutedText,
-    fontSize: fontSize.xs,
-    fontWeight: "600",
-  },
-  zoomBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   timelineShell: {
     flex: 1,

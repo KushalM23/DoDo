@@ -108,7 +108,6 @@ export function HabitDetailScreen() {
     const hour24 = lockTime.getHours();
     const lockHour = String(preferences.timeFormat === "24h" ? hour24 : ((hour24 + 11) % 12) + 1).padStart(2, "0");
     const lockMinute = String(lockTime.getMinutes()).padStart(2, "0");
-    const meridiem = preferences.timeFormat === "24h" ? "" : hour24 >= 12 ? "PM" : "AM";
 
     return (
       <SafeAreaView style={styles.lockContainer} edges={["top", "bottom"]}>

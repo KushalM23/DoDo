@@ -7,11 +7,10 @@ import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
 type LoadingScreenProps = {
   variant?: "app" | "screen";
   title?: string;
-  subtitle?: string;
   iconName?: AppIconName;
 };
 
-export function LoadingScreen({ variant = "screen", title, subtitle, iconName }: LoadingScreenProps) {
+export function LoadingScreen({ variant = "screen", title, iconName }: LoadingScreenProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -77,11 +76,6 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: fontSize.xxl,
       fontWeight: "800",
       letterSpacing: 0.4,
-    },
-    brandSubtitle: {
-      color: colors.mutedText,
-      fontSize: fontSize.sm,
-      fontWeight: "500",
     },
     inlineWrap: {
       flexDirection: "row",

@@ -6,13 +6,12 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../state/AuthContext";
 import { useTasks } from "../../state/TasksContext";
 import { useHabits } from "../../state/HabitsContext";
-import { usePreferences } from "../../state/PreferencesContext";
 import { spacing, radii, fontSize } from "../../theme/colors";
 import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { AppIcon } from "../../components/AppIcon";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
-import { formatDate, toLocalDateKey } from "../../utils/dateTime";
+import { toLocalDateKey } from "../../utils/dateTime";
 
 function calculateStreaks(completedDateKeys: string[]): { currentStreak: number; bestStreak: number } {
   if (completedDateKeys.length === 0) {
@@ -62,7 +61,6 @@ export function ProfileScreen() {
   const { user } = useAuth();
   const { tasks, loading: tasksLoading, initialized: tasksInitialized } = useTasks();
   const { habits, loading: habitsLoading, initialized: habitsInitialized } = useHabits();
-  const { preferences } = usePreferences();
 
   const completedTasks = useMemo(() => tasks.filter((t) => t.completed), [tasks]);
   const completedDateKeys = useMemo(

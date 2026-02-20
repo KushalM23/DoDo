@@ -45,7 +45,8 @@ react {
 
     /* Hermes Commands */
     //   The hermes compiler command to run. By default it is 'hermesc'
-    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
+    // Explicitly set Hermes compiler path for hoisted node_modules on Windows.
+    hermesCommand = file("../../../node_modules/react-native/sdks/hermesc/win64-bin/hermesc.exe").absolutePath
     //
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     // hermesFlags = ["-O", "-output-source-map"]

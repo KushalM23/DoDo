@@ -1,15 +1,14 @@
 import type { DateFormatPreference, TimeFormatPreference, WeekStartPreference } from "../state/PreferencesContext";
 
-export type DateTimePrefs = {
+type DateTimePrefs = {
   dateFormat: DateFormatPreference;
   timeFormat: TimeFormatPreference;
   weekStart: WeekStartPreference;
 };
 
 const DAY_LABELS_SUN_FIRST = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export function toDate(value: string | Date): Date {
+function toDate(value: string | Date): Date {
   return value instanceof Date ? value : new Date(value);
 }
 
@@ -51,13 +50,6 @@ export function formatTime(value: string | Date, timeFormat: TimeFormatPreferenc
 export function formatDateTime(value: string | Date, prefs: DateTimePrefs): string {
   const d = toDate(value);
   return `${formatDate(d, prefs.dateFormat)} ${formatTime(d, prefs.timeFormat)}`;
-}
-
-export function formatMonthDayTime(value: string | Date, prefs: DateTimePrefs): string {
-  const d = toDate(value);
-  const month = MONTH_NAMES[d.getMonth()];
-  const day = d.getDate();
-  return `${month} ${day}, ${formatTime(d, prefs.timeFormat)}`;
 }
 
 export function getWeekdayLabels(weekStart: WeekStartPreference): string[] {

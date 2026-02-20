@@ -9,7 +9,6 @@ type Props = {
 };
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const TOTAL_DAYS = 21; // 3 weeks centered on today
 const CENTER_INDEX = 10;
 
 function generateDays(): { key: string; dateStr: string; dayName: string; dayNum: number }[] {

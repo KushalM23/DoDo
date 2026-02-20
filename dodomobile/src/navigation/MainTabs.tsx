@@ -9,7 +9,7 @@ import { fontSize } from "../theme/colors";
 import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
 import { AppIcon } from "../components/AppIcon";
 
-export type MainTabsParamList = {
+type MainTabsParamList = {
   TasksTab: undefined;
   HabitTab: undefined;
   CalendarTab: undefined;

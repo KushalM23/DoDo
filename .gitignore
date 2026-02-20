@@ -24,3 +24,5 @@ dodomobile/.turbo/
 **/dist/
 **/build/
 **/.tsbuildinfo
+
+docs/

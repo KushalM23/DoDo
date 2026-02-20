@@ -2,7 +2,7 @@ import type { TimeFormatPreference } from "../state/PreferencesContext";
 import type { Habit } from "../types/habit";
 import { formatTime } from "./dateTime";
 
-export function parseDateKey(dateKey: string): Date {
+function parseDateKey(dateKey: string): Date {
   return new Date(`${dateKey}T00:00:00`);
 }
 

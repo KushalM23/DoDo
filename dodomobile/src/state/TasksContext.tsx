@@ -34,7 +34,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const [sortMode, setSortMode] = useState<SortMode>("smart");
 
   const refresh = useCallback(
-    async (date?: string) => {
+    async (_date?: string) => {
       if (!user) {
         setTasks([]);
         setInitialized(true);

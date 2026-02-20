@@ -89,12 +89,6 @@ export async function fetchTasks(categoryId?: string): Promise<Task[]> {
   return data.tasks;
 }
 
-export async function fetchTasksByDate(date: string): Promise<Task[]> {
-  const qs = `?date=${encodeURIComponent(date)}`;
-  const data = await apiRequest<{ tasks: Task[] }>(`/tasks${qs}`, "GET");
-  return data.tasks;
-}
-
 export async function fetchTasksInRange(startAt: string, endAt: string): Promise<Task[]> {
   const qs = `?startAt=${encodeURIComponent(startAt)}&endAt=${encodeURIComponent(endAt)}`;
   const data = await apiRequest<{ tasks: Task[] }>(`/tasks${qs}`, "GET");
