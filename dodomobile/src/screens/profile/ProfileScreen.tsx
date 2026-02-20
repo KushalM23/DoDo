@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -6,12 +6,14 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../../state/AuthContext";
 import { useTasks } from "../../state/TasksContext";
 import { useHabits } from "../../state/HabitsContext";
+import { useCategories } from "../../state/CategoriesContext";
 import { spacing, radii, fontSize } from "../../theme/colors";
 import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { AppIcon } from "../../components/AppIcon";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import { toLocalDateKey } from "../../utils/dateTime";
+import { habitAppliesToDate } from "../../utils/habits";
 
 function calculateStreaks(completedDateKeys: string[]): { currentStreak: number; bestStreak: number } {
   if (completedDateKeys.length === 0) {
@@ -58,9 +60,15 @@ export function ProfileScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { tasks, loading: tasksLoading, initialized: tasksInitialized } = useTasks();
-  const { habits, loading: habitsLoading, initialized: habitsInitialized } = useHabits();
+  const { habits, loading: habitsLoading, initialized: habitsInitialized, loadHistory, completionMap } = useHabits();
+  const { categories, loading: categoriesLoading, initialized: categoriesInitialized } = useCategories();
+
+  useEffect(() => {
+    void refreshUser();
+    void loadHistory({ days: 30 }).catch(() => {});
+  }, [refreshUser, loadHistory]);
 
   const completedTasks = useMemo(() => tasks.filter((t) => t.completed), [tasks]);
   const completedDateKeys = useMemo(
@@ -74,6 +82,88 @@ export function ProfileScreen() {
   const totalCompleted = completedTasks.length;
   const completionPct = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
   const activeTasks = tasks.filter((t) => !t.completed).length;
+  const overdueTasks = tasks.filter((t) => !t.completed && new Date(t.deadline).getTime() < Date.now()).length;
+  const onTimeCompletions = completedTasks.filter((t) => {
+    if (!t.completedAt) return false;
+    return new Date(t.completedAt).getTime() <= new Date(t.deadline).getTime();
+  }).length;
+  const onTimeRate = totalCompleted > 0 ? Math.round((onTimeCompletions / totalCompleted) * 100) : 0;
+
+  const categoryProductivity = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const task of completedTasks) {
+      const key = task.categoryId ?? "uncategorized";
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    let topKey = "uncategorized";
+    let topCount = 0;
+    for (const [key, count] of counts.entries()) {
+      if (count > topCount) {
+        topKey = key;
+        topCount = count;
+      }
+    }
+
+    const categoryName =
+      topKey === "uncategorized"
+        ? "Uncategorized"
+        : categories.find((c) => c.id === topKey)?.name ?? "Unknown";
+
+    return { categoryName, count: topCount };
+  }, [categories, completedTasks]);
+
+  const peakWindow = useMemo(() => {
+    const buckets = {
+      Morning: 0, // 5-11
+      Afternoon: 0, // 12-16
+      Evening: 0, // 17-21
+      Night: 0, // 22-4
+    } as Record<string, number>;
+
+    for (const task of completedTasks) {
+      const source = task.completedAt ?? task.scheduledAt;
+      const hour = new Date(source).getHours();
+      if (hour >= 5 && hour <= 11) buckets.Morning += 1;
+      else if (hour >= 12 && hour <= 16) buckets.Afternoon += 1;
+      else if (hour >= 17 && hour <= 21) buckets.Evening += 1;
+      else buckets.Night += 1;
+    }
+
+    let label = "Morning";
+    let count = 0;
+    for (const [window, windowCount] of Object.entries(buckets)) {
+      if (windowCount > count) {
+        label = window;
+        count = windowCount;
+      }
+    }
+    return { label, count };
+  }, [completedTasks]);
+
+  const habitAdherence = useMemo(() => {
+    const days: string[] = [];
+    const now = new Date();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      days.push(toLocalDateKey(d));
+    }
+
+    let applicable = 0;
+    let completed = 0;
+    for (const habit of habits) {
+      for (const day of days) {
+        if (!habitAppliesToDate(habit, day)) continue;
+        applicable += 1;
+        if (completionMap[habit.id]?.[day]) completed += 1;
+      }
+    }
+
+    const rate = applicable > 0 ? Math.round((completed / applicable) * 100) : 0;
+    return { rate, applicable, completed };
+  }, [completionMap, habits]);
+
   const last7DaysCompleted = completedDateKeys.filter((key) => {
     const date = new Date(`${key}T00:00:00`);
     const today = new Date();
@@ -82,13 +172,22 @@ export function ProfileScreen() {
   }).length;
   const avgCompletedPerDay = (last7DaysCompleted / 7).toFixed(1);
 
-  const xp = totalCompleted * 20 + bestStreak * 30 + habits.length * 10;
-  const level = Math.floor(xp / 200) + 1;
-  const levelProgress = (xp % 200) / 200;
-  const xpToNextLevel = 200 - (xp % 200 || 200);
+  const xp = user?.experience_points ?? 0;
+  const level = user?.current_level ?? 1;
+  const xpIntoLevel = user?.xp_into_level ?? 0;
+  const xpForNextLevel = user?.xp_for_next_level ?? 200;
+  const levelProgress = xpForNextLevel > 0 ? xpIntoLevel / xpForNextLevel : 0;
+  const xpToNextLevel = user?.xp_to_next_level ?? Math.max(0, xpForNextLevel - xpIntoLevel);
   const displayName = user?.display_name?.trim() || user?.email?.split("@")[0] || "Guest";
 
-  if (!tasksInitialized || !habitsInitialized || (tasksLoading && tasks.length === 0) || (habitsLoading && habits.length === 0)) {
+  if (
+    !tasksInitialized ||
+    !habitsInitialized ||
+    !categoriesInitialized ||
+    (tasksLoading && tasks.length === 0) ||
+    (habitsLoading && habits.length === 0) ||
+    (categoriesLoading && categories.length === 0)
+  ) {
     return <LoadingScreen title="Loading profile" />;
   }
 
@@ -205,6 +304,61 @@ export function ProfileScreen() {
             </View>
             <Text style={styles.statValue}>{avgCompletedPerDay}</Text>
             <Text style={styles.statMeta}>Last 7-day rolling average</Text>
+          </View>
+
+          <View style={styles.statSpotlight}>
+            <View style={styles.statHeadingRow}>
+              <View style={styles.statIconWrap}>
+                <AppIcon name="percent" size={15} color={colors.accent} />
+              </View>
+              <Text style={styles.statLabel}>On-time completion rate</Text>
+            </View>
+            <Text style={styles.statValue}>{onTimeRate}%</Text>
+            <Text style={styles.statMeta}>{onTimeCompletions} completed before deadline</Text>
+          </View>
+
+          <View style={styles.statSpotlight}>
+            <View style={styles.statHeadingRow}>
+              <View style={styles.statIconWrap}>
+                <AppIcon name="alert-circle" size={15} color={colors.accent} />
+              </View>
+              <Text style={styles.statLabel}>Overdue tasks</Text>
+            </View>
+            <Text style={styles.statValue}>{overdueTasks}</Text>
+            <Text style={styles.statMeta}>Open tasks past their deadline</Text>
+          </View>
+
+          <View style={styles.statSpotlight}>
+            <View style={styles.statHeadingRow}>
+              <View style={styles.statIconWrap}>
+                <AppIcon name="briefcase" size={15} color={colors.accent} />
+              </View>
+              <Text style={styles.statLabel}>Category productivity</Text>
+            </View>
+            <Text style={styles.statValue}>{categoryProductivity.count}</Text>
+            <Text style={styles.statMeta}>Top category: {categoryProductivity.categoryName}</Text>
+          </View>
+
+          <View style={styles.statSpotlight}>
+            <View style={styles.statHeadingRow}>
+              <View style={styles.statIconWrap}>
+                <AppIcon name="sun" size={15} color={colors.accent} />
+              </View>
+              <Text style={styles.statLabel}>Peak productive window</Text>
+            </View>
+            <Text style={styles.statValue}>{peakWindow.label}</Text>
+            <Text style={styles.statMeta}>{peakWindow.count} completions in top window</Text>
+          </View>
+
+          <View style={styles.statSpotlight}>
+            <View style={styles.statHeadingRow}>
+              <View style={styles.statIconWrap}>
+                <AppIcon name="repeat" size={15} color={colors.accent} />
+              </View>
+              <Text style={styles.statLabel}>Habit adherence (30d)</Text>
+            </View>
+            <Text style={styles.statValue}>{habitAdherence.rate}%</Text>
+            <Text style={styles.statMeta}>{habitAdherence.completed}/{habitAdherence.applicable} applicable check-ins</Text>
           </View>
         </View>
       </ScrollView>

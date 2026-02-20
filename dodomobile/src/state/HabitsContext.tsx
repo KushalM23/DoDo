@@ -7,6 +7,8 @@ import {
   fetchHabitHistory,
   completeHabit as apiCompleteHabit,
   uncompleteHabit as apiUncompleteHabit,
+  startHabitTimer as apiStartHabitTimer,
+  pauseHabitTimer as apiPauseHabitTimer,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
 import type { CreateHabitInput, Habit } from "../types/habit";
@@ -27,6 +29,8 @@ type HabitsContextValue = {
   loadHistory: (params: { startDate?: string; endDate?: string; days?: number; habitId?: string }) => Promise<void>;
   isHabitCompletedOn: (habitId: string, date: string) => boolean;
   setHabitCompletedOn: (habitId: string, date: string, completed: boolean) => Promise<void>;
+  startHabitTimer: (habitId: string, date?: string) => Promise<void>;
+  pauseHabitTimer: (habitId: string, date?: string) => Promise<void>;
 };
 
 const HabitsContext = createContext<HabitsContextValue | undefined>(undefined);
@@ -76,6 +80,8 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
       bestStreak: 0,
       lastCompletedOn: null,
       nextOccurrenceOn: null,
+      timerStartedAt: null,
+      trackedSecondsToday: 0,
       createdAt: new Date().toISOString(),
     };
     setHabits((prev) => [...prev, optimistic]);
@@ -177,6 +183,33 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const startHabitTimer = useCallback(async (habitId: string, date?: string) => {
+    const targetDate = date;
+    const nowIso = new Date().toISOString();
+    setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, timerStartedAt: nowIso } : h)));
+
+    try {
+      const updated = await apiStartHabitTimer(habitId, targetDate);
+      setHabits((prev) => prev.map((h) => (h.id === habitId ? updated : h)));
+    } catch (err) {
+      setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, timerStartedAt: null } : h)));
+      throw err;
+    }
+  }, []);
+
+  const pauseHabitTimer = useCallback(async (habitId: string, date?: string) => {
+    const previous = habits.find((h) => h.id === habitId)?.timerStartedAt ?? null;
+    setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, timerStartedAt: null } : h)));
+
+    try {
+      const updated = await apiPauseHabitTimer(habitId, date);
+      setHabits((prev) => prev.map((h) => (h.id === habitId ? updated : h)));
+    } catch (err) {
+      setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, timerStartedAt: previous } : h)));
+      throw err;
+    }
+  }, [habits]);
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -194,6 +227,8 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
       loadHistory,
       isHabitCompletedOn,
       setHabitCompletedOn,
+      startHabitTimer,
+      pauseHabitTimer,
     }),
     [
       habits,
@@ -207,6 +242,8 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
       loadHistory,
       isHabitCompletedOn,
       setHabitCompletedOn,
+      startHabitTimer,
+      pauseHabitTimer,
     ],
   );
 

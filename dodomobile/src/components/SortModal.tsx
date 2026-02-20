@@ -18,6 +18,8 @@ const OPTIONS: { mode: SortMode; label: string; icon: AppIconName }[] = [
   { mode: "priority_asc", label: "Priority: Low to High", icon: "arrow-down" },
   { mode: "time_asc", label: "Time: Earliest First", icon: "sunrise" },
   { mode: "time_desc", label: "Time: Latest First", icon: "sunset" },
+  { mode: "deadline_asc", label: "Deadline: Earliest First", icon: "calendar" },
+  { mode: "deadline_desc", label: "Deadline: Latest First", icon: "calendar" },
 ];
 
 export function SortModal({ visible, current, onSelect, onClose }: Props) {

@@ -59,7 +59,9 @@ function habitToTask(habit: Habit, dateStr: string, completed: boolean): Task & 
     priority: 2,
     completed,
     completedAt: completed ? new Date().toISOString() : null,
-    timerStartedAt: null,
+    timerStartedAt: completed ? null : habit.timerStartedAt,
+    actualDurationMinutes: Math.max(0, Math.round((habit.trackedSecondsToday ?? 0) / 60)),
+    completionXp: 0,
     createdAt: habit.createdAt,
   };
 }
@@ -74,7 +76,15 @@ export function TasksScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { tasks, loading, initialized: tasksInitialized, error, sortMode, setSortMode, refresh, addTask, removeTask, toggleTaskCompletion, startTimer } = useTasks();
-  const { habits, loading: habitsLoading, initialized: habitsInitialized, loadHistory, isHabitCompletedOn, setHabitCompletedOn } = useHabits();
+  const {
+    habits,
+    loading: habitsLoading,
+    initialized: habitsInitialized,
+    loadHistory,
+    isHabitCompletedOn,
+    setHabitCompletedOn,
+    startHabitTimer,
+  } = useHabits();
   const { categories, loading: categoriesLoading, initialized: categoriesInitialized } = useCategories();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -297,20 +307,31 @@ export function TasksScreen() {
         Alert.alert("Habits are only for today", "You can complete habits only on the current date.");
         return;
       }
-      const nextCompleted = !task.completed;
       const habitId = task._habitId!;
-      void setHabitCompletedOn(habitId, selectedDate, nextCompleted).catch((err) => {
-        Alert.alert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
-      });
 
-      if (nextCompleted) {
+      if (task.completed) {
+        void setHabitCompletedOn(habitId, selectedDate, false).catch((err) => {
+          Alert.alert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
+        });
+        return;
+      }
+
+      if (task.timerStartedAt) {
+        void setHabitCompletedOn(habitId, selectedDate, true).catch((err) => {
+          Alert.alert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
+        });
         scheduleUndo({
           kind: "habit-complete",
           habitId,
           date: selectedDate,
           message: "Habit completed",
         });
+        return;
       }
+
+      void startHabitTimer(habitId, selectedDate).catch((err) => {
+        Alert.alert("Failed to start habit", err instanceof Error ? err.message : "Unknown error");
+      });
       return;
     }
 

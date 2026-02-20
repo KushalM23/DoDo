@@ -12,6 +12,8 @@ export type Habit = {
   bestStreak: number;
   lastCompletedOn: string | null;
   nextOccurrenceOn: string | null;
+  timerStartedAt: string | null;
+  trackedSecondsToday: number;
   createdAt: string;
 };
 

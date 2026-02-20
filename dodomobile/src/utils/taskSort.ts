@@ -1,6 +1,13 @@
 import type { Task } from "../types/task";
 
-export type SortMode = "smart" | "priority_desc" | "priority_asc" | "time_asc" | "time_desc";
+export type SortMode =
+  | "smart"
+  | "priority_desc"
+  | "priority_asc"
+  | "time_asc"
+  | "time_desc"
+  | "deadline_asc"
+  | "deadline_desc";
 
 function priorityWeight(priority: number): number {
   if (priority === 3) return 50;
@@ -46,6 +53,10 @@ export function sortTasks(tasks: Task[], mode: SortMode = "smart"): Task[] {
         return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
       case "time_desc":
         return new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime();
+      case "deadline_asc":
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      case "deadline_desc":
+        return new Date(b.deadline).getTime() - new Date(a.deadline).getTime();
       default: {
         const scoreA = priorityWeight(a.priority) + deadlineWeight(a.deadline) + scheduledAtWeight(a.scheduledAt);
         const scoreB = priorityWeight(b.priority) + deadlineWeight(b.deadline) + scheduledAtWeight(b.scheduledAt);
@@ -55,4 +66,3 @@ export function sortTasks(tasks: Task[], mode: SortMode = "smart"): Task[] {
     }
   });
 }
-

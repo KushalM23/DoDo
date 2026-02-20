@@ -18,7 +18,19 @@ import type { CreateTaskInput, Priority } from "../../types/task";
 import { formatDateTime, toLocalDateKey } from "../../utils/dateTime";
 
 type UndoState =
-  | { kind: "complete"; task: CreateTaskInput & { id: string; completed: boolean; completedAt: string | null; timerStartedAt: string | null; createdAt: string }; message: string }
+  | {
+      kind: "complete";
+      task: CreateTaskInput & {
+        id: string;
+        completed: boolean;
+        completedAt: string | null;
+        timerStartedAt: string | null;
+        actualDurationMinutes: number;
+        completionXp: number;
+        createdAt: string;
+      };
+      message: string;
+    }
   | { kind: "delete"; taskId: string; message: string };
 
 function localDateOnly(iso: string): string {

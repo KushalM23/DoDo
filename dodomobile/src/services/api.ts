@@ -102,7 +102,11 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
 
 export async function updateTask(
   taskId: string,
-  updates: Partial<CreateTaskInput> & { completed?: boolean; timerStartedAt?: string | null },
+  updates: Partial<CreateTaskInput> & {
+    completed?: boolean;
+    timerStartedAt?: string | null;
+    actualDurationMinutes?: number;
+  },
 ): Promise<Task> {
   const data = await apiRequest<{ task: Task }>(`/tasks/${taskId}`, "PATCH", updates);
   return data.task;
@@ -177,5 +181,15 @@ export async function completeHabit(habitId: string, date?: string): Promise<Hab
 export async function uncompleteHabit(habitId: string, date?: string): Promise<Habit> {
   const qs = date ? `?date=${encodeURIComponent(date)}` : "";
   const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}/complete${qs}`, "DELETE");
+  return data.habit;
+}
+
+export async function startHabitTimer(habitId: string, date?: string): Promise<Habit> {
+  const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}/start`, "POST", date ? { date } : {});
+  return data.habit;
+}
+
+export async function pauseHabitTimer(habitId: string, date?: string): Promise<Habit> {
+  const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}/pause`, "POST", date ? { date } : {});
   return data.habit;
 }

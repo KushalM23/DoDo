@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fetchMe, login, register, setAuthToken } from "../services/api";
 import type { AuthUser } from "../types/auth";
@@ -9,6 +9,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
+  refreshUser: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -44,11 +45,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void bootstrapAuth();
   }, []);
 
+  const refreshCurrentUser = useCallback(async (): Promise<void> => {
+    if (!token) return;
+    try {
+      const me = await fetchMe();
+      setUser(me);
+    } catch {
+      // Ignore refresh errors and keep existing auth state.
+    }
+  }, [token]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       token,
       loading,
+      refreshUser: refreshCurrentUser,
       async signIn(email: string, password: string) {
         const data = await login(email, password);
         setAuthToken(data.token);
@@ -66,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
       },
     }),
-    [loading, token, user],
+    [loading, refreshCurrentUser, token, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

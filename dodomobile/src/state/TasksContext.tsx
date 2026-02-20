@@ -19,7 +19,11 @@ type TasksContextValue = {
   removeTask: (taskId: string) => Promise<void>;
   updateTaskDetails: (
     taskId: string,
-    updates: Partial<CreateTaskInput> & { completed?: boolean; timerStartedAt?: string | null },
+    updates: Partial<CreateTaskInput> & {
+      completed?: boolean;
+      timerStartedAt?: string | null;
+      actualDurationMinutes?: number;
+    },
   ) => Promise<void>;
 };
 
@@ -75,6 +79,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         completed: false,
         completedAt: null,
         timerStartedAt: null,
+        actualDurationMinutes: 0,
+        completionXp: 0,
         createdAt: new Date().toISOString(),
       };
 
@@ -147,7 +153,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const updateTaskDetails = useCallback(
     async (
       taskId: string,
-      updates: Partial<CreateTaskInput> & { completed?: boolean; timerStartedAt?: string | null },
+      updates: Partial<CreateTaskInput> & {
+        completed?: boolean;
+        timerStartedAt?: string | null;
+        actualDurationMinutes?: number;
+      },
     ) => {
       const updated = await updateTask(taskId, updates);
       setTasks((prev) => sortTasks(prev.map((t) => (t.id === taskId ? updated : t)), sortMode));

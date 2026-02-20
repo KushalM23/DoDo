@@ -30,13 +30,25 @@ export function HabitDetailScreen() {
   const route = useRoute<HabitDetailRoute>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { preferences } = usePreferences();
-  const { habits, loading, initialized, editHabit, removeHabit, loadHistory, isHabitCompletedOn, setHabitCompletedOn } = useHabits();
+  const {
+    habits,
+    loading,
+    initialized,
+    editHabit,
+    removeHabit,
+    loadHistory,
+    isHabitCompletedOn,
+    setHabitCompletedOn,
+    startHabitTimer,
+    pauseHabitTimer,
+  } = useHabits();
 
   const [busy, setBusy] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
   const [undoVisible, setUndoVisible] = useState(false);
   const [undoProgress, setUndoProgress] = useState(0);
   const [lockInMode, setLockInMode] = useState(false);
+  const [hasStartedInSession, setHasStartedInSession] = useState(false);
   const [lockTime, setLockTime] = useState(() => new Date());
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -79,6 +91,14 @@ export function HabitDetailScreen() {
     return () => clearInterval(timer);
   }, [lockInMode]);
 
+  useEffect(() => {
+    setHasStartedInSession(!!habit?.timerStartedAt);
+  }, [habit?.id]);
+
+  useEffect(() => {
+    if (habit?.timerStartedAt) setHasStartedInSession(true);
+  }, [habit?.timerStartedAt]);
+
   if (!initialized || (loading && habits.length === 0)) {
     return <LoadingScreen title="Loading habit" />;
   }
@@ -103,6 +123,9 @@ export function HabitDetailScreen() {
   const currentHabit = habit;
 
   const completedToday = isHabitCompletedOn(currentHabit.id, todayKey);
+  const showStart = !completedToday && !currentHabit.timerStartedAt && !hasStartedInSession;
+  const showResume = !completedToday && !currentHabit.timerStartedAt && hasStartedInSession;
+  const showPause = !completedToday && !!currentHabit.timerStartedAt;
 
   if (lockInMode) {
     const hour24 = lockTime.getHours();
@@ -122,6 +145,20 @@ export function HabitDetailScreen() {
             <Text style={styles.lockMeta}>{formatHabitFrequency(currentHabit)}</Text>
             <Text style={styles.lockMeta}>{minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}</Text>
           </View>
+
+          {showStart || showResume ? (
+            <Pressable style={[styles.lockSessionBtn, busy && styles.disabled]} disabled={busy} onPress={handleStartOrResume}>
+              <AppIcon name="play" size={16} color={colors.success} />
+              <Text style={[styles.lockSessionText, { color: colors.success }]}>{showStart ? "Start" : "Resume"}</Text>
+            </Pressable>
+          ) : null}
+
+          {showPause ? (
+            <Pressable style={[styles.lockSessionBtn, busy && styles.disabled]} disabled={busy} onPress={handlePause}>
+              <AppIcon name="clock" size={16} color={colors.accent} />
+              <Text style={[styles.lockSessionText, { color: colors.accent }]}>Pause</Text>
+            </Pressable>
+          ) : null}
 
           <Pressable style={[styles.lockCompleteBtn, busy && styles.disabled]} disabled={busy} onPress={toggleTodayCompletion}>
             <AppIcon name={completedToday ? "rotate-ccw" : "check"} size={16} color="#fff" />
@@ -210,6 +247,31 @@ export function HabitDetailScreen() {
     }
   }
 
+  async function handleStartOrResume() {
+    if (busy || completedToday) return;
+    setHasStartedInSession(true);
+    setBusy(true);
+    try {
+      await startHabitTimer(currentHabit.id, todayKey);
+    } catch (err) {
+      Alert.alert("Failed", err instanceof Error ? err.message : "Unable to start habit.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePause() {
+    if (busy || !currentHabit.timerStartedAt || completedToday) return;
+    setBusy(true);
+    try {
+      await pauseHabitTimer(currentHabit.id, todayKey);
+    } catch (err) {
+      Alert.alert("Failed", err instanceof Error ? err.message : "Unable to pause habit.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function onDelete() {
     Alert.alert("Delete Habit", "This will remove the habit and its history.", [
       { text: "Cancel", style: "cancel" },
@@ -290,6 +352,21 @@ export function HabitDetailScreen() {
           <AppIcon name={completedToday ? "rotate-ccw" : "check"} size={16} color="#fff" />
           <Text style={styles.completeBtnText}>{completedToday ? "Undo Today" : "Mark Today Complete"}</Text>
         </Pressable>
+
+        <View style={styles.sessionActionsRow}>
+          {showStart || showResume ? (
+            <Pressable style={[styles.sessionBtn, styles.sessionStartBtn, busy && styles.disabled]} disabled={busy} onPress={handleStartOrResume}>
+              <AppIcon name="play" size={16} color={colors.success} />
+              <Text style={[styles.sessionBtnText, { color: colors.success }]}>{showStart ? "Start" : "Resume"}</Text>
+            </Pressable>
+          ) : null}
+          {showPause ? (
+            <Pressable style={[styles.sessionBtn, styles.sessionPauseBtn, busy && styles.disabled]} disabled={busy} onPress={handlePause}>
+              <AppIcon name="clock" size={16} color={colors.accent} />
+              <Text style={[styles.sessionBtnText, { color: colors.accent }]}>Pause</Text>
+            </Pressable>
+          ) : null}
+        </View>
 
         {undoVisible && (
           <View style={styles.undoBar}>
@@ -397,6 +474,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row",
     gap: spacing.sm,
+  },
+  lockSessionBtn: {
+    width: "100%",
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  lockSessionText: {
+    fontWeight: "700",
+    fontSize: fontSize.sm,
   },
   lockCompleteText: {
     color: "#fff",
@@ -555,6 +648,33 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
     fontSize: fontSize.sm,
+  },
+  sessionActionsRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  sessionBtn: {
+    flex: 1,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  sessionStartBtn: {
+    borderColor: colors.success,
+    backgroundColor: colors.successLight,
+  },
+  sessionPauseBtn: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentLight,
+  },
+  sessionBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
   },
   actionsRow: {
     flexDirection: "row",

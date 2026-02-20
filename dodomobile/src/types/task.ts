@@ -12,6 +12,8 @@ export type Task = {
   completed: boolean;
   completedAt: string | null;
   timerStartedAt: string | null;
+  actualDurationMinutes: number;
+  completionXp: number;
   createdAt: string;
 };
 
@@ -24,4 +26,3 @@ export type CreateTaskInput = {
   durationMinutes: number | null;
   priority: Priority;
 };
-
