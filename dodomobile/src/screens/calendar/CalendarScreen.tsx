@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from "react-native";
+import { Animated, Dimensions, Easing, Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchTasksInRange } from "../../services/api";
 import { useHabits } from "../../state/HabitsContext";
@@ -7,6 +7,7 @@ import { usePreferences } from "../../state/PreferencesContext";
 import { spacing, radii, fontSize } from "../../theme/colors";
 import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { AppIcon } from "../../components/AppIcon";
+import { LoadingScreen } from "../../components/LoadingScreen";
 import { formatDate, formatTime, getCalendarOffset, getWeekdayLabels, toLocalDateKey } from "../../utils/dateTime";
 import { habitAppliesToDate } from "../../utils/habits";
 import type { Habit } from "../../types/habit";
@@ -221,18 +222,21 @@ function touchDistance(event: GestureResponderEvent): number {
 export function CalendarScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { habits, completionMap, loadHistory } = useHabits();
+  const { habits, completionMap, loadHistory, loading: habitsLoading, initialized: habitsInitialized } = useHabits();
   const { preferences } = usePreferences();
 
   const today = useMemo(() => new Date(), []);
   const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(today));
   const [selectedDate, setSelectedDate] = useState<string>(() => localDateKey(today));
   const [monthTasks, setMonthTasks] = useState<Task[]>([]);
+  const [monthLoading, setMonthLoading] = useState(true);
   const [monthError, setMonthError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
   const [timelineHeight, setTimelineHeight] = useState(240);
   const [pxPerMinute, setPxPerMinute] = useState(BASE_PX_PER_MINUTE);
   const pinchStartDistanceRef = useRef(0);
   const pinchStartScaleRef = useRef(BASE_PX_PER_MINUTE);
+  const reloadSpin = useRef(new Animated.Value(0)).current;
 
   const dayNames = useMemo(() => getWeekdayLabels(preferences.weekStart), [preferences.weekStart]);
 
@@ -251,6 +255,7 @@ export function CalendarScreen() {
   useEffect(() => {
     const { startAt, endAt } = monthWindow(currentMonth);
     setMonthError(null);
+    setMonthLoading(true);
 
     fetchTasksInRange(startAt, endAt)
       .then((data) => {
@@ -258,15 +263,18 @@ export function CalendarScreen() {
       })
       .catch((err) => {
         setMonthError(err instanceof Error ? err.message : "Failed to load calendar tasks.");
+      })
+      .finally(() => {
+        setMonthLoading(false);
       });
-  }, [currentMonth]);
+  }, [currentMonth, reloadTick]);
 
   useEffect(() => {
     if (monthCells.length === 0) return;
     const startDate = monthCells[0].dateKey;
     const endDate = monthCells[monthCells.length - 1].dateKey;
     void loadHistory({ startDate, endDate }).catch(() => {});
-  }, [monthCells, loadHistory]);
+  }, [monthCells, loadHistory, reloadTick]);
 
   const statusMap = useMemo(() => taskStatusByDate(monthTasks), [monthTasks]);
   const habitStatusMap = useMemo(
@@ -335,6 +343,17 @@ export function CalendarScreen() {
     setSelectedDate(localDateKey(now));
   }
 
+  function handleReload() {
+    reloadSpin.setValue(0);
+    Animated.timing(reloadSpin, {
+      toValue: 1,
+      duration: 450,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+    setReloadTick((prev) => prev + 1);
+  }
+
   function handleSelectDate(cell: CalendarCell) {
     setSelectedDate(cell.dateKey);
     if (!cell.inCurrentMonth) {
@@ -381,16 +400,33 @@ export function CalendarScreen() {
     pinchStartDistanceRef.current = 0;
   }
 
+  const initialLoading = !habitsInitialized || (habitsLoading && habits.length === 0) || (monthLoading && monthTasks.length === 0);
+  const reloadRotate = reloadSpin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["360deg", "0deg"],
+  });
+
+  if (initialLoading) {
+    return <LoadingScreen title="Loading calendar" iconName="calendar" />;
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.appName}>Dodo</Text>
-        <Pressable style={styles.todayBtn} onPress={handleToday} hitSlop={8}>
-          <View style={styles.todayIconWrap}>
-            <AppIcon name="calendar" size={18} color={colors.accent} />
-            <Text style={styles.todayBtnText}>{todayCompact}</Text>
-          </View>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable style={styles.actionBtn} onPress={handleReload} hitSlop={8}>
+            <Animated.View style={{ transform: [{ rotate: reloadRotate }] }}>
+              <AppIcon name="rotate-ccw" size={16} color={colors.accent} />
+            </Animated.View>
+          </Pressable>
+          <Pressable style={styles.todayBtn} onPress={handleToday} hitSlop={8}>
+            <View style={styles.todayIconWrap}>
+              <AppIcon name="calendar" size={18} color={colors.accent} />
+              <Text style={styles.todayBtnText}>{todayCompact}</Text>
+            </View>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.content}>
@@ -598,6 +634,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  actionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   todayIconWrap: {
     width: 32,
     height: 32,
@@ -611,7 +659,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 8,
     fontWeight: "900",
     position: "absolute",
-    bottom: 9,
+    bottom: 8,
     lineHeight: 8,
   },
   weekRow: {

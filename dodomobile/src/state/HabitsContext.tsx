@@ -18,6 +18,7 @@ function tempId(): string {
 type HabitsContextValue = {
   habits: Habit[];
   loading: boolean;
+  initialized: boolean;
   completionMap: Record<string, Record<string, boolean>>;
   refresh: () => Promise<void>;
   addHabit: (input: CreateHabitInput) => Promise<void>;
@@ -35,11 +36,13 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completionMap, setCompletionMap] = useState<Record<string, Record<string, boolean>>>({});
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!user) {
       setHabits([]);
       setCompletionMap({});
+      setInitialized(true);
       return;
     }
     setLoading(true);
@@ -50,8 +53,13 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
       console.error('[HabitsContext] refresh error:', err);
     } finally {
       setLoading(false);
+      setInitialized(true);
     }
   }, [user]);
+
+  useEffect(() => {
+    setInitialized(false);
+  }, [user?.id]);
 
   // Optimistic add
   const addHabit = useCallback(async (input: CreateHabitInput) => {
@@ -177,6 +185,7 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
     () => ({
       habits,
       loading,
+      initialized,
       completionMap,
       refresh,
       addHabit,
@@ -188,6 +197,7 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       habits,
+      initialized,
       loading,
       completionMap,
       refresh,

@@ -7,6 +7,7 @@ import type { RouteProp } from "@react-navigation/native";
 import { AppIcon } from "../../components/AppIcon";
 import { HoldToConfirmButton } from "../../components/HoldToConfirmButton";
 import { HabitForm } from "../../components/HabitForm";
+import { LoadingScreen } from "../../components/LoadingScreen";
 import { useHabits } from "../../state/HabitsContext";
 import { usePreferences } from "../../state/PreferencesContext";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
@@ -29,7 +30,7 @@ export function HabitDetailScreen() {
   const route = useRoute<HabitDetailRoute>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { preferences } = usePreferences();
-  const { habits, editHabit, removeHabit, loadHistory, isHabitCompletedOn, setHabitCompletedOn } = useHabits();
+  const { habits, loading, initialized, editHabit, removeHabit, loadHistory, isHabitCompletedOn, setHabitCompletedOn } = useHabits();
 
   const [busy, setBusy] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
@@ -78,6 +79,10 @@ export function HabitDetailScreen() {
     return () => clearInterval(timer);
   }, [lockInMode]);
 
+  if (!initialized || (loading && habits.length === 0)) {
+    return <LoadingScreen title="Loading habit" />;
+  }
+
   if (!habit) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
@@ -111,7 +116,6 @@ export function HabitDetailScreen() {
           <View style={styles.lockClockWrap}>
             <Text style={styles.lockClockLine}>{lockHour}</Text>
             <Text style={styles.lockClockLine}>{lockMinute}</Text>
-            {meridiem ? <Text style={styles.lockClockMeridiem}>{meridiem}</Text> : null}
           </View>
 
           <View style={styles.lockInfoBlock}>
@@ -344,7 +348,7 @@ export function HabitDetailScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   lockContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#000",
   },
   lockContent: {
     flex: 1,
@@ -358,20 +362,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   lockClockWrap: {
     alignItems: "center",
     marginTop: spacing.lg,
+    paddingTop: spacing.xs,
   },
   lockClockLine: {
-    color: colors.text,
-    fontSize: 68,
+    color: "#fff",
+    fontSize: 88,
     fontWeight: "800",
-    lineHeight: 72,
-    letterSpacing: 2,
-  },
-  lockClockMeridiem: {
-    color: colors.mutedText,
-    fontSize: fontSize.md,
-    fontWeight: "700",
-    marginTop: spacing.xs,
-    letterSpacing: 1,
+    lineHeight: 110,
+    letterSpacing: 0.5,
+    includeFontPadding: true,
   },
   lockInfoBlock: {
     alignItems: "center",

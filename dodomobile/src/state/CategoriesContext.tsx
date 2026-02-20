@@ -18,6 +18,7 @@ import {
 type CategoriesContextValue = {
   categories: Category[];
   loading: boolean;
+  initialized: boolean;
   refresh: () => Promise<void>;
   addCategory: (input: CreateCategoryInput) => Promise<void>;
   editCategory: (id: string, input: CreateCategoryInput) => Promise<void>;
@@ -70,6 +71,7 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
   const { user } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
 
   const persistOrder = useCallback(
@@ -84,6 +86,7 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
     if (!user?.id) {
       setCategories([]);
       setOrderedIds([]);
+      setInitialized(true);
       return;
     }
 
@@ -125,8 +128,13 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       console.error("[CategoriesContext] refresh error:", err);
     } finally {
       setLoading(false);
+      setInitialized(true);
     }
   }, [persistOrder, user?.id]);
+
+  useEffect(() => {
+    setInitialized(false);
+  }, [user?.id]);
 
   const addCategory = useCallback(
     async (input: CreateCategoryInput) => {
@@ -196,13 +204,14 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
     () => ({
       categories,
       loading,
+      initialized,
       refresh,
       addCategory,
       editCategory,
       removeCategory,
       setCategoryOrder,
     }),
-    [addCategory, categories, editCategory, loading, refresh, removeCategory, setCategoryOrder],
+    [addCategory, categories, editCategory, initialized, loading, refresh, removeCategory, setCategoryOrder],
   );
 
   return <CategoriesContext.Provider value={value}>{children}</CategoriesContext.Provider>;

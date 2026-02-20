@@ -10,6 +10,7 @@ import { AppIcon } from "../../components/AppIcon";
 import { HoldToConfirmButton } from "../../components/HoldToConfirmButton";
 import { TaskForm } from "../../components/TaskForm";
 import { CustomDateTimePicker } from "../../components/CustomDateTimePicker";
+import { LoadingScreen } from "../../components/LoadingScreen";
 import { spacing, radii, fontSize } from "../../theme/colors";
 import { type ThemeColors, useThemeColors, useThemeMode } from "../../theme/ThemeProvider";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
@@ -36,8 +37,8 @@ export function TaskDetailScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const route = useRoute<RouteProp<RootStackParamList, "TaskDetail">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { tasks, toggleTaskCompletion, startTimer, pauseTimer, removeTask, updateTaskDetails } = useTasks();
-  const { categories } = useCategories();
+  const { tasks, loading: tasksLoading, initialized: tasksInitialized, toggleTaskCompletion, startTimer, pauseTimer, removeTask, updateTaskDetails } = useTasks();
+  const { categories, loading: categoriesLoading, initialized: categoriesInitialized } = useCategories();
   const { preferences } = usePreferences();
 
   const taskId = route.params.taskId;
@@ -245,6 +246,10 @@ export function TaskDetailScreen() {
     }
   }
 
+  if (!tasksInitialized || !categoriesInitialized || (tasksLoading && tasks.length === 0) || (categoriesLoading && categories.length === 0)) {
+    return <LoadingScreen title="Loading task" />;
+  }
+
   if (!task) {
     return (
       <SafeAreaView style={styles.container}>
@@ -278,7 +283,6 @@ export function TaskDetailScreen() {
           <View style={styles.lockClockWrap}>
             <Text style={styles.lockClockLine}>{lockHour}</Text>
             <Text style={styles.lockClockLine}>{lockMinute}</Text>
-            {meridiem ? <Text style={styles.lockClockMeridiem}>{meridiem}</Text> : null}
           </View>
 
           <View style={styles.lockInfoBlock}>
@@ -560,7 +564,7 @@ export function TaskDetailScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   lockContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#000",
   },
   lockContent: {
     flex: 1,
@@ -574,20 +578,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   lockClockWrap: {
     alignItems: "center",
     marginTop: spacing.lg,
+    paddingTop: spacing.xs,
   },
   lockClockLine: {
-    color: colors.text,
-    fontSize: 68,
+    color: "#fff",
+    fontSize: 88,
     fontWeight: "800",
-    lineHeight: 72,
-    letterSpacing: 2,
-  },
-  lockClockMeridiem: {
-    color: colors.mutedText,
-    fontSize: fontSize.md,
-    fontWeight: "700",
-    marginTop: spacing.xs,
-    letterSpacing: 1,
+    lineHeight: 110,
+    letterSpacing: 0.5,
+    includeFontPadding: true,
   },
   lockInfoBlock: {
     alignItems: "center",

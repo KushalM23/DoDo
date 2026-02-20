@@ -10,6 +10,7 @@ import { usePreferences } from "../../state/PreferencesContext";
 import { spacing, radii, fontSize } from "../../theme/colors";
 import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { AppIcon } from "../../components/AppIcon";
+import { LoadingScreen } from "../../components/LoadingScreen";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import { formatDate, toLocalDateKey } from "../../utils/dateTime";
 
@@ -59,8 +60,8 @@ export function ProfileScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
-  const { tasks } = useTasks();
-  const { habits } = useHabits();
+  const { tasks, loading: tasksLoading, initialized: tasksInitialized } = useTasks();
+  const { habits, loading: habitsLoading, initialized: habitsInitialized } = useHabits();
   const { preferences } = usePreferences();
 
   const completedTasks = useMemo(() => tasks.filter((t) => t.completed), [tasks]);
@@ -88,6 +89,10 @@ export function ProfileScreen() {
   const levelProgress = (xp % 200) / 200;
   const xpToNextLevel = 200 - (xp % 200 || 200);
   const displayName = user?.display_name?.trim() || user?.email?.split("@")[0] || "Guest";
+
+  if (!tasksInitialized || !habitsInitialized || (tasksLoading && tasks.length === 0) || (habitsLoading && habits.length === 0)) {
+    return <LoadingScreen title="Loading profile" />;
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>

@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { HabitForm } from "../../components/HabitForm";
 import { AppIcon } from "../../components/AppIcon";
+import { LoadingScreen } from "../../components/LoadingScreen";
 import { useHabits } from "../../state/HabitsContext";
 import { usePreferences } from "../../state/PreferencesContext";
 import type { Habit } from "../../types/habit";
@@ -17,13 +18,17 @@ export function HabitScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { habits, addHabit } = useHabits();
+  const { habits, addHabit, loading, initialized } = useHabits();
   const { preferences } = usePreferences();
   const [formVisible, setFormVisible] = useState(false);
 
   const sortedHabits = useMemo(() => {
     return [...habits].sort((a, b) => a.title.localeCompare(b.title));
   }, [habits]);
+
+  if (!initialized || (loading && habits.length === 0)) {
+    return <LoadingScreen title="Loading habits" />;
+  }
 
   function openHabit(habit: Habit) {
     navigation.navigate("HabitDetail", { habitId: habit.id });

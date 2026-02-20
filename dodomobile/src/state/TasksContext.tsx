@@ -7,6 +7,7 @@ import { sortTasks, type SortMode } from "../utils/taskSort";
 type TasksContextValue = {
   tasks: Task[];
   loading: boolean;
+  initialized: boolean;
   error: string | null;
   sortMode: SortMode;
   setSortMode: (mode: SortMode) => void;
@@ -28,6 +29,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("smart");
 
@@ -35,6 +37,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     async (date?: string) => {
       if (!user) {
         setTasks([]);
+        setInitialized(true);
         return;
       }
 
@@ -47,10 +50,15 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         setError(err instanceof Error ? err.message : "Failed to load tasks.");
       } finally {
         setLoading(false);
+        setInitialized(true);
       }
     },
     [user, sortMode],
   );
+
+  useEffect(() => {
+    setInitialized(false);
+  }, [user?.id]);
 
   const addTask = useCallback(
     async (input: CreateTaskInput) => {
@@ -179,6 +187,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     () => ({
       tasks,
       loading,
+      initialized,
       error,
       sortMode,
       setSortMode,
@@ -190,7 +199,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       removeTask,
       updateTaskDetails,
     }),
-    [addTask, error, loading, pauseTimer, refresh, removeTask, sortMode, startTimer, tasks, toggleTaskCompletion, updateTaskDetails],
+    [addTask, error, initialized, loading, pauseTimer, refresh, removeTask, sortMode, startTimer, tasks, toggleTaskCompletion, updateTaskDetails],
   );
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;

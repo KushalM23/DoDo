@@ -12,6 +12,7 @@ import { CategoryBar } from "../../components/CategoryBar";
 import { DateStrip } from "../../components/DateStrip";
 import { SortModal } from "../../components/SortModal";
 import { AppIcon } from "../../components/AppIcon";
+import { LoadingScreen } from "../../components/LoadingScreen";
 import { sortTasks } from "../../utils/taskSort";
 import { habitAppliesToDate, minuteToIso } from "../../utils/habits";
 import { spacing, radii, fontSize } from "../../theme/colors";
@@ -72,9 +73,9 @@ type UndoState =
 export function TasksScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { tasks, loading, error, sortMode, setSortMode, refresh, addTask, removeTask, toggleTaskCompletion, startTimer } = useTasks();
-  const { habits, loadHistory, isHabitCompletedOn, setHabitCompletedOn } = useHabits();
-  const { categories } = useCategories();
+  const { tasks, loading, initialized: tasksInitialized, error, sortMode, setSortMode, refresh, addTask, removeTask, toggleTaskCompletion, startTimer } = useTasks();
+  const { habits, loading: habitsLoading, initialized: habitsInitialized, loadHistory, isHabitCompletedOn, setHabitCompletedOn } = useHabits();
+  const { categories, loading: categoriesLoading, initialized: categoriesInitialized } = useCategories();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -88,6 +89,13 @@ export function TasksScreen() {
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isTodaySelected = selectedDate === todayStr();
+  const screenBootLoading =
+    !tasksInitialized ||
+    !habitsInitialized ||
+    !categoriesInitialized ||
+    (loading && tasks.length === 0) ||
+    (habitsLoading && habits.length === 0) ||
+    (categoriesLoading && categories.length === 0);
 
   useEffect(() => {
     void loadHistory({ startDate: selectedDate, endDate: selectedDate }).catch(() => {});
@@ -330,6 +338,10 @@ export function TasksScreen() {
       return;
     }
     navigation.navigate("TaskDetail", { taskId: task.id });
+  }
+
+  if (screenBootLoading) {
+    return <LoadingScreen title="Loading tasks" />;
   }
 
   return (
