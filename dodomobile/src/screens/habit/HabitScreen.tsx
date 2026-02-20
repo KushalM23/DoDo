@@ -9,10 +9,13 @@ import { useHabits } from "../../state/HabitsContext";
 import { usePreferences } from "../../state/PreferencesContext";
 import type { Habit } from "../../types/habit";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
-import { colors, fontSize, radii, spacing } from "../../theme/colors";
+import { fontSize, radii, spacing } from "../../theme/colors";
+import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { formatHabitFrequency, minuteToLabel } from "../../utils/habits";
 
 export function HabitScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { habits, addHabit } = useHabits();
   const { preferences } = usePreferences();
@@ -80,7 +83,7 @@ export function HabitScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

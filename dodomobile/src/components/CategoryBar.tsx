@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useCategories } from "../state/CategoriesContext";
-import { colors, spacing, radii, fontSize } from "../theme/colors";
+import { spacing, radii, fontSize } from "../theme/colors";
+import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
 import {
   CATEGORY_COLOR_OPTIONS,
   CATEGORY_ICON_OPTIONS,
@@ -18,6 +19,8 @@ type Props = {
 };
 
 export function CategoryBar({ selected, onSelect }: Props) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { categories, addCategory, editCategory, removeCategory, setCategoryOrder } = useCategories();
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [manageModalVisible, setManageModalVisible] = useState(false);
@@ -329,7 +332,7 @@ export function CategoryBar({ selected, onSelect }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   outerRow: {
     flexDirection: "row",
     alignItems: "center",

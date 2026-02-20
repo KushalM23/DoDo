@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { TasksScreen } from "../screens/tasks/TasksScreen";
 import { HabitScreen } from "../screens/habit/HabitScreen";
 import { CalendarScreen } from "../screens/calendar/CalendarScreen";
 import { ProfileScreen } from "../screens/profile/ProfileScreen";
-import { colors, fontSize } from "../theme/colors";
+import { fontSize } from "../theme/colors";
+import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
 import { AppIcon } from "../components/AppIcon";
 
 export type MainTabsParamList = {
@@ -18,6 +19,9 @@ export type MainTabsParamList = {
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 export function MainTabs() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -72,7 +76,7 @@ export function MainTabs() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tabBar: {
     backgroundColor: colors.surface,
     borderTopColor: colors.border,

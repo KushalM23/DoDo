@@ -7,7 +7,8 @@ import { useAuth } from "../../state/AuthContext";
 import { useTasks } from "../../state/TasksContext";
 import { useHabits } from "../../state/HabitsContext";
 import { usePreferences } from "../../state/PreferencesContext";
-import { colors, spacing, radii, fontSize } from "../../theme/colors";
+import { spacing, radii, fontSize } from "../../theme/colors";
+import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { AppIcon } from "../../components/AppIcon";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import { formatDate, toLocalDateKey } from "../../utils/dateTime";
@@ -54,6 +55,8 @@ function calculateStreaks(completedDateKeys: string[]): { currentStreak: number;
 }
 
 export function ProfileScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const { tasks } = useTasks();
@@ -206,7 +209,7 @@ export function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

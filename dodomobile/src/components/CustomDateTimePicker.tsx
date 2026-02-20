@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { AppIcon } from "./AppIcon";
-import { colors, spacing, radii, fontSize } from "../theme/colors";
+import { spacing, radii, fontSize } from "../theme/colors";
+import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
 import type { TimeFormatPreference, WeekStartPreference } from "../state/PreferencesContext";
 import { getCalendarOffset, getWeekdayInitials } from "../utils/dateTime";
 
@@ -33,6 +34,8 @@ export function CustomDateTimePicker({
   weekStart = "sunday",
   mode = "datetime",
 }: Props) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [viewMonth, setViewMonth] = useState(value.getMonth());
   const [hourInput, setHourInput] = useState("12");
@@ -246,7 +249,7 @@ export function CustomDateTimePicker({
 
 const CELL_SIZE = 38;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.surfaceLight,
     borderRadius: radii.md,
@@ -304,7 +307,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   dayTextSelected: {
-    color: "#fff",
+    color: colors.surface,
     fontWeight: "700",
   },
   dayTextToday: {

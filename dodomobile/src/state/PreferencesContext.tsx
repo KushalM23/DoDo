@@ -13,7 +13,7 @@ export type UserPreferences = {
 };
 
 const DEFAULT_PREFERENCES: UserPreferences = {
-  darkMode: false,
+  darkMode: true,
   dateFormat: "eu",
   timeFormat: "12h",
   weekStart: "monday",

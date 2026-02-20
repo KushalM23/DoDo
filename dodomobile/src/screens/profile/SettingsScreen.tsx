@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -8,19 +8,24 @@ import { useAuth } from "../../state/AuthContext";
 import { usePreferences } from "../../state/PreferencesContext";
 import { changePassword, deleteAccount } from "../../services/api";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
-import { colors, spacing, radii, fontSize } from "../../theme/colors";
+import { spacing, radii, fontSize } from "../../theme/colors";
+import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 
 function SegmentedControl<T extends string>({
   title,
   value,
   options,
   onChange,
+  colors,
 }: {
   title: string;
   value: T;
   options: { value: T; label: string }[];
   onChange: (next: T) => void;
+  colors: ThemeColors;
 }) {
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.prefBlock}>
       <Text style={styles.prefLabel}>{title}</Text>
@@ -43,6 +48,8 @@ function SegmentedControl<T extends string>({
 }
 
 export function SettingsScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { signOut } = useAuth();
   const {
@@ -152,6 +159,7 @@ export function SettingsScreen() {
         <SegmentedControl
           title="Date format"
           value={preferences.dateFormat}
+          colors={colors}
           options={[
             { value: "eu", label: "EU (DD/MM/YYYY)" },
             { value: "us", label: "US (MM/DD/YYYY)" },
@@ -164,6 +172,7 @@ export function SettingsScreen() {
         <SegmentedControl
           title="Time format"
           value={preferences.timeFormat}
+          colors={colors}
           options={[
             { value: "12h", label: "12-hour" },
             { value: "24h", label: "24-hour" },
@@ -176,6 +185,7 @@ export function SettingsScreen() {
         <SegmentedControl
           title="Week start"
           value={preferences.weekStart}
+          colors={colors}
           options={[
             { value: "monday", label: "Monday" },
             { value: "sunday", label: "Sunday" },
@@ -239,7 +249,7 @@ export function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

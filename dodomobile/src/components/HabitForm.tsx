@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { AppIcon } from "./AppIcon";
 import { CustomDateTimePicker } from "./CustomDateTimePicker";
 import type { CreateHabitInput, Habit, HabitFrequencyType } from "../types/habit";
-import { colors, fontSize, radii, spacing } from "../theme/colors";
+import { fontSize, radii, spacing } from "../theme/colors";
+import { type ThemeColors, useThemeColors, useThemeMode } from "../theme/ThemeProvider";
 import { usePreferences } from "../state/PreferencesContext";
 import { minuteToLabel } from "../utils/habits";
 
@@ -26,6 +27,9 @@ const WEEK_DAYS = [
 ];
 
 export function HabitForm({ visible, mode = "create", initialValues, onCancel, onSubmit }: HabitFormProps) {
+  const colors = useThemeColors();
+  const themeMode = useThemeMode();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { preferences } = usePreferences();
   const [title, setTitle] = useState("");
   const [frequencyType, setFrequencyType] = useState<HabitFrequencyType>("daily");
@@ -183,6 +187,7 @@ export function HabitForm({ visible, mode = "create", initialValues, onCancel, o
             </Pressable>
             {showPicker && (
               <CustomDateTimePicker
+                key={`habit-form-picker-${themeMode}`}
                 value={timeValue}
                 onChange={setTimeValue}
                 timeFormat={preferences.timeFormat}
@@ -245,7 +250,7 @@ export function HabitForm({ visible, mode = "create", initialValues, onCancel, o
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",

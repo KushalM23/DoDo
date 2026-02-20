@@ -1,5 +1,6 @@
 {
   "name": "DoDo",
-  "displayName": "DoDo"
+  "displayName": "DoDo",
+  "icon": "./assets/icon.jpg"
 }
 

@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, spacing, radii, fontSize } from "../theme/colors";
+import { spacing, radii, fontSize } from "../theme/colors";
+import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
 import type { SortMode } from "../utils/taskSort";
 import { AppIcon, type AppIconName } from "./AppIcon";
 
@@ -20,6 +21,9 @@ const OPTIONS: { mode: SortMode; label: string; icon: AppIconName }[] = [
 ];
 
 export function SortModal({ visible, current, onSelect, onClose }: Props) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
@@ -51,7 +55,7 @@ export function SortModal({ visible, current, onSelect, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",

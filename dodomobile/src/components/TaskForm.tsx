@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { CustomDateTimePicker } from "./CustomDateTimePicker";
 import { AppIcon } from "./AppIcon";
 import type { CreateTaskInput, Priority } from "../types/task";
 import type { Category } from "../types/category";
-import { colors, spacing, radii, fontSize } from "../theme/colors";
+import { spacing, radii, fontSize } from "../theme/colors";
+import { type ThemeColors, useThemeColors, useThemeMode } from "../theme/ThemeProvider";
 import { usePreferences } from "../state/PreferencesContext";
 import { formatDate, formatTime } from "../utils/dateTime";
 
@@ -51,6 +52,9 @@ export function TaskForm({
   onCancel,
   onSubmit,
 }: TaskFormProps) {
+  const colors = useThemeColors();
+  const themeMode = useThemeMode();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { preferences } = usePreferences();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -207,6 +211,7 @@ export function TaskForm({
             </Pressable>
             {showPicker && (
               <CustomDateTimePicker
+                key={`task-form-picker-${themeMode}`}
                 value={scheduledAt}
                 onChange={setScheduledAt}
                 timeFormat={preferences.timeFormat}
@@ -314,7 +319,7 @@ export function TaskForm({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",

@@ -3,6 +3,7 @@ const path = require('path');
 const monorepoRoot = path.resolve(__dirname, '..');
 
 module.exports = {
+  assets: ['./assets/fonts'],
   project: {
     android: {
       sourceDir: './android',

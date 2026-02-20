@@ -10,7 +10,8 @@ import { AppIcon } from "../../components/AppIcon";
 import { HoldToConfirmButton } from "../../components/HoldToConfirmButton";
 import { TaskForm } from "../../components/TaskForm";
 import { CustomDateTimePicker } from "../../components/CustomDateTimePicker";
-import { colors, spacing, radii, fontSize } from "../../theme/colors";
+import { spacing, radii, fontSize } from "../../theme/colors";
+import { type ThemeColors, useThemeColors, useThemeMode } from "../../theme/ThemeProvider";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import type { CreateTaskInput, Priority } from "../../types/task";
 import { formatDateTime, toLocalDateKey } from "../../utils/dateTime";
@@ -23,13 +24,16 @@ function localDateOnly(iso: string): string {
   return toLocalDateKey(iso);
 }
 
-function priorityMeta(priority: Priority): { label: string; color: string; icon: "arrow-down-circle" | "minus-circle" | "arrow-up-circle" } {
+function priorityMeta(priority: Priority, colors: ThemeColors): { label: string; color: string; icon: "arrow-down-circle" | "minus-circle" | "arrow-up-circle" } {
   if (priority === 3) return { label: "High", color: colors.highPriority, icon: "arrow-up-circle" };
   if (priority === 2) return { label: "Medium", color: colors.mediumPriority, icon: "minus-circle" };
   return { label: "Low", color: colors.lowPriority, icon: "arrow-down-circle" };
 }
 
 export function TaskDetailScreen() {
+  const colors = useThemeColors();
+  const themeMode = useThemeMode();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const route = useRoute<RouteProp<RootStackParamList, "TaskDetail">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { tasks, toggleTaskCompletion, startTimer, pauseTimer, removeTask, updateTaskDetails } = useTasks();
@@ -87,7 +91,7 @@ export function TaskDetailScreen() {
   const category = task?.categoryId ? categories.find((c) => c.id === task.categoryId) ?? null : null;
   const categoryName = category?.name ?? "None";
 
-  const priorityInfo = useMemo(() => (task ? priorityMeta(task.priority) : null), [task]);
+  const priorityInfo = useMemo(() => (task ? priorityMeta(task.priority, colors) : null), [task, colors]);
 
   function clearUndoTimer() {
     if (undoTimerRef.current) {
@@ -524,6 +528,7 @@ export function TaskDetailScreen() {
             ) : (
               <>
                 <CustomDateTimePicker
+                  key={`task-detail-postpone-picker-${themeMode}`}
                   value={postponeDate}
                   onChange={setPostponeDate}
                   timeFormat={preferences.timeFormat}
@@ -552,10 +557,10 @@ export function TaskDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   lockContainer: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: colors.background,
   },
   lockContent: {
     flex: 1,
@@ -571,14 +576,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   lockClockLine: {
-    color: "#fff",
+    color: colors.text,
     fontSize: 68,
     fontWeight: "800",
     lineHeight: 72,
     letterSpacing: 2,
   },
   lockClockMeridiem: {
-    color: "#BDBDBD",
+    color: colors.mutedText,
     fontSize: fontSize.md,
     fontWeight: "700",
     marginTop: spacing.xs,
@@ -589,13 +594,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   lockTitle: {
-    color: "#fff",
+    color: colors.text,
     fontSize: fontSize.xl,
     fontWeight: "700",
     textAlign: "center",
   },
   lockMeta: {
-    color: "#BDBDBD",
+    color: colors.mutedText,
     fontSize: fontSize.sm,
     textAlign: "center",
   },
@@ -608,13 +613,13 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: "#2A2A2A",
+    borderColor: colors.border,
     minHeight: 52,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
-    backgroundColor: "#121212",
+    backgroundColor: colors.surface,
   },
   lockActionText: {
     fontSize: fontSize.sm,
@@ -631,7 +636,7 @@ const styles = StyleSheet.create({
   },
   lockExitBtn: {
     alignSelf: "center",
-    backgroundColor: "#111111",
+    backgroundColor: colors.surface,
     borderColor: colors.border,
   },
   container: {

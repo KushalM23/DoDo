@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, spacing, radii, fontSize } from "../theme/colors";
+import { spacing, radii, fontSize } from "../theme/colors";
+import { type ThemeColors, useThemeColors, useThemeMode } from "../theme/ThemeProvider";
 
 type Props = {
   selectedDate: string; // YYYY-MM-DD
@@ -35,6 +36,9 @@ const DAYS = generateDays();
 const ITEM_WIDTH = 52;
 
 export function DateStrip({ selectedDate, onSelectDate }: Props) {
+  const colors = useThemeColors();
+  const themeMode = useThemeMode();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const listRef = useRef<FlatList>(null);
   const hasInitialCenteredRef = useRef(false);
   const initialIndex = useMemo(() => {
@@ -52,7 +56,7 @@ export function DateStrip({ selectedDate, onSelectDate }: Props) {
       const isToday = item.dateStr === DAYS[CENTER_INDEX].dateStr;
       return (
         <Pressable
-          style={[styles.dayItem, active && styles.dayItemActive]}
+          style={[styles.dayItem, isToday && styles.dayItemToday, active && styles.dayItemActive]}
           onPress={() => onSelectDate(item.dateStr)}
         >
           <Text style={[styles.dayName, active && styles.dayNameActive]}>{item.dayName}</Text>
@@ -61,13 +65,14 @@ export function DateStrip({ selectedDate, onSelectDate }: Props) {
         </Pressable>
       );
     },
-    [selectedDate, onSelectDate],
+    [selectedDate, onSelectDate, styles],
   );
 
   return (
     <FlatList
       ref={listRef}
       data={DAYS}
+      extraData={`${selectedDate}:${themeMode}`}
       horizontal
       initialScrollIndex={initialIndex}
       onLayout={() => {
@@ -91,7 +96,7 @@ export function DateStrip({ selectedDate, onSelectDate }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     alignItems: "center",
     gap: 6,
@@ -110,6 +115,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     borderColor: colors.accent,
   },
+  dayItemToday: {
+    backgroundColor: colors.accentLight,
+    borderColor: colors.accent,
+  },
   dayName: {
     fontSize: fontSize.xs,
     color: colors.mutedText,
@@ -117,7 +126,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   dayNameActive: {
-    color: "#fff",
+    color: colors.surface,
   },
   dayNum: {
     fontSize: fontSize.md + 1,
@@ -125,7 +134,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   dayNumActive: {
-    color: "#fff",
+    color: colors.surface,
   },
   todayDot: {
     width: 4,
@@ -135,6 +144,6 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   todayDotActive: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.surface,
   },
 });

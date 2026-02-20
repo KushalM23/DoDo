@@ -10,7 +10,8 @@ import { HabitForm } from "../../components/HabitForm";
 import { useHabits } from "../../state/HabitsContext";
 import { usePreferences } from "../../state/PreferencesContext";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
-import { colors, fontSize, radii, spacing } from "../../theme/colors";
+import { fontSize, radii, spacing } from "../../theme/colors";
+import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { formatHabitFrequency, minuteToLabel } from "../../utils/habits";
 
 type HabitDetailRoute = RouteProp<RootStackParamList, "HabitDetail">;
@@ -23,6 +24,8 @@ function dateKey(date: Date): string {
 }
 
 export function HabitDetailScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const route = useRoute<HabitDetailRoute>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { preferences } = usePreferences();
@@ -51,6 +54,8 @@ export function HabitDetailScreen() {
     }
     return out;
   }, [today]);
+
+  const todayWeekKey = useMemo(() => dateKey(weekDays[weekDays.length - 1]), [weekDays]);
 
   useEffect(() => {
     if (!habit) return;
@@ -257,7 +262,7 @@ export function HabitDetailScreen() {
                 <View style={[styles.weekDot, completed && styles.weekDotDone]}>
                   {completed ? <AppIcon name="check" size={10} color="#fff" /> : null}
                 </View>
-                <Text style={styles.weekLabel}>{dayLabel}</Text>
+                <Text style={[styles.weekLabel, key === todayWeekKey && styles.weekLabelToday]}>{dayLabel}</Text>
               </View>
             );
           })}
@@ -336,10 +341,10 @@ export function HabitDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   lockContainer: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: colors.background,
   },
   lockContent: {
     flex: 1,
@@ -355,14 +360,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   lockClockLine: {
-    color: "#fff",
+    color: colors.text,
     fontSize: 68,
     fontWeight: "800",
     lineHeight: 72,
     letterSpacing: 2,
   },
   lockClockMeridiem: {
-    color: "#BDBDBD",
+    color: colors.mutedText,
     fontSize: fontSize.md,
     fontWeight: "700",
     marginTop: spacing.xs,
@@ -373,13 +378,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   lockTitle: {
-    color: "#fff",
+    color: colors.text,
     fontSize: fontSize.xl,
     fontWeight: "700",
     textAlign: "center",
   },
   lockMeta: {
-    color: "#BDBDBD",
+    color: colors.mutedText,
     fontSize: fontSize.sm,
     textAlign: "center",
   },
@@ -402,7 +407,7 @@ const styles = StyleSheet.create({
   },
   lockExitBtn: {
     alignSelf: "center",
-    backgroundColor: "#111111",
+    backgroundColor: colors.surface,
     borderColor: colors.border,
   },
   container: {
@@ -485,7 +490,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.md,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.xs,
     paddingVertical: spacing.md,
   },
   weekDay: {
@@ -493,9 +498,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   weekDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
@@ -510,6 +515,9 @@ const styles = StyleSheet.create({
     color: colors.mutedText,
     fontSize: 10,
     fontWeight: "700",
+  },
+  weekLabelToday: {
+    color: colors.text,
   },
   infoCard: {
     backgroundColor: colors.surface,

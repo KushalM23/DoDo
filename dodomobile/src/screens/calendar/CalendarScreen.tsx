@@ -4,7 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchTasksInRange } from "../../services/api";
 import { useHabits } from "../../state/HabitsContext";
 import { usePreferences } from "../../state/PreferencesContext";
-import { colors, spacing, radii, fontSize } from "../../theme/colors";
+import { spacing, radii, fontSize } from "../../theme/colors";
+import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { AppIcon } from "../../components/AppIcon";
 import { formatDate, formatTime, getCalendarOffset, getWeekdayLabels, toLocalDateKey } from "../../utils/dateTime";
 import { habitAppliesToDate } from "../../utils/habits";
@@ -218,6 +219,8 @@ function touchDistance(event: GestureResponderEvent): number {
 }
 
 export function CalendarScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { habits, completionMap, loadHistory } = useHabits();
   const { preferences } = usePreferences();
 
@@ -535,7 +538,7 @@ export function CalendarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { AppIcon, type AppIconName } from "./AppIcon";
-import { colors, fontSize, radii, spacing } from "../theme/colors";
+import { fontSize, radii, spacing } from "../theme/colors";
+import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
 
 type HoldToConfirmButtonProps = {
   label?: string;
@@ -30,23 +31,26 @@ export function HoldToConfirmButton({
   onHoldComplete,
   disabled = false,
   holdDurationMs = 3000,
-  fillColor = colors.accent,
-  textColor = "#fff",
+  fillColor,
+  textColor,
   square = false,
   size = 56,
   progressStyle = "fill",
   showHint,
   style,
 }: HoldToConfirmButtonProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [progress, setProgress] = useState(0);
   const startRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const doneRef = useRef(false);
   const borderStroke = 3;
   const borderRadius = square ? Math.max(radii.xl, Math.round(size * 0.28)) : radii.lg;
+  const resolvedFillColor = fillColor ?? colors.accent;
   const shouldShowHint = showHint ?? (!iconName && !!label);
-  const contentColor = disabled ? colors.mutedText : textColor;
-  const mutedFillColor = fillColor;
+  const contentColor = disabled ? colors.mutedText : (textColor ?? colors.text);
+  const mutedFillColor = resolvedFillColor;
   const edgeTop = Math.max(0, Math.min(1, progress * 4));
   const edgeRight = Math.max(0, Math.min(1, progress * 4 - 1));
   const edgeBottom = Math.max(0, Math.min(1, progress * 4 - 2));
@@ -108,14 +112,14 @@ export function HoldToConfirmButton({
         </View>
       ) : (
         <View pointerEvents="none" style={styles.borderProgressWrap}>
-          <View style={[styles.edgeTop, { height: borderStroke, backgroundColor: fillColor, width: `${edgeTop * 100}%` }]} />
-          <View style={[styles.edgeRight, { width: borderStroke, backgroundColor: fillColor, height: `${edgeRight * 100}%` }]} />
-          <View style={[styles.edgeBottom, { height: borderStroke, backgroundColor: fillColor, width: `${edgeBottom * 100}%` }]} />
-          <View style={[styles.edgeLeft, { width: borderStroke, backgroundColor: fillColor, height: `${edgeLeft * 100}%` }]} />
-          <View style={[styles.cornerDotTopLeft, { width: cornerSize, height: cornerSize, backgroundColor: fillColor, opacity: cornerTopLeft }]} />
-          <View style={[styles.cornerDotTopRight, { width: cornerSize, height: cornerSize, backgroundColor: fillColor, opacity: cornerTopRight }]} />
-          <View style={[styles.cornerDotBottomRight, { width: cornerSize, height: cornerSize, backgroundColor: fillColor, opacity: cornerBottomRight }]} />
-          <View style={[styles.cornerDotBottomLeft, { width: cornerSize, height: cornerSize, backgroundColor: fillColor, opacity: cornerBottomLeft }]} />
+          <View style={[styles.edgeTop, { height: borderStroke, backgroundColor: resolvedFillColor, width: `${edgeTop * 100}%` }]} />
+          <View style={[styles.edgeRight, { width: borderStroke, backgroundColor: resolvedFillColor, height: `${edgeRight * 100}%` }]} />
+          <View style={[styles.edgeBottom, { height: borderStroke, backgroundColor: resolvedFillColor, width: `${edgeBottom * 100}%` }]} />
+          <View style={[styles.edgeLeft, { width: borderStroke, backgroundColor: resolvedFillColor, height: `${edgeLeft * 100}%` }]} />
+          <View style={[styles.cornerDotTopLeft, { width: cornerSize, height: cornerSize, backgroundColor: resolvedFillColor, opacity: cornerTopLeft }]} />
+          <View style={[styles.cornerDotTopRight, { width: cornerSize, height: cornerSize, backgroundColor: resolvedFillColor, opacity: cornerTopRight }]} />
+          <View style={[styles.cornerDotBottomRight, { width: cornerSize, height: cornerSize, backgroundColor: resolvedFillColor, opacity: cornerBottomRight }]} />
+          <View style={[styles.cornerDotBottomLeft, { width: cornerSize, height: cornerSize, backgroundColor: resolvedFillColor, opacity: cornerBottomLeft }]} />
         </View>
       )}
 
@@ -126,7 +130,7 @@ export function HoldToConfirmButton({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   button: {
     borderRadius: radii.lg,
     borderWidth: 1,
@@ -141,7 +145,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: colors.accentLight,
   },
   progressFill: {
     ...StyleSheet.absoluteFillObject,
@@ -151,7 +155,7 @@ const styles = StyleSheet.create({
   progressTrackVertical: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: colors.accentLight,
   },
   progressFillVertical: {
     width: "100%",

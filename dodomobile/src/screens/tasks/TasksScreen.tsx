@@ -14,7 +14,8 @@ import { SortModal } from "../../components/SortModal";
 import { AppIcon } from "../../components/AppIcon";
 import { sortTasks } from "../../utils/taskSort";
 import { habitAppliesToDate, minuteToIso } from "../../utils/habits";
-import { colors, spacing, radii, fontSize } from "../../theme/colors";
+import { spacing, radii, fontSize } from "../../theme/colors";
+import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import type { CreateTaskInput, Task } from "../../types/task";
 import type { Habit } from "../../types/habit";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
@@ -69,6 +70,8 @@ type UndoState =
   | { kind: "delete"; task: Task; message: string };
 
 export function TasksScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { tasks, loading, error, sortMode, setSortMode, refresh, addTask, removeTask, toggleTaskCompletion, startTimer } = useTasks();
   const { habits, loadHistory, isHabitCompletedOn, setHabitCompletedOn } = useHabits();
   const { categories } = useCategories();
@@ -428,7 +431,7 @@ export function TasksScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

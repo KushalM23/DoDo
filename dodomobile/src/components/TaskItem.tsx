@@ -3,7 +3,8 @@ import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react
 import { AppIcon } from "./AppIcon";
 import type { Task } from "../types/task";
 import type { Category } from "../types/category";
-import { colors, spacing, radii, fontSize } from "../theme/colors";
+import { spacing, radii, fontSize } from "../theme/colors";
+import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
 import { usePreferences } from "../state/PreferencesContext";
 import { formatTime } from "../utils/dateTime";
 
@@ -17,7 +18,7 @@ type TaskItemProps = {
   onPress?: (task: Task) => void;
 };
 
-function priorityColor(priority: number): string {
+function priorityColor(priority: number, colors: ThemeColors): string {
   if (priority === 3) return colors.highPriority;
   if (priority === 2) return colors.mediumPriority;
   return colors.lowPriority;
@@ -38,6 +39,8 @@ const SWIPE_THRESHOLD = 74;
 const SWIPE_LIMIT = 108;
 
 export function TaskItem({ task, category, isHabit, onToggle, onDelete, onSwipeLeft, onPress }: TaskItemProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { preferences } = usePreferences();
   const translateX = useRef(new Animated.Value(0)).current;
   const timerActive = !!task.timerStartedAt && !task.completed;
@@ -156,8 +159,8 @@ export function TaskItem({ task, category, isHabit, onToggle, onDelete, onSwipeL
 
         <View style={styles.badgesCol}>
           <View style={styles.badgeTopRow}>
-            <View style={[styles.priorityPill, { backgroundColor: `${priorityColor(task.priority)}22` }]}>
-              <AppIcon name={priorityIcon(task.priority)} size={13} color={priorityColor(task.priority)} />
+            <View style={[styles.priorityPill, { backgroundColor: `${priorityColor(task.priority, colors)}22` }]}> 
+              <AppIcon name={priorityIcon(task.priority)} size={13} color={priorityColor(task.priority, colors)} />
             </View>
           </View>
           <View style={styles.badgeBottomRow}>
@@ -173,7 +176,7 @@ export function TaskItem({ task, category, isHabit, onToggle, onDelete, onSwipeL
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   outer: {
     marginBottom: spacing.sm,
     overflow: "hidden",
