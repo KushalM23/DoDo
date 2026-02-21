@@ -21,6 +21,10 @@ class ChangePasswordPayload(BaseModel):
     newPassword: str = Field(min_length=6, max_length=100)
 
 
+class RefreshPayload(BaseModel):
+    refreshToken: str = Field(min_length=1)
+
+
 def _fetch_profile_progress(client, user_id: str) -> dict:
     resp = (
         client.table("profiles")
@@ -90,6 +94,7 @@ async def register(body: RegisterPayload):
     return {
         "user": _to_auth_user(resp.user, progress),
         "token": resp.session.access_token if resp.session else None,
+        "refreshToken": resp.session.refresh_token if resp.session else None,
         "requiresEmailConfirmation": resp.session is None,
     }
 
@@ -114,7 +119,25 @@ async def login(body: Credentials):
 
     return {
         "token": resp.session.access_token,
+        "refreshToken": resp.session.refresh_token,
         "user": _to_auth_user(resp.user, progress),
+    }
+
+
+@router.post("/refresh")
+async def refresh_session(body: RefreshPayload):
+    client = get_public_client()
+    try:
+        resp = client.auth.refresh_session(body.refreshToken)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+    if not resp.session or not resp.session.access_token or not resp.session.refresh_token:
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
+
+    return {
+        "token": resp.session.access_token,
+        "refreshToken": resp.session.refresh_token,
     }
 
 

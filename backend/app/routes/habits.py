@@ -14,6 +14,18 @@ router = APIRouter(prefix="/habits")
 
 
 FrequencyType = Literal["daily", "interval", "custom_days"]
+HabitIcon = Literal[
+    "book-open",
+    "dumbbell",
+    "droplets",
+    "utensils",
+    "bed",
+    "target",
+    "brain",
+    "leaf",
+    "music",
+    "cup-soda",
+]
 
 
 def _today_utc_date() -> date_type:
@@ -53,6 +65,14 @@ def _weekday_sun_first(value: date_type) -> int:
 
 
 def _habit_applies_on(row: dict, day: date_type) -> bool:
+    anchor = row.get("anchor_date")
+    if isinstance(anchor, str):
+        anchor = _parse_date(anchor)
+    if not isinstance(anchor, date_type):
+        anchor = day
+    if day < anchor:
+        return False
+
     frequency_type = row.get("frequency_type") or "daily"
 
     if frequency_type == "daily":
@@ -63,14 +83,6 @@ def _habit_applies_on(row: dict, day: date_type) -> bool:
         if not interval_days:
             return False
 
-        anchor = row.get("anchor_date")
-        if isinstance(anchor, str):
-            anchor = _parse_date(anchor)
-        if not isinstance(anchor, date_type):
-            anchor = day
-
-        if day < anchor:
-            return False
         return ((day - anchor).days % interval_days) == 0
 
     custom_days = _normalize_custom_days(row.get("custom_days"))
@@ -141,11 +153,13 @@ def _to_habit_dto(
     return {
         "id": row["id"],
         "title": row["title"],
+        "icon": row.get("icon") or "target",
         "frequencyType": frequency_type,
         "intervalDays": interval_days,
         "customDays": custom_days,
         "timeMinute": row.get("time_minute"),
         "durationMinutes": row.get("duration_minutes"),
+        "anchorDate": row.get("anchor_date"),
         "currentStreak": row.get("current_streak") or 0,
         "bestStreak": row.get("best_streak") or 0,
         "lastCompletedOn": row.get("last_completed_on"),
@@ -195,7 +209,9 @@ def _recalculate_streaks(auth: AuthState, habit_row: dict) -> dict:
         if item.get("completed_on")
     }
 
+    latest_completed = max(completed_days) if completed_days else None
     today = _today_utc_date()
+    evaluation_end = max(today, latest_completed) if latest_completed else today
 
     best = 0
     run = 0
@@ -204,7 +220,7 @@ def _recalculate_streaks(auth: AuthState, habit_row: dict) -> dict:
 
     if completed_days:
         earliest = min(completed_days)
-        latest = today
+        latest = evaluation_end
         cursor = earliest
         while cursor <= latest:
             if _habit_applies_on(habit_row, cursor):
@@ -330,6 +346,7 @@ def _tracked_seconds_for_day(auth: AuthState, habit_id: str, day: date_type) -> 
 
 class CreateHabit(BaseModel):
     title: str = Field(min_length=1, max_length=100)
+    icon: HabitIcon = "target"
     frequencyType: FrequencyType = "daily"
     intervalDays: Optional[int] = Field(default=None, ge=2, le=365)
     customDays: list[int] = Field(default_factory=list)
@@ -339,6 +356,7 @@ class CreateHabit(BaseModel):
 
 class UpdateHabit(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    icon: Optional[HabitIcon] = None
     frequencyType: Optional[FrequencyType] = None
     intervalDays: Optional[int] = Field(default=None, ge=2, le=365)
     customDays: Optional[list[int]] = None
@@ -429,6 +447,7 @@ async def create_habit(body: CreateHabit, auth: AuthState = Depends(require_auth
             {
                 "user_id": auth.user_id,
                 "title": body.title.strip(),
+                "icon": body.icon,
                 "frequency_type": body.frequencyType,
                 "interval_days": interval_days,
                 "custom_days": custom_days,
@@ -476,6 +495,8 @@ async def update_habit(
 
     if "title" in updates:
         payload["title"] = updates["title"].strip()
+    if "icon" in updates:
+        payload["icon"] = updates["icon"]
     if "timeMinute" in updates:
         payload["time_minute"] = updates["timeMinute"]
     if "durationMinutes" in updates:
