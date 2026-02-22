@@ -9,7 +9,17 @@ export type AppIconName =
   | "arrow-up-circle"
   | "arrow-up-down"
   | "briefcase"
+  | "brain"
+  | "book-open"
+  | "bed"
   | "calendar"
+    | "cup-soda"
+    | "droplets"
+    | "dumbbell"
+    | "leaf"
+    | "music"
+    | "target"
+    | "utensils"
   | "check"
   | "check-square"
   | "chevron-down"
@@ -59,8 +69,14 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   "arrow-up-circle": "circle-arrow-up",
   "arrow-up": "arrow-up",
   "arrow-up-down": "arrow-up-down",
+  brain: "brain",
+  "book-open": "book-open",
+  bed: "bed",
   briefcase: "briefcase",
   calendar: "calendar",
+    "cup-soda": "cup-soda",
+    droplets: "droplets",
+    dumbbell: "dumbbell",
   check: "check",
   "check-square": "square-check",
   "chevron-down": "chevron-down",
@@ -78,6 +94,7 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   lock: "lock",
   "lock-open": "lock-open",
   "key-round": "key-round",
+  leaf: "leaf",
   "minus-circle": "circle-minus",
   package: "package",
   play: "play",
@@ -90,10 +107,13 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   sliders: "sliders-horizontal",
   sun: "sun",
   moon: "moon",
+  music: "music",
   sunrise: "sunrise",
   sunset: "sunset",
   square: "square",
+  target: "target",
   "trash-2": "trash-2",
+  utensils: "utensils",
   user: "user",
   x: "x",
   zap: "zap",

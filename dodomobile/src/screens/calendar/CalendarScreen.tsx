@@ -4,6 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchTasksInRange } from "../../services/api";
 import { useHabits } from "../../state/HabitsContext";
 import { usePreferences } from "../../state/PreferencesContext";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { spacing, radii, fontSize } from "../../theme/colors";
 import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { AppIcon } from "../../components/AppIcon";
@@ -12,6 +14,7 @@ import { formatTime, getCalendarOffset, getWeekdayLabels, toLocalDateKey } from 
 import { habitAppliesToDate } from "../../utils/habits";
 import type { Habit } from "../../types/habit";
 import type { Task } from "../../types/task";
+import type { RootStackParamList } from "../../navigation/RootNavigator";
 
 type CalendarCell = {
   key: string;
@@ -32,6 +35,8 @@ type TimelineEvent = {
   endMinute: number;
   completed: boolean;
   isHabit: boolean;
+  taskId?: string;
+  habitId?: string;
 };
 
 type RowPlacedTimelineEvent = TimelineEvent & {
@@ -43,9 +48,9 @@ const AXIS_HEIGHT = 28;
 const MIN_ROW_HEIGHT = 34;
 const MAX_ROW_HEIGHT = 64;
 const MIN_DURATION_MINUTES = 15;
-const BASE_PX_PER_MINUTE = 0.95;
-const MIN_PX_PER_MINUTE = 0.5;
-const MAX_PX_PER_MINUTE = 3.2;
+const BASE_PX_PER_MINUTE = 0.5;
+const MIN_PX_PER_MINUTE = 0.4175;
+const MAX_PX_PER_MINUTE = 3.5;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CELL_SIZE = Math.floor((SCREEN_WIDTH - spacing.lg * 2) / 7);
 
@@ -163,6 +168,7 @@ function toTaskEvent(task: Task): TimelineEvent {
 
   return {
     id: task.id,
+    taskId: task.id,
     title: task.title,
     startMinute,
     endMinute,
@@ -173,11 +179,12 @@ function toTaskEvent(task: Task): TimelineEvent {
 
 function toHabitEvent(habit: Habit, dateKey: string, index: number): TimelineEvent {
   const startMinute = habit.timeMinute ?? fallbackHabitStartMinute(habit, index);
-  const duration = 30;
+  const duration = habit.durationMinutes ?? 30;
   const endMinute = Math.min(DAY_MINUTES, startMinute + Math.max(MIN_DURATION_MINUTES, duration));
 
   return {
     id: `habit_${habit.id}_${dateKey}`,
+    habitId: habit.id,
     title: habit.title,
     startMinute,
     endMinute,
@@ -219,6 +226,7 @@ function touchDistance(event: GestureResponderEvent): number {
 }
 
 export function CalendarScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { habits, completionMap, loadHistory, loading: habitsLoading, initialized: habitsInitialized } = useHabits();
@@ -231,9 +239,15 @@ export function CalendarScreen() {
   const [monthLoading, setMonthLoading] = useState(true);
   const [reloadTick, setReloadTick] = useState(0);
   const [timelineHeight, setTimelineHeight] = useState(240);
+  const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
   const [pxPerMinute, setPxPerMinute] = useState(BASE_PX_PER_MINUTE);
+  const timelineScrollRef = useRef<ScrollView | null>(null);
+  const timelineScrollXRef = useRef(0);
   const pinchStartDistanceRef = useRef(0);
-  const pinchStartScaleRef = useRef(BASE_PX_PER_MINUTE);
+  const pinchAppliedScaleRef = useRef(BASE_PX_PER_MINUTE);
+  const pinchTargetScaleRef = useRef(BASE_PX_PER_MINUTE);
+  const pinchFocalXRef = useRef(0);
+  const pinchRafRef = useRef<number | null>(null);
   const reloadSpin = useRef(new Animated.Value(0)).current;
 
   const dayNames = useMemo(() => getWeekdayLabels(preferences.weekStart), [preferences.weekStart]);
@@ -361,25 +375,81 @@ export function CalendarScreen() {
 
   function onTimelineLayout(event: LayoutChangeEvent) {
     setTimelineHeight(event.nativeEvent.layout.height);
+    setTimelineViewportWidth(event.nativeEvent.layout.width);
+  }
+
+  function clampScrollX(value: number, scale: number): number {
+    const maxX = Math.max(0, DAY_MINUTES * scale - timelineViewportWidth);
+    return Math.max(0, Math.min(maxX, value));
+  }
+
+  function pinchFocalX(event: GestureResponderEvent): number {
+    if (event.nativeEvent.touches.length < 2) return 0;
+    const [a, b] = event.nativeEvent.touches;
+    return (a.locationX + b.locationX) / 2;
   }
 
   function startPinch(event: GestureResponderEvent) {
     if (event.nativeEvent.touches.length < 2) return;
     pinchStartDistanceRef.current = touchDistance(event);
-    pinchStartScaleRef.current = pxPerMinute;
+    pinchAppliedScaleRef.current = pxPerMinute;
+    pinchTargetScaleRef.current = pxPerMinute;
+    pinchFocalXRef.current = pinchFocalX(event);
+    if (pinchRafRef.current != null) {
+      cancelAnimationFrame(pinchRafRef.current);
+      pinchRafRef.current = null;
+    }
   }
 
   function movePinch(event: GestureResponderEvent) {
     if (event.nativeEvent.touches.length < 2 || pinchStartDistanceRef.current <= 0) return;
     const currentDistance = touchDistance(event);
     if (currentDistance <= 0) return;
+    pinchFocalXRef.current = pinchFocalX(event);
     const scaleFactor = currentDistance / pinchStartDistanceRef.current;
-    const nextScale = Math.max(MIN_PX_PER_MINUTE, Math.min(MAX_PX_PER_MINUTE, pinchStartScaleRef.current * scaleFactor));
-    setPxPerMinute(nextScale);
+    const baseScale = pinchAppliedScaleRef.current;
+    const nextScale = Math.max(MIN_PX_PER_MINUTE, Math.min(MAX_PX_PER_MINUTE, baseScale * scaleFactor));
+    if (Math.abs(nextScale - pinchTargetScaleRef.current) < 0.005) return;
+    pinchTargetScaleRef.current = nextScale;
+
+    if (pinchRafRef.current != null) return;
+    pinchRafRef.current = requestAnimationFrame(() => {
+      const previousScale = pinchAppliedScaleRef.current;
+      const scale = pinchTargetScaleRef.current;
+      const focalX = pinchFocalXRef.current;
+      const contentX = timelineScrollXRef.current + focalX;
+      const minuteAtFocal = previousScale > 0 ? contentX / previousScale : 0;
+      const nextScrollX = clampScrollX(minuteAtFocal * scale - focalX, scale);
+
+      pinchAppliedScaleRef.current = scale;
+      setPxPerMinute(scale);
+      timelineScrollXRef.current = nextScrollX;
+      timelineScrollRef.current?.scrollTo({ x: nextScrollX, animated: false });
+
+      pinchStartDistanceRef.current = currentDistance;
+      pinchRafRef.current = null;
+    });
   }
 
   function endPinch() {
+    if (pinchRafRef.current != null) {
+      cancelAnimationFrame(pinchRafRef.current);
+      pinchRafRef.current = null;
+    }
+    const clamped = Math.max(MIN_PX_PER_MINUTE, Math.min(MAX_PX_PER_MINUTE, pinchTargetScaleRef.current));
+    pinchAppliedScaleRef.current = clamped;
+    setPxPerMinute(clamped);
     pinchStartDistanceRef.current = 0;
+  }
+
+  function handleTimelinePress(event: RowPlacedTimelineEvent) {
+    if (event.isHabit && event.habitId) {
+      navigation.navigate("HabitDetail", { habitId: event.habitId });
+      return;
+    }
+    if (event.taskId) {
+      navigation.navigate("TaskDetail", { taskId: event.taskId });
+    }
   }
 
   const initialLoading = !habitsInitialized || (habitsLoading && habits.length === 0) || (monthLoading && monthTasks.length === 0);
@@ -478,6 +548,7 @@ export function CalendarScreen() {
         </View>
 
         <View style={styles.timelineSection}>
+          <Text style={styles.timelineTitle}>Timeline</Text>
           <View
             style={styles.timelineShell}
             onLayout={onTimelineLayout}
@@ -488,7 +559,16 @@ export function CalendarScreen() {
             onResponderRelease={endPinch}
             onResponderTerminate={endPinch}
           >
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timelineScrollContent}>
+            <ScrollView
+              ref={timelineScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.timelineScrollContent}
+              onScroll={(event) => {
+                timelineScrollXRef.current = event.nativeEvent.contentOffset.x;
+              }}
+              scrollEventThrottle={16}
+            >
               <View style={[styles.timelineTrack, { width: timelineWidth }]}> 
                 {timelineMarks.map((minute) => {
                   const left = minute * pxPerMinute;
@@ -509,8 +589,9 @@ export function CalendarScreen() {
                     const width = Math.max(42, (event.endMinute - event.startMinute) * pxPerMinute);
                     const top = event.row * rowHeight + 6;
                     return (
-                      <View
+                      <Pressable
                         key={event.id}
+                        onPress={() => handleTimelinePress(event)}
                         style={[
                           styles.eventCard,
                           {
@@ -543,7 +624,7 @@ export function CalendarScreen() {
                         >
                           {event.isHabit ? "Habit" : "Task"}
                         </Text>
-                      </View>
+                      </Pressable>
                     );
                   })}
                 </View>
@@ -560,6 +641,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  timelineTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: "700",
+    color: colors.text,
+    marginTop: 4,
   },
   header: {
     flexDirection: "row",
@@ -669,17 +756,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   daySelected: {
     borderWidth: 1.5,
     borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-    shadowColor: colors.accent,
-    shadowOpacity: 0.45,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 3,
+    backgroundColor: "transparent",
   },
   daySelectedToday: {
-    backgroundColor: "transparent",
-    shadowOpacity: 0,
-    elevation: 0,
+    backgroundColor: colors.accentLight,
   },
   dayNum: {
     color: colors.text,

@@ -54,6 +54,9 @@ export function HabitScreen() {
         contentContainerStyle={sortedHabits.length === 0 ? styles.emptyContainer : styles.list}
         renderItem={({ item }) => (
           <Pressable style={styles.card} onPress={() => openHabit(item)}>
+            <View style={styles.iconPill}>
+              <AppIcon name={item.icon} size={14} color={colors.habitBadge} />
+            </View>
             <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
             <View style={styles.cardMetaRow}>
               <AppIcon name="repeat" size={12} color={colors.mutedText} />
@@ -144,6 +147,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: radii.md,
     padding: spacing.md,
     justifyContent: "space-between",
+  },
+  iconPill: {
+    width: 28,
+    height: 28,
+    borderRadius: radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.habitBadgeLight,
+    borderWidth: 1,
+    borderColor: colors.habitBadge,
+    marginBottom: spacing.xs,
   },
   cardMetaRow: {
     flexDirection: "row",

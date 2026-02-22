@@ -141,6 +141,9 @@ export function HabitDetailScreen() {
           </View>
 
           <View style={styles.lockInfoBlock}>
+            <View style={styles.lockIconPill}>
+              <AppIcon name={currentHabit.icon} size={18} color={colors.habitBadge} />
+            </View>
             <Text style={styles.lockTitle}>{currentHabit.title}</Text>
             <Text style={styles.lockMeta}>{formatHabitFrequency(currentHabit)}</Text>
             <Text style={styles.lockMeta}>{minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}</Text>
@@ -297,6 +300,9 @@ export function HabitDetailScreen() {
           <AppIcon name="chevron-left" size={20} color={colors.text} />
         </Pressable>
         <View style={styles.headerTitleWrap}>
+          <View style={styles.headerIconPill}>
+            <AppIcon name={currentHabit.icon} size={14} color={colors.habitBadge} />
+          </View>
           <Text style={styles.name} numberOfLines={1}>{currentHabit.title}</Text>
         </View>
         <View style={styles.headerSide} />
@@ -452,6 +458,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
+  lockIconPill: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.habitBadge,
+    backgroundColor: colors.habitBadgeLight,
+    marginBottom: spacing.xs,
+  },
   lockTitle: {
     color: colors.text,
     fontSize: fontSize.xl,
@@ -522,6 +539,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerIconPill: {
+    width: 28,
+    height: 28,
+    borderRadius: radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.habitBadgeLight,
+    borderWidth: 1,
+    borderColor: colors.habitBadge,
+    marginBottom: spacing.xs,
   },
   headerTitle: {
     color: colors.text,

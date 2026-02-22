@@ -7,12 +7,55 @@ import type { CreateHabitInput, Habit, HabitCompletionRecord } from "../types/ha
 type ApiMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
 let authToken: string | null = null;
+let authRefreshToken: string | null = null;
+let refreshPromise: Promise<string | null> | null = null;
+
+type SessionRefreshHandler = (session: { token: string; refreshToken: string } | null) => Promise<void>;
+let sessionRefreshHandler: SessionRefreshHandler | null = null;
+
+export function setSessionRefreshHandler(handler: SessionRefreshHandler | null) {
+  sessionRefreshHandler = handler;
+}
 
 export function setAuthToken(token: string | null) {
   authToken = token;
 }
 
-async function apiRequest<T>(path: string, method: ApiMethod, body?: object, requiresAuth = true): Promise<T> {
+export function setAuthSession(session: { token: string; refreshToken: string } | null) {
+  authToken = session?.token ?? null;
+  authRefreshToken = session?.refreshToken ?? null;
+}
+
+async function performTokenRefresh(): Promise<string | null> {
+  if (!authRefreshToken) return null;
+  const refreshed = await refreshAuthSession(authRefreshToken);
+  if (!refreshed.token || !refreshed.refreshToken) {
+    return null;
+  }
+  setAuthSession({ token: refreshed.token, refreshToken: refreshed.refreshToken });
+  if (sessionRefreshHandler) {
+    await sessionRefreshHandler({ token: refreshed.token, refreshToken: refreshed.refreshToken });
+  }
+  return refreshed.token;
+}
+
+async function tryRefreshAccessToken(): Promise<string | null> {
+  if (!authRefreshToken) return null;
+  if (!refreshPromise) {
+    refreshPromise = performTokenRefresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
+async function apiRequest<T>(
+  path: string,
+  method: ApiMethod,
+  body?: object,
+  requiresAuth = true,
+  hasRetried = false,
+): Promise<T> {
   if (requiresAuth && !authToken) {
     throw new Error("You are not logged in.");
   }
@@ -42,6 +85,15 @@ async function apiRequest<T>(path: string, method: ApiMethod, body?: object, req
   }
 
   if (!response.ok) {
+    if (response.status === 401 && requiresAuth && !hasRetried) {
+      const refreshedToken = await tryRefreshAccessToken();
+      if (refreshedToken) {
+        return apiRequest<T>(path, method, body, requiresAuth, true);
+      }
+      if (sessionRefreshHandler) {
+        await sessionRefreshHandler(null);
+      }
+    }
     throw new Error(data.error ?? "Request failed");
   }
 
@@ -51,6 +103,7 @@ async function apiRequest<T>(path: string, method: ApiMethod, body?: object, req
 export async function register(email: string, password: string, displayName: string): Promise<{
   user: AuthUser;
   token: string | null;
+  refreshToken: string | null;
   requiresEmailConfirmation: boolean;
 }> {
   return apiRequest(
@@ -61,11 +114,20 @@ export async function register(email: string, password: string, displayName: str
   );
 }
 
-export async function login(email: string, password: string): Promise<{ user: AuthUser; token: string }> {
+export async function login(email: string, password: string): Promise<{ user: AuthUser; token: string; refreshToken: string }> {
   return apiRequest(
     "/auth/login",
     "POST",
     { email: email.trim(), password },
+    false,
+  );
+}
+
+export async function refreshAuthSession(refreshToken: string): Promise<{ token: string; refreshToken: string }> {
+  return apiRequest(
+    "/auth/refresh",
+    "POST",
+    { refreshToken },
     false,
   );
 }

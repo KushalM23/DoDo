@@ -11,10 +11,17 @@ import {
   pauseHabitTimer as apiPauseHabitTimer,
 } from "../services/api";
 import { useAuth } from "./AuthContext";
-import type { CreateHabitInput, Habit } from "../types/habit";
+import { DEFAULT_HABIT_ICON, type CreateHabitInput, type Habit } from "../types/habit";
 
 function tempId(): string {
   return `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+function localDateKey(value: Date): string {
+  const yyyy = value.getFullYear();
+  const mm = String(value.getMonth() + 1).padStart(2, "0");
+  const dd = String(value.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 type HabitsContextValue = {
@@ -71,11 +78,13 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
     const optimistic: Habit = {
       id,
       title: input.title,
+      icon: input.icon ?? DEFAULT_HABIT_ICON,
       frequencyType: input.frequencyType,
       intervalDays: input.intervalDays ?? null,
       customDays: input.customDays ?? [],
       timeMinute: input.timeMinute ?? null,
       durationMinutes: input.durationMinutes ?? null,
+      anchorDate: input.anchorDate ?? localDateKey(new Date()),
       currentStreak: 0,
       bestStreak: 0,
       lastCompletedOn: null,
@@ -145,6 +154,31 @@ export function HabitsProvider({ children }: { children: React.ReactNode }) {
     const rows = await fetchHabitHistory(params);
     setCompletionMap((prev) => {
       const next = { ...prev };
+
+      if (params.startDate && params.endDate) {
+        const from = params.startDate;
+        const to = params.endDate;
+        const clearDatesInRange = (dateMap: Record<string, boolean>) => {
+          const out: Record<string, boolean> = {};
+          Object.entries(dateMap).forEach(([date, value]) => {
+            if (date < from || date > to) {
+              out[date] = value;
+            }
+          });
+          return out;
+        };
+
+        if (params.habitId) {
+          if (next[params.habitId]) {
+            next[params.habitId] = clearDatesInRange(next[params.habitId]);
+          }
+        } else {
+          Object.keys(next).forEach((habitId) => {
+            next[habitId] = clearDatesInRange(next[habitId]);
+          });
+        }
+      }
+
       for (const row of rows) {
         if (!next[row.habitId]) next[row.habitId] = {};
         next[row.habitId] = { ...next[row.habitId], [row.date]: true };

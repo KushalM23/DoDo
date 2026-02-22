@@ -3,6 +3,7 @@ import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react
 import { AppIcon } from "./AppIcon";
 import type { Task } from "../types/task";
 import type { Category } from "../types/category";
+import type { HabitIcon } from "../types/habit";
 import { spacing, radii, fontSize } from "../theme/colors";
 import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
 import { usePreferences } from "../state/PreferencesContext";
@@ -12,6 +13,7 @@ type TaskItemProps = {
   task: Task;
   category?: Category | null;
   isHabit?: boolean;
+  habitIcon?: HabitIcon;
   onToggle: (task: Task) => void;
   onDelete: (taskId: string) => void;
   onSwipeLeft: (task: Task) => void;
@@ -38,7 +40,7 @@ function priorityIcon(priority: number): "arrow-up-circle" | "minus-circle" | "a
 const SWIPE_THRESHOLD = 74;
 const SWIPE_LIMIT = 108;
 
-export function TaskItem({ task, category, isHabit, onToggle, onDelete, onSwipeLeft, onPress }: TaskItemProps) {
+export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelete, onSwipeLeft, onPress }: TaskItemProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { preferences } = usePreferences();
@@ -59,7 +61,7 @@ export function TaskItem({ task, category, isHabit, onToggle, onDelete, onSwipeL
 
   const swipeLeftIcon = getSwipeLeftIcon(task);
   const showLeadingIcon = isHabit || !!category;
-  const leadingIcon = isHabit ? "repeat" : category?.icon;
+  const leadingIcon = isHabit ? (habitIcon ?? "target") : category?.icon;
   const leadingIconColor = isHabit ? colors.habitBadge : category?.color ?? colors.mutedText;
 
   const rightActionOpacity = useMemo(
@@ -159,8 +161,21 @@ export function TaskItem({ task, category, isHabit, onToggle, onDelete, onSwipeL
 
         <View style={styles.badgesCol}>
           <View style={styles.badgeTopRow}>
-            <View style={[styles.priorityPill, { backgroundColor: `${priorityColor(task.priority, colors)}22` }]}> 
-              <AppIcon name={priorityIcon(task.priority)} size={13} color={priorityColor(task.priority, colors)} />
+            <View
+              style={[
+                styles.priorityPill,
+                {
+                  backgroundColor: isHabit
+                    ? `${colors.habitBadge}22`
+                    : `${priorityColor(task.priority, colors)}22`,
+                },
+              ]}
+            >
+              <AppIcon
+                name={isHabit ? "repeat" : priorityIcon(task.priority)}
+                size={13}
+                color={isHabit ? colors.habitBadge : priorityColor(task.priority, colors)}
+              />
             </View>
           </View>
           <View style={styles.badgeBottomRow}>

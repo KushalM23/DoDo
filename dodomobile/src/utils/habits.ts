@@ -11,15 +11,16 @@ function weekdaySunFirst(date: Date): number {
 }
 
 export function habitAppliesToDate(habit: Habit, dateKey: string): boolean {
-  if (habit.frequencyType === "daily") return true;
-
   const target = parseDateKey(dateKey);
+  const anchorSource = habit.anchorDate ? `${habit.anchorDate}T00:00:00` : habit.createdAt;
+  const anchor = anchorSource ? new Date(anchorSource) : target;
+  anchor.setHours(0, 0, 0, 0);
+  if (target < anchor) return false;
+
+  if (habit.frequencyType === "daily") return true;
 
   if (habit.frequencyType === "interval") {
     if (!habit.intervalDays) return false;
-    const anchor = habit.createdAt ? new Date(habit.createdAt) : target;
-    anchor.setHours(0, 0, 0, 0);
-    if (target < anchor) return false;
     const diffDays = Math.floor((target.getTime() - anchor.getTime()) / (24 * 60 * 60 * 1000));
     return diffDays % habit.intervalDays === 0;
   }

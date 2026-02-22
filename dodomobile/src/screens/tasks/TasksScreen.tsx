@@ -42,7 +42,11 @@ function isSameDay(isoString: string, dateStr: string): boolean {
 }
 
 /** Convert a habit into a Task-shaped object for display */
-function habitToTask(habit: Habit, dateStr: string, completed: boolean): Task & { _isHabit: true; _habitId: string } {
+function habitToTask(
+  habit: Habit,
+  dateStr: string,
+  completed: boolean,
+): Task & { _isHabit: true; _habitId: string; _habitIcon: Habit["icon"] } {
   const minute = habit.timeMinute ?? 9 * 60;
   const durationMinutes = habit.durationMinutes ?? 30;
   const scheduledAt = minuteToIso(dateStr, minute);
@@ -50,6 +54,7 @@ function habitToTask(habit: Habit, dateStr: string, completed: boolean): Task & 
     id: `habit_${habit.id}_${dateStr}`,
     _isHabit: true,
     _habitId: habit.id,
+    _habitIcon: habit.icon,
     title: habit.title,
     description: "",
     categoryId: null,
@@ -66,7 +71,7 @@ function habitToTask(habit: Habit, dateStr: string, completed: boolean): Task & 
   };
 }
 
-type DisplayTask = Task & { _isHabit?: boolean; _habitId?: string };
+type DisplayTask = Task & { _isHabit?: boolean; _habitId?: string; _habitIcon?: Habit["icon"] };
 type UndoState =
   | { kind: "complete"; task: Task; message: string }
   | { kind: "habit-complete"; habitId: string; date: string; message: string }
@@ -392,6 +397,7 @@ export function TasksScreen() {
             task={item}
             category={item.categoryId ? categoriesById.get(item.categoryId) ?? null : null}
             isHabit={!!(item as DisplayTask)._isHabit}
+            habitIcon={(item as DisplayTask)._habitIcon}
             onToggle={handleToggleTask}
             onDelete={(id) => handleDeleteTask(id)}
             onSwipeLeft={(t) => handleSwipeLeft(t as DisplayTask)}
@@ -574,6 +580,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: radii.lg,
     paddingHorizontal: spacing.lg,
     backgroundColor: colors.accent,
+    marginBottom: 10,
   },
   newTaskFabText: {
     color: "#fff",

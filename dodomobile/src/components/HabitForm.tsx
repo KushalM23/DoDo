@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { AppIcon } from "./AppIcon";
 import { CustomDateTimePicker } from "./CustomDateTimePicker";
-import type { CreateHabitInput, Habit, HabitFrequencyType } from "../types/habit";
+import { DEFAULT_HABIT_ICON, HABIT_ICON_OPTIONS, type CreateHabitInput, type Habit, type HabitFrequencyType, type HabitIcon } from "../types/habit";
 import { fontSize, radii, spacing } from "../theme/colors";
 import { type ThemeColors, useThemeColors, useThemeMode } from "../theme/ThemeProvider";
 import { usePreferences } from "../state/PreferencesContext";
@@ -26,12 +26,20 @@ const WEEK_DAYS = [
   { id: 6, label: "Sat" },
 ];
 
+function localDateKey(value: Date): string {
+  const yyyy = value.getFullYear();
+  const mm = String(value.getMonth() + 1).padStart(2, "0");
+  const dd = String(value.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export function HabitForm({ visible, mode = "create", initialValues, onCancel, onSubmit }: HabitFormProps) {
   const colors = useThemeColors();
   const themeMode = useThemeMode();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { preferences } = usePreferences();
   const [title, setTitle] = useState("");
+  const [icon, setIcon] = useState<HabitIcon>(DEFAULT_HABIT_ICON);
   const [frequencyType, setFrequencyType] = useState<HabitFrequencyType>("daily");
   const [intervalDays, setIntervalDays] = useState("2");
   const [customDays, setCustomDays] = useState<number[]>([]);
@@ -59,6 +67,7 @@ export function HabitForm({ visible, mode = "create", initialValues, onCancel, o
     }
 
     setTitle(initialValues?.title ?? "");
+    setIcon(initialValues?.icon ?? DEFAULT_HABIT_ICON);
     setFrequencyType(initialValues?.frequencyType ?? "daily");
     setIntervalDays(String(initialValues?.intervalDays ?? 2));
     setCustomDays(initialValues?.customDays ?? []);
@@ -91,6 +100,8 @@ export function HabitForm({ visible, mode = "create", initialValues, onCancel, o
     try {
       await onSubmit({
         title: title.trim(),
+        icon,
+        anchorDate: localDateKey(new Date()),
         frequencyType,
         intervalDays: frequencyType === "interval" ? parsedInterval : null,
         customDays: frequencyType === "custom_days" ? customDays : [],
@@ -125,6 +136,22 @@ export function HabitForm({ visible, mode = "create", initialValues, onCancel, o
               onChangeText={setTitle}
               autoFocus
             />
+
+            <Text style={styles.label}>Icon</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.iconRow}>
+              {HABIT_ICON_OPTIONS.map((iconName) => {
+                const active = iconName === icon;
+                return (
+                  <Pressable
+                    key={iconName}
+                    style={[styles.iconChip, active && styles.iconChipActive]}
+                    onPress={() => setIcon(iconName)}
+                  >
+                    <AppIcon name={iconName} size={16} color={active ? colors.habitBadge : colors.mutedText} />
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
 
             <Text style={styles.label}>Frequency</Text>
             <View style={styles.row}>
@@ -299,6 +326,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: "row",
     gap: spacing.xs,
+  },
+  iconRow: {
+    gap: spacing.sm,
+  },
+  iconChip: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconChipActive: {
+    borderColor: colors.habitBadge,
+    backgroundColor: colors.habitBadgeLight,
   },
   chip: {
     flex: 1,

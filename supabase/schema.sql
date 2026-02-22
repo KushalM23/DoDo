@@ -39,6 +39,7 @@ create table if not exists public.habits (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   title text not null check (char_length(title) between 1 and 100),
+  icon text not null default 'target',
   frequency_type text not null default 'daily' check (frequency_type in ('daily', 'interval', 'custom_days')),
   interval_days integer,
   custom_days smallint[] not null default '{}',
@@ -82,6 +83,7 @@ alter table public.habits add column if not exists frequency_type text;
 alter table public.habits add column if not exists interval_days integer;
 alter table public.habits add column if not exists custom_days smallint[];
 alter table public.habits add column if not exists time_minute integer;
+alter table public.habits add column if not exists icon text;
 alter table public.habits add column if not exists anchor_date date;
 alter table public.habits add column if not exists current_streak integer;
 alter table public.habits add column if not exists best_streak integer;
@@ -129,6 +131,9 @@ set custom_days = '{}'::smallint[]
 where custom_days is null;
 
 update public.habits
+set icon = coalesce(icon, 'target');
+
+update public.habits
 set anchor_date = coalesce(anchor_date, created_at::date, current_date)
 where anchor_date is null;
 
@@ -155,6 +160,8 @@ alter table public.habits alter column frequency_type set default 'daily';
 alter table public.habits alter column frequency_type set not null;
 alter table public.habits alter column custom_days set default '{}'::smallint[];
 alter table public.habits alter column custom_days set not null;
+alter table public.habits alter column icon set default 'target';
+alter table public.habits alter column icon set not null;
 alter table public.habits alter column anchor_date set default current_date;
 alter table public.habits alter column anchor_date set not null;
 alter table public.habits alter column current_streak set default 0;
@@ -204,6 +211,9 @@ alter table public.habits drop constraint if exists habits_start_minute_check;
 alter table public.habits add constraint habits_start_minute_check check (start_minute is null or start_minute between 0 and 1439);
 alter table public.habits drop constraint if exists habits_duration_minutes_check;
 alter table public.habits add constraint habits_duration_minutes_check check (duration_minutes is null or duration_minutes between 1 and 720);
+alter table public.habits drop constraint if exists habits_icon_check;
+alter table public.habits add constraint habits_icon_check
+  check (icon in ('book-open', 'dumbbell', 'droplets', 'utensils', 'bed', 'target', 'brain', 'leaf', 'music', 'cup-soda'));
 
 create index if not exists idx_categories_user_id on public.categories(user_id);
 create index if not exists idx_tasks_user_id on public.tasks(user_id);
