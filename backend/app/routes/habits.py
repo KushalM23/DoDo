@@ -347,6 +347,7 @@ def _tracked_seconds_for_day(auth: AuthState, habit_id: str, day: date_type) -> 
 class CreateHabit(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     icon: HabitIcon = "target"
+    anchorDate: Optional[str] = None
     frequencyType: FrequencyType = "daily"
     intervalDays: Optional[int] = Field(default=None, ge=2, le=365)
     customDays: list[int] = Field(default_factory=list)
@@ -430,7 +431,7 @@ async def create_habit(body: CreateHabit, auth: AuthState = Depends(require_auth
         custom_days=body.customDays,
     )
 
-    today = _today_utc_date()
+    today = _parse_date(body.anchorDate) if body.anchorDate else _today_utc_date()
 
     template = {
         "frequency_type": body.frequencyType,
