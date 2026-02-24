@@ -18,17 +18,15 @@ type TaskItemProps = {
   onDelete: (taskId: string) => void;
   onSwipeLeft: (task: Task) => void;
   onPress?: (task: Task) => void;
+  onLongPress?: (task: Task) => void;
+  selected?: boolean;
+  selectionMode?: boolean;
 };
 
 function priorityColor(priority: number, colors: ThemeColors): string {
   if (priority === 3) return colors.highPriority;
   if (priority === 2) return colors.mediumPriority;
   return colors.lowPriority;
-}
-
-function getSwipeLeftIcon(task: Task): "play" | "check" {
-  if (task.completed || task.timerStartedAt) return "check";
-  return "play";
 }
 
 function priorityIcon(priority: number): "arrow-up-circle" | "minus-circle" | "arrow-down-circle" {
@@ -40,12 +38,11 @@ function priorityIcon(priority: number): "arrow-up-circle" | "minus-circle" | "a
 const SWIPE_THRESHOLD = 74;
 const SWIPE_LIMIT = 108;
 
-export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelete, onSwipeLeft, onPress }: TaskItemProps) {
+export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelete, onSwipeLeft, onPress, onLongPress, selected, selectionMode }: TaskItemProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { preferences } = usePreferences();
   const translateX = useRef(new Animated.Value(0)).current;
-  const timerActive = !!task.timerStartedAt && !task.completed;
 
   // Keep refs so the PanResponder always uses latest values
   const taskRef = useRef(task);
@@ -58,8 +55,11 @@ export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelet
   onToggleRef.current = onToggle;
   const onPressRef = useRef(onPress);
   onPressRef.current = onPress;
+  const onLongPressRef = useRef(onLongPress);
+  onLongPressRef.current = onLongPress;
+  const selectionModeRef = useRef(selectionMode);
+  selectionModeRef.current = selectionMode;
 
-  const swipeLeftIcon = getSwipeLeftIcon(task);
   const showLeadingIcon = isHabit || !!category;
   const leadingIcon = isHabit ? (habitIcon ?? "target") : category?.icon;
   const leadingIconColor = isHabit ? colors.habitBadge : category?.color ?? colors.mutedText;
@@ -87,12 +87,14 @@ export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelet
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 10 && Math.abs(gs.dx) > Math.abs(gs.dy * 1.3),
+        !selectionModeRef.current && Math.abs(gs.dx) > 10 && Math.abs(gs.dx) > Math.abs(gs.dy * 1.3),
       onPanResponderMove: (_, gs) => {
+        if (selectionModeRef.current) return;
         const clampedDx = Math.max(-SWIPE_LIMIT, Math.min(SWIPE_LIMIT, gs.dx));
         translateX.setValue(clampedDx);
       },
       onPanResponderRelease: (_, gs) => {
+        if (selectionModeRef.current) return;
         if (gs.dx <= -SWIPE_THRESHOLD) {
           Animated.timing(translateX, { toValue: -SWIPE_LIMIT, duration: 140, useNativeDriver: true }).start(() => {
             onSwipeLeftRef.current(taskRef.current);
@@ -116,24 +118,44 @@ export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelet
 
   return (
     <View style={styles.outer}>
-      <View style={styles.actionsRow}>
-        <Animated.View style={[styles.actionPane, styles.actionPaneLeft, styles.deleteActionBg, { opacity: leftActionOpacity }]}>
-          <AppIcon name="trash-2" size={15} color="#fff" />
-        </Animated.View>
-        <Animated.View style={[styles.actionPane, styles.actionPaneRight, styles.completeActionBg, { opacity: rightActionOpacity }]}>
-          <AppIcon name={swipeLeftIcon} size={15} color="#fff" />
-        </Animated.View>
-      </View>
+      {!selectionMode && (
+        <View style={styles.actionsRow}>
+          <Animated.View style={[styles.actionPane, styles.actionPaneLeft, styles.deleteActionBg, { opacity: leftActionOpacity }]}>
+            <AppIcon name="trash-2" size={15} color="#fff" />
+          </Animated.View>
+          <Animated.View style={[styles.actionPane, styles.actionPaneRight, styles.completeActionBg, { opacity: rightActionOpacity }]}>
+            <AppIcon name="check" size={15} color="#fff" />
+          </Animated.View>
+        </View>
+      )}
 
       <Animated.View
-        style={[styles.card, task.completed && styles.completedCard, { transform: [{ translateX }] }]}
-        {...panResponder.panHandlers}
+        style={[
+          styles.card,
+          task.completed && styles.completedCard,
+          selected && styles.selectedCard,
+          { transform: [{ translateX: selectionMode ? 0 : translateX }] },
+        ]}
+        {...(selectionMode ? {} : panResponder.panHandlers)}
       >
-        <Pressable style={styles.checkbox} onPress={() => onToggleRef.current(taskRef.current)}>
-          <View style={[styles.checkboxInner, task.completed && styles.checkboxChecked]}>
-            {task.completed && <AppIcon name="check" size={13} color="#fff" />}
-          </View>
-        </Pressable>
+        {selectionMode ? (
+          // Checkbox-style selection indicator
+          <Pressable
+            style={styles.checkbox}
+            onPress={() => onPressRef.current?.(taskRef.current)}
+            onLongPress={() => onLongPressRef.current?.(taskRef.current)}
+          >
+            <View style={[styles.checkboxInner, selected && styles.checkboxChecked]}>
+              {selected && <AppIcon name="check" size={13} color="#fff" />}
+            </View>
+          </Pressable>
+        ) : (
+          <Pressable style={styles.checkbox} onPress={() => onToggleRef.current(taskRef.current)}>
+            <View style={[styles.checkboxInner, task.completed && styles.checkboxChecked]}>
+              {task.completed && <AppIcon name="check" size={13} color="#fff" />}
+            </View>
+          </Pressable>
+        )}
 
         {showLeadingIcon && leadingIcon ? (
           <View style={[styles.leadingIconPill, { backgroundColor: `${leadingIconColor}22` }]}>
@@ -141,7 +163,12 @@ export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelet
           </View>
         ) : null}
 
-        <Pressable style={styles.content} onPress={() => onPressRef.current?.(taskRef.current)}>
+        <Pressable
+          style={styles.content}
+          onPress={() => onPressRef.current?.(taskRef.current)}
+          onLongPress={() => onLongPressRef.current?.(taskRef.current)}
+          delayLongPress={400}
+        >
           <View style={styles.titleRow}>
             <Text style={[styles.title, task.completed && styles.completedText]} numberOfLines={1}>
               {task.title}
@@ -177,13 +204,6 @@ export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelet
                 color={isHabit ? colors.habitBadge : priorityColor(task.priority, colors)}
               />
             </View>
-          </View>
-          <View style={styles.badgeBottomRow}>
-            {timerActive && (
-              <View style={styles.timerBadge}>
-                <AppIcon name="play" size={10} color={colors.success} />
-              </View>
-            )}
           </View>
         </View>
       </Animated.View>
@@ -235,6 +255,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   completedCard: {
     opacity: 0.55,
+  },
+  selectedCard: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentLight,
   },
   checkbox: {
     padding: 2,
@@ -290,14 +314,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.mutedText,
     fontSize: fontSize.xs,
   },
-  timerBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: radii.sm,
-    backgroundColor: colors.successLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   priorityPill: {
     width: 24,
     height: 24,
@@ -313,12 +329,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   badgeTopRow: {
     flexDirection: "row",
     gap: 6,
-  },
-  badgeBottomRow: {
-    minHeight: 20,
-    flexDirection: "row",
-    gap: 6,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });

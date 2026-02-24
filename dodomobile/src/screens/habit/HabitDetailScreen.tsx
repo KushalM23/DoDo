@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useAlert } from "../../state/AlertContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -27,6 +28,7 @@ function dateKey(date: Date): string {
 export function HabitDetailScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { showAlert } = useAlert();
   const route = useRoute<HabitDetailRoute>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { preferences } = usePreferences();
@@ -39,8 +41,7 @@ export function HabitDetailScreen() {
     loadHistory,
     isHabitCompletedOn,
     setHabitCompletedOn,
-    startHabitTimer,
-    pauseHabitTimer,
+    completionMap,
   } = useHabits();
 
   const [busy, setBusy] = useState(false);
@@ -48,7 +49,6 @@ export function HabitDetailScreen() {
   const [undoVisible, setUndoVisible] = useState(false);
   const [undoProgress, setUndoProgress] = useState(0);
   const [lockInMode, setLockInMode] = useState(false);
-  const [hasStartedInSession, setHasStartedInSession] = useState(false);
   const [lockTime, setLockTime] = useState(() => new Date());
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -75,7 +75,7 @@ export function HabitDetailScreen() {
     const start = dateKey(weekDays[0]);
     const end = dateKey(weekDays[weekDays.length - 1]);
     void loadHistory({ habitId: habit.id, startDate: start, endDate: end });
-  }, [habit, loadHistory, weekDays]);
+  }, [habit?.id, loadHistory, weekDays]);
 
   const undoActionRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -91,13 +91,7 @@ export function HabitDetailScreen() {
     return () => clearInterval(timer);
   }, [lockInMode]);
 
-  useEffect(() => {
-    setHasStartedInSession(!!habit?.timerStartedAt);
-  }, [habit?.id]);
 
-  useEffect(() => {
-    if (habit?.timerStartedAt) setHasStartedInSession(true);
-  }, [habit?.timerStartedAt]);
 
   if (!initialized || (loading && habits.length === 0)) {
     return <LoadingScreen title="Loading habit" />;
@@ -123,9 +117,6 @@ export function HabitDetailScreen() {
   const currentHabit = habit;
 
   const completedToday = isHabitCompletedOn(currentHabit.id, todayKey);
-  const showStart = !completedToday && !currentHabit.timerStartedAt && !hasStartedInSession;
-  const showResume = !completedToday && !currentHabit.timerStartedAt && hasStartedInSession;
-  const showPause = !completedToday && !!currentHabit.timerStartedAt;
 
   if (lockInMode) {
     const hour24 = lockTime.getHours();
@@ -148,20 +139,6 @@ export function HabitDetailScreen() {
             <Text style={styles.lockMeta}>{formatHabitFrequency(currentHabit)}</Text>
             <Text style={styles.lockMeta}>{minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}</Text>
           </View>
-
-          {showStart || showResume ? (
-            <Pressable style={[styles.lockSessionBtn, busy && styles.disabled]} disabled={busy} onPress={handleStartOrResume}>
-              <AppIcon name="play" size={16} color={colors.success} />
-              <Text style={[styles.lockSessionText, { color: colors.success }]}>{showStart ? "Start" : "Resume"}</Text>
-            </Pressable>
-          ) : null}
-
-          {showPause ? (
-            <Pressable style={[styles.lockSessionBtn, busy && styles.disabled]} disabled={busy} onPress={handlePause}>
-              <AppIcon name="clock" size={16} color={colors.accent} />
-              <Text style={[styles.lockSessionText, { color: colors.accent }]}>Pause</Text>
-            </Pressable>
-          ) : null}
 
           <Pressable style={[styles.lockCompleteBtn, busy && styles.disabled]} disabled={busy} onPress={toggleTodayCompletion}>
             <AppIcon name={completedToday ? "rotate-ccw" : "check"} size={16} color="#fff" />
@@ -224,7 +201,7 @@ export function HabitDetailScreen() {
       try {
         await setHabitCompletedOn(habitId, date, false);
       } catch (err) {
-        Alert.alert("Failed to undo habit", err instanceof Error ? err.message : "Unknown error");
+        showAlert("Failed to undo habit", err instanceof Error ? err.message : "Unknown error");
       }
     };
 
@@ -244,39 +221,16 @@ export function HabitDetailScreen() {
         setUndoProgress(0);
       }
     } catch (err) {
-      Alert.alert("Failed", err instanceof Error ? err.message : "Unable to update completion.");
+      showAlert("Failed", err instanceof Error ? err.message : "Unable to update completion.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleStartOrResume() {
-    if (busy || completedToday) return;
-    setHasStartedInSession(true);
-    setBusy(true);
-    try {
-      await startHabitTimer(currentHabit.id, todayKey);
-    } catch (err) {
-      Alert.alert("Failed", err instanceof Error ? err.message : "Unable to start habit.");
-    } finally {
-      setBusy(false);
-    }
-  }
 
-  async function handlePause() {
-    if (busy || !currentHabit.timerStartedAt || completedToday) return;
-    setBusy(true);
-    try {
-      await pauseHabitTimer(currentHabit.id, todayKey);
-    } catch (err) {
-      Alert.alert("Failed", err instanceof Error ? err.message : "Unable to pause habit.");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   function onDelete() {
-    Alert.alert("Delete Habit", "This will remove the habit and its history.", [
+    showAlert("Delete Habit", "This will remove the habit and its history.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -286,7 +240,7 @@ export function HabitDetailScreen() {
             await removeHabit(currentHabit.id);
             navigation.goBack();
           } catch (err) {
-            Alert.alert("Failed", err instanceof Error ? err.message : "Unable to delete habit.");
+            showAlert("Failed", err instanceof Error ? err.message : "Unable to delete habit.");
           }
         },
       },
@@ -309,7 +263,7 @@ export function HabitDetailScreen() {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        
+
 
         <View style={styles.streakRow}>
           <View style={styles.streakCard}>
@@ -358,21 +312,6 @@ export function HabitDetailScreen() {
           <AppIcon name={completedToday ? "rotate-ccw" : "check"} size={16} color="#fff" />
           <Text style={styles.completeBtnText}>{completedToday ? "Undo Today" : "Mark Today Complete"}</Text>
         </Pressable>
-
-        <View style={styles.sessionActionsRow}>
-          {showStart || showResume ? (
-            <Pressable style={[styles.sessionBtn, styles.sessionStartBtn, busy && styles.disabled]} disabled={busy} onPress={handleStartOrResume}>
-              <AppIcon name="play" size={16} color={colors.success} />
-              <Text style={[styles.sessionBtnText, { color: colors.success }]}>{showStart ? "Start" : "Resume"}</Text>
-            </Pressable>
-          ) : null}
-          {showPause ? (
-            <Pressable style={[styles.sessionBtn, styles.sessionPauseBtn, busy && styles.disabled]} disabled={busy} onPress={handlePause}>
-              <AppIcon name="clock" size={16} color={colors.accent} />
-              <Text style={[styles.sessionBtnText, { color: colors.accent }]}>Pause</Text>
-            </Pressable>
-          ) : null}
-        </View>
 
         {undoVisible && (
           <View style={styles.undoBar}>
@@ -779,5 +718,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.accent,
     fontSize: fontSize.md,
     fontWeight: "700",
+  },
+  lockTimerWrap: {
+    marginTop: spacing.md,
+    alignItems: "center",
   },
 });

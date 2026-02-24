@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { useAlert } from "../../state/AlertContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -80,6 +81,7 @@ type UndoState =
 export function TasksScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { showAlert } = useAlert();
   const { tasks, loading, initialized: tasksInitialized, error, sortMode, setSortMode, refresh, addTask, removeTask, toggleTaskCompletion, startTimer } = useTasks();
   const {
     habits,
@@ -103,6 +105,11 @@ export function TasksScreen() {
   const [undoProgress, setUndoProgress] = useState(0);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Multi-select state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const isTodaySelected = selectedDate === todayStr();
   const screenBootLoading =
     !tasksInitialized ||
@@ -113,8 +120,19 @@ export function TasksScreen() {
     (categoriesLoading && categories.length === 0);
 
   useEffect(() => {
-    void loadHistory({ startDate: selectedDate, endDate: selectedDate }).catch(() => {});
+    void loadHistory({ startDate: selectedDate, endDate: selectedDate }).catch(() => { });
   }, [selectedDate, loadHistory]);
+
+  // Compute dates within the DateStrip range that have incomplete tasks
+  const incompleteDateKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const t of tasks) {
+      if (!t.completed) {
+        keys.add(toLocalDateStr(t.scheduledAt));
+      }
+    }
+    return keys;
+  }, [tasks]);
 
   // Filter tasks and merge habits
   const filteredTasks = useMemo(() => {
@@ -131,12 +149,12 @@ export function TasksScreen() {
     // Habit-derived tasks (only in Overview / no category filter)
     const habitTasks: DisplayTask[] = selectedCategory === null && isTodaySelected
       ? habits
-          .filter((h) => habitAppliesToDate(h, selectedDate))
-          .reduce<DisplayTask[]>((acc, h) => {
-            const next = habitToTask(h, selectedDate, isHabitCompletedOn(h.id, selectedDate));
-            if (!next.completed) acc.push(next);
-            return acc;
-          }, [])
+        .filter((h) => habitAppliesToDate(h, selectedDate))
+        .reduce<DisplayTask[]>((acc, h) => {
+          const next = habitToTask(h, selectedDate, isHabitCompletedOn(h.id, selectedDate));
+          if (!next.completed) acc.push(next);
+          return acc;
+        }, [])
       : [];
 
     return sortTasks([...dateTasks, ...habitTasks], sortMode);
@@ -166,6 +184,9 @@ export function TasksScreen() {
     (date: string) => {
       setSelectedDate(date);
       void refresh(date);
+      // Exit selection mode on date change
+      setSelectionMode(false);
+      setSelectedIds(new Set());
     },
     [refresh],
   );
@@ -182,7 +203,7 @@ export function TasksScreen() {
 
     if (undoState?.kind === "delete" && pendingDeleteId === undoState.task.id) {
       void removeTask(undoState.task.id).catch((err) => {
-        Alert.alert("Failed to delete task", err instanceof Error ? err.message : "Unknown error");
+        showAlert("Failed to delete task", err instanceof Error ? err.message : "Unknown error");
       });
       setPendingDeleteId(null);
     }
@@ -208,7 +229,7 @@ export function TasksScreen() {
     undoTimerRef.current = setTimeout(() => {
       if (nextUndo.kind === "delete") {
         void removeTask(nextUndo.task.id).catch((err) => {
-          Alert.alert("Failed to delete task", err instanceof Error ? err.message : "Unknown error");
+          showAlert("Failed to delete task", err instanceof Error ? err.message : "Unknown error");
         });
         setPendingDeleteId(null);
       }
@@ -235,7 +256,7 @@ export function TasksScreen() {
 
     if (undoState.kind === "habit-complete") {
       void setHabitCompletedOn(undoState.habitId, undoState.date, false).catch((err) => {
-        Alert.alert("Failed to undo habit", err instanceof Error ? err.message : "Unknown error");
+        showAlert("Failed to undo habit", err instanceof Error ? err.message : "Unknown error");
       });
     }
 
@@ -256,7 +277,7 @@ export function TasksScreen() {
 
   function handleDeleteTask(taskId: string) {
     if (taskId.startsWith("habit_")) {
-      Alert.alert("Manage habits in Habits tab", "Delete habits from the Habits screen.");
+      showAlert("Manage habits in Habits tab", "Delete habits from the Habits screen.");
       return;
     }
 
@@ -270,13 +291,13 @@ export function TasksScreen() {
   function handleToggleTask(task: DisplayTask) {
     if (task._isHabit) {
       if (!isTodaySelected) {
-        Alert.alert("Habits are only for today", "You can complete habits only on the current date.");
+        showAlert("Habits are only for today", "You can complete habits only on the current date.");
         return;
       }
       const nextCompleted = !task.completed;
       const habitId = task._habitId!;
       void setHabitCompletedOn(habitId, selectedDate, nextCompleted).catch((err) => {
-        Alert.alert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
+        showAlert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
       });
 
       if (nextCompleted) {
@@ -290,7 +311,7 @@ export function TasksScreen() {
       return;
     }
     void toggleTaskCompletion(task).catch((err) => {
-      Alert.alert("Failed to update task", err instanceof Error ? err.message : "Unknown error");
+      showAlert("Failed to update task", err instanceof Error ? err.message : "Unknown error");
     });
 
     if (!task.completed) {
@@ -309,40 +330,33 @@ export function TasksScreen() {
   function handleSwipeLeft(task: DisplayTask) {
     if (task._isHabit) {
       if (!isTodaySelected) {
-        Alert.alert("Habits are only for today", "You can complete habits only on the current date.");
+        showAlert("Habits are only for today", "You can complete habits only on the current date.");
         return;
       }
       const habitId = task._habitId!;
 
       if (task.completed) {
         void setHabitCompletedOn(habitId, selectedDate, false).catch((err) => {
-          Alert.alert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
+          showAlert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
         });
         return;
       }
 
-      if (task.timerStartedAt) {
-        void setHabitCompletedOn(habitId, selectedDate, true).catch((err) => {
-          Alert.alert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
-        });
-        scheduleUndo({
-          kind: "habit-complete",
-          habitId,
-          date: selectedDate,
-          message: "Habit completed",
-        });
-        return;
-      }
-
-      void startHabitTimer(habitId, selectedDate).catch((err) => {
-        Alert.alert("Failed to start habit", err instanceof Error ? err.message : "Unknown error");
+      void setHabitCompletedOn(habitId, selectedDate, true).catch((err) => {
+        showAlert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
+      });
+      scheduleUndo({
+        kind: "habit-complete",
+        habitId,
+        date: selectedDate,
+        message: "Habit completed",
       });
       return;
     }
 
     if (task.completed) {
       void toggleTaskCompletion(task);
-    } else if (task.timerStartedAt) {
+    } else {
       void toggleTaskCompletion(task);
       scheduleUndo({
         kind: "complete",
@@ -353,17 +367,104 @@ export function TasksScreen() {
         },
         message: "Task completed",
       });
-    } else {
-      void startTimer(task);
     }
   }
 
   function handleTaskPress(task: DisplayTask) {
+    if (selectionMode) {
+      toggleSelectTask(task.id);
+      return;
+    }
     if (task._isHabit && task._habitId) {
       navigation.navigate("HabitDetail", { habitId: task._habitId });
       return;
     }
     navigation.navigate("TaskDetail", { taskId: task.id });
+  }
+
+  function handleTaskLongPress(task: DisplayTask) {
+    if (!selectionMode) {
+      setSelectionMode(true);
+      setSelectedIds(new Set([task.id]));
+    } else {
+      toggleSelectTask(task.id);
+    }
+  }
+
+  function toggleSelectTask(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      if (next.size === 0) {
+        setSelectionMode(false);
+      }
+      return next;
+    });
+  }
+
+  function exitSelectionMode() {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }
+
+  function handleBulkStart() {
+    const realTaskIds = [...selectedIds].filter((id) => !id.startsWith("habit_"));
+    for (const id of realTaskIds) {
+      const task = tasks.find((t) => t.id === id);
+      if (task && !task.completed) {
+        void startTimer(task).catch(() => { });
+      }
+    }
+    exitSelectionMode();
+  }
+
+  function handleBulkComplete() {
+    const realTaskIds = [...selectedIds].filter((id) => !id.startsWith("habit_"));
+    for (const id of realTaskIds) {
+      const task = tasks.find((t) => t.id === id);
+      if (task && !task.completed) {
+        void toggleTaskCompletion(task).catch(() => { });
+      }
+    }
+    // habit completions
+    const habitTaskIds = [...selectedIds].filter((id) => id.startsWith("habit_"));
+    for (const id of habitTaskIds) {
+      const parts = id.split("_");
+      const habitId = parts[1];
+      if (isTodaySelected) {
+        void setHabitCompletedOn(habitId, selectedDate, true).catch(() => { });
+      }
+    }
+    exitSelectionMode();
+  }
+
+  function handleBulkDelete() {
+    const realTaskIds = [...selectedIds].filter((id) => !id.startsWith("habit_"));
+    if (realTaskIds.length === 0) {
+      showAlert("No deletable tasks", "Habit tasks cannot be deleted here. Use the Habits tab.");
+      return;
+    }
+    showAlert(
+      `Delete ${realTaskIds.length} task${realTaskIds.length > 1 ? "s" : ""}?`,
+      "This action cannot be undone immediately.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            for (const id of realTaskIds) {
+              void removeTask(id).catch(() => { });
+            }
+            exitSelectionMode();
+          },
+        },
+      ],
+    );
   }
 
   if (screenBootLoading) {
@@ -373,13 +474,28 @@ export function TasksScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.appName}>Dodo</Text>
-        <Pressable style={styles.sortBtn} onPress={() => setSortVisible(true)}>
-          <AppIcon name="arrow-up-down" size={16} color={colors.text} />
-          <Text style={styles.sortBtnText}>Sort</Text>
-        </Pressable>
-      </View>
+      {selectionMode ? (
+        <View style={styles.selectionHeader}>
+          <Pressable style={styles.selectionCancelBtn} onPress={exitSelectionMode}>
+            <AppIcon name="x" size={18} color={colors.text} />
+          </Pressable>
+          <Text style={styles.selectionCount}>{selectedIds.size} selected</Text>
+          <Pressable style={styles.selectionSelectAll} onPress={() => {
+            const allIds = new Set(listData.map((t) => t.id));
+            setSelectedIds(allIds);
+          }}>
+            <Text style={styles.selectionSelectAllText}>All</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.header}>
+          <Text style={styles.appName}>Dodo</Text>
+          <Pressable style={styles.sortBtn} onPress={() => setSortVisible(true)}>
+            <AppIcon name="arrow-up-down" size={16} color={colors.text} />
+            <Text style={styles.sortBtnText}>Sort</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Categories */}
       <CategoryBar selected={selectedCategory} onSelect={setSelectedCategory} />
@@ -402,6 +518,9 @@ export function TasksScreen() {
             onDelete={(id) => handleDeleteTask(id)}
             onSwipeLeft={(t) => handleSwipeLeft(t as DisplayTask)}
             onPress={(t) => handleTaskPress(t as DisplayTask)}
+            onLongPress={(t) => handleTaskLongPress(t as DisplayTask)}
+            selected={selectedIds.has(item.id)}
+            selectionMode={selectionMode}
           />
         )}
         ListEmptyComponent={
@@ -421,23 +540,57 @@ export function TasksScreen() {
         style={styles.list}
       />
 
-      <Pressable style={styles.newTaskFab} onPress={() => setFormVisible(true)}>
-        <AppIcon name="plus" size={22} color="#fff" />
-        <Text style={styles.newTaskFabText}>New Task</Text>
-      </Pressable>
-
-      {/* Bottom: Date Strip + Add Button */}
-      <View style={styles.bottomBar}>
-        <View style={styles.dateStripContainer}>
-          <DateStrip selectedDate={selectedDate} onSelectDate={handleDateChange} />
+      {/* Bulk action bar (selection mode) */}
+      {selectionMode && (
+        <View style={styles.bulkActionBar}>
+          <Pressable
+            style={[styles.bulkBtn, styles.bulkStartBtn]}
+            onPress={handleBulkStart}
+            disabled={selectedIds.size === 0}
+          >
+            <AppIcon name="play" size={16} color={colors.success} />
+            <Text style={[styles.bulkBtnText, { color: colors.success }]}>Start</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.bulkBtn, styles.bulkCompleteBtn]}
+            onPress={handleBulkComplete}
+            disabled={selectedIds.size === 0}
+          >
+            <AppIcon name="check" size={16} color={colors.accent} />
+            <Text style={[styles.bulkBtnText, { color: colors.accent }]}>Complete</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.bulkBtn, styles.bulkDeleteBtn]}
+            onPress={handleBulkDelete}
+            disabled={selectedIds.size === 0}
+          >
+            <AppIcon name="trash-2" size={16} color={colors.danger} />
+            <Text style={[styles.bulkBtnText, { color: colors.danger }]}>Delete</Text>
+          </Pressable>
         </View>
-        <Pressable
-          style={[styles.archiveIconBtn, archiveMode && styles.archiveIconBtnActive]}
-          onPress={() => setArchiveMode((prev) => !prev)}
-        >
-          <AppIcon name="package" size={20} color={archiveMode ? colors.accent : colors.mutedText} />
+      )}
+
+      {!selectionMode && (
+        <Pressable style={styles.newTaskFab} onPress={() => setFormVisible(true)}>
+          <AppIcon name="plus" size={22} color="#fff" />
+          <Text style={styles.newTaskFabText}>New Task</Text>
         </Pressable>
-      </View>
+      )}
+
+      {/* Bottom: Date Strip + Archive Button */}
+      {!selectionMode && (
+        <View style={styles.bottomBar}>
+          <View style={styles.dateStripContainer}>
+            <DateStrip selectedDate={selectedDate} onSelectDate={handleDateChange} incompleteDateKeys={incompleteDateKeys} />
+          </View>
+          <Pressable
+            style={[styles.archiveIconBtn, archiveMode && styles.archiveIconBtnActive]}
+            onPress={() => setArchiveMode((prev) => !prev)}
+          >
+            <AppIcon name="package" size={20} color={archiveMode ? colors.accent : colors.mutedText} />
+          </Pressable>
+        </View>
+      )}
 
       {undoState && (
         <View style={styles.undoBar}>
@@ -482,6 +635,42 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: 14,
     paddingBottom: spacing.xs,
+  },
+  selectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: 14,
+    paddingBottom: spacing.xs,
+  },
+  selectionCancelBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  selectionCount: {
+    fontSize: fontSize.md,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  selectionSelectAll: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.sm,
+    backgroundColor: colors.accentLight,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  selectionSelectAllText: {
+    color: colors.accent,
+    fontWeight: "700",
+    fontSize: fontSize.sm,
   },
   appName: {
     fontSize: fontSize.xxl,
@@ -538,6 +727,41 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     fontSize: fontSize.sm,
+  },
+  bulkActionBar: {
+    flexDirection: "row",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  bulkBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1,
+  },
+  bulkStartBtn: {
+    borderColor: colors.success,
+    backgroundColor: colors.successLight,
+  },
+  bulkCompleteBtn: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentLight,
+  },
+  bulkDeleteBtn: {
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerLight,
+  },
+  bulkBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
   },
   bottomBar: {
     flexDirection: "row",

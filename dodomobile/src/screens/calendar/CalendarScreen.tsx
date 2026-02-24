@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Dimensions, Easing, Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from "react-native";
+import { Animated, Dimensions, Easing, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent, type LayoutChangeEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchTasksInRange } from "../../services/api";
 import { useHabits } from "../../state/HabitsContext";
@@ -51,8 +51,6 @@ const MIN_DURATION_MINUTES = 15;
 const BASE_PX_PER_MINUTE = 0.5;
 const MIN_PX_PER_MINUTE = 0.4175;
 const MAX_PX_PER_MINUTE = 3.5;
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const CELL_SIZE = Math.floor((SCREEN_WIDTH - spacing.lg * 2) / 7);
 
 function localDateKey(value: Date): string {
   return toLocalDateKey(value);
@@ -231,6 +229,12 @@ export function CalendarScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { habits, completionMap, loadHistory, loading: habitsLoading, initialized: habitsInitialized } = useHabits();
   const { preferences } = usePreferences();
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+
+  const SCREEN_WIDTH = width;
+  const calendarWidth = isLandscape ? Math.floor(width * 0.45) : SCREEN_WIDTH;
+  const CELL_SIZE = Math.floor((calendarWidth - spacing.lg * 2) / 7);
 
   const today = useMemo(() => new Date(), []);
   const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(today));
@@ -272,7 +276,7 @@ export function CalendarScreen() {
       .then((data) => {
         setMonthTasks(data);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         setMonthLoading(false);
       });
@@ -282,7 +286,7 @@ export function CalendarScreen() {
     if (monthCells.length === 0) return;
     const startDate = monthCells[0].dateKey;
     const endDate = monthCells[monthCells.length - 1].dateKey;
-    void loadHistory({ startDate, endDate }).catch(() => {});
+    void loadHistory({ startDate, endDate }).catch(() => { });
   }, [monthCells, loadHistory, reloadTick]);
 
   const statusMap = useMemo(() => taskStatusByDate(monthTasks), [monthTasks]);
@@ -462,6 +466,164 @@ export function CalendarScreen() {
     return <LoadingScreen title="Loading calendar" iconName="calendar" />;
   }
 
+  // Calendar grid section (reusable for both portrait and landscape)
+  const calendarGrid = (
+    <View style={[styles.calendarSection, isLandscape && { flex: 1 }]}>
+      <View style={styles.monthControls}>
+        <Pressable style={styles.iconBtn} onPress={handlePrevMonth}>
+          <AppIcon name="chevron-left" size={16} color={colors.text} />
+        </Pressable>
+        <Text style={styles.monthLabel}>{monthLabel}</Text>
+        <Pressable style={styles.iconBtn} onPress={handleNextMonth}>
+          <AppIcon name="chevron-right" size={16} color={colors.text} />
+        </Pressable>
+      </View>
+
+      <View style={styles.weekRow}>
+        {dayNames.map((dayName) => (
+          <View key={dayName} style={[styles.weekHeaderCell, { width: CELL_SIZE }]}>
+            <Text style={styles.dayHeader}>{dayName}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.grid}>
+        {monthCells.map((cell) => {
+          const status = statusForDate(cell.dateKey);
+          const habitStatus = habitStatusForDate(cell.dateKey);
+          const isSelected = cell.dateKey === selectedDate;
+          const dateTextColor = isSelected
+            ? colors.text
+            : (cell.inCurrentMonth ? colors.text : colors.mutedText);
+
+          return (
+            <Pressable
+              key={cell.key}
+              onPress={() => handleSelectDate(cell)}
+              style={[
+                styles.dayCell,
+                { width: CELL_SIZE, height: CELL_SIZE },
+                isSelected && styles.daySelected,
+                isSelected && cell.isToday && styles.daySelectedToday,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.dayNum,
+                  { color: dateTextColor },
+                  cell.isToday && !isSelected && styles.todayNum,
+                  isSelected && styles.selectedDayNum,
+                ]}
+              >
+                {cell.dayNum}
+              </Text>
+
+              {cell.inCurrentMonth && (status !== "none" || habitStatus !== "none") && (
+                <View style={styles.indicatorRow}>
+                  {status !== "none" && (
+                    <View style={[styles.statusDot, status === "done" ? styles.doneDot : styles.partialDot]} />
+                  )}
+                  {habitStatus !== "none" && (
+                    <View style={[styles.statusDot, habitStatus === "done" ? styles.habitDoneDot : styles.habitPartialDot]} />
+                  )}
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+
+  // Timeline section (reusable for both portrait and landscape)
+  const timelineSection = (
+    <View style={[styles.timelineSection, isLandscape && styles.timelineSectionLandscape]}>
+      <Text style={styles.timelineTitle}>Timeline</Text>
+      <View
+        style={styles.timelineShell}
+        onLayout={onTimelineLayout}
+        onStartShouldSetResponder={(event) => event.nativeEvent.touches.length >= 2}
+        onMoveShouldSetResponder={(event) => event.nativeEvent.touches.length >= 2}
+        onResponderGrant={startPinch}
+        onResponderMove={movePinch}
+        onResponderRelease={endPinch}
+        onResponderTerminate={endPinch}
+      >
+        <ScrollView
+          ref={timelineScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.timelineScrollContent}
+          onScroll={(event) => {
+            timelineScrollXRef.current = event.nativeEvent.contentOffset.x;
+          }}
+          scrollEventThrottle={16}
+        >
+          <View style={[styles.timelineTrack, { width: timelineWidth }]}>
+            {timelineMarks.map((minute) => {
+              const left = minute * pxPerMinute;
+              const hour = Math.floor(minute / 60) % 24;
+              const mins = minute % 60;
+              return (
+                <View key={`tick_${minute}`} style={[styles.timeTick, { left }]}>
+                  <Text style={styles.timeTickLabel}>
+                    {formatTime(new Date(2000, 0, 1, hour, mins, 0), preferences.timeFormat)}
+                  </Text>
+                </View>
+              );
+            })}
+
+            <View style={[styles.timelineBody, { top: AXIS_HEIGHT, height: timelineBodyHeight }]}>
+              {rowLayout.placed.map((event) => {
+                const left = event.startMinute * pxPerMinute;
+                const evtWidth = Math.max(42, (event.endMinute - event.startMinute) * pxPerMinute);
+                const top = event.row * rowHeight + 6;
+                return (
+                  <Pressable
+                    key={event.id}
+                    onPress={() => handleTimelinePress(event)}
+                    style={[
+                      styles.eventCard,
+                      {
+                        left,
+                        width: evtWidth,
+                        top,
+                        height: Math.max(28, rowHeight - 12),
+                      },
+                      event.isHabit ? styles.habitEventBase : styles.taskEventBase,
+                      event.completed && (event.isHabit ? styles.habitEventCompleted : styles.taskEventCompleted),
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.eventTitle,
+                        !event.isHabit && !event.completed && styles.taskEventTitleOnAccent,
+                        event.isHabit && !event.completed && styles.habitEventTitleOnAccent,
+                      ]}
+                    >
+                      {event.title}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.eventMeta,
+                        !event.isHabit && !event.completed && styles.taskEventMetaOnAccent,
+                        event.isHabit && !event.completed && styles.habitEventMetaOnAccent,
+                      ]}
+                    >
+                      {event.isHabit ? "Habit" : "Task"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
@@ -481,158 +643,24 @@ export function CalendarScreen() {
         </View>
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.calendarSection}>
-          <View style={styles.monthControls}>
-            <Pressable style={styles.iconBtn} onPress={handlePrevMonth}>
-              <AppIcon name="chevron-left" size={16} color={colors.text} />
-            </Pressable>
-            <Text style={styles.monthLabel}>{monthLabel}</Text>
-            <Pressable style={styles.iconBtn} onPress={handleNextMonth}>
-              <AppIcon name="chevron-right" size={16} color={colors.text} />
-            </Pressable>
+      {isLandscape ? (
+        // Landscape: calendar left | timeline right
+        <View style={styles.landscapeContent}>
+          <View style={[styles.landscapeLeft, { width: Math.floor(width * 0.45) }]}>
+            {calendarGrid}
           </View>
-
-          <View style={styles.weekRow}>
-            {dayNames.map((dayName) => (
-              <View key={dayName} style={styles.weekHeaderCell}>
-                <Text style={styles.dayHeader}>{dayName}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.grid}>
-            {monthCells.map((cell) => {
-              const status = statusForDate(cell.dateKey);
-              const habitStatus = habitStatusForDate(cell.dateKey);
-              const isSelected = cell.dateKey === selectedDate;
-              const dateTextColor = isSelected
-                ? colors.text
-                : (cell.inCurrentMonth ? colors.text : colors.mutedText);
-
-              return (
-                <Pressable
-                  key={cell.key}
-                  onPress={() => handleSelectDate(cell)}
-                  style={[
-                    styles.dayCell,
-                    isSelected && styles.daySelected,
-                    isSelected && cell.isToday && styles.daySelectedToday,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.dayNum,
-                      { color: dateTextColor },
-                      cell.isToday && !isSelected && styles.todayNum,
-                      isSelected && styles.selectedDayNum,
-                    ]}
-                  >
-                    {cell.dayNum}
-                  </Text>
-
-                  {cell.inCurrentMonth && (status !== "none" || habitStatus !== "none") && (
-                    <View style={styles.indicatorRow}>
-                      {status !== "none" && (
-                        <View style={[styles.statusDot, status === "done" ? styles.doneDot : styles.partialDot]} />
-                      )}
-                      {habitStatus !== "none" && (
-                        <View style={[styles.statusDot, habitStatus === "done" ? styles.habitDoneDot : styles.habitPartialDot]} />
-                      )}
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
+          <View style={styles.landscapeDivider} />
+          <View style={styles.landscapeRight}>
+            {timelineSection}
           </View>
         </View>
-
-        <View style={styles.timelineSection}>
-          <Text style={styles.timelineTitle}>Timeline</Text>
-          <View
-            style={styles.timelineShell}
-            onLayout={onTimelineLayout}
-            onStartShouldSetResponder={(event) => event.nativeEvent.touches.length >= 2}
-            onMoveShouldSetResponder={(event) => event.nativeEvent.touches.length >= 2}
-            onResponderGrant={startPinch}
-            onResponderMove={movePinch}
-            onResponderRelease={endPinch}
-            onResponderTerminate={endPinch}
-          >
-            <ScrollView
-              ref={timelineScrollRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.timelineScrollContent}
-              onScroll={(event) => {
-                timelineScrollXRef.current = event.nativeEvent.contentOffset.x;
-              }}
-              scrollEventThrottle={16}
-            >
-              <View style={[styles.timelineTrack, { width: timelineWidth }]}> 
-                {timelineMarks.map((minute) => {
-                  const left = minute * pxPerMinute;
-                  const hour = Math.floor(minute / 60) % 24;
-                  const mins = minute % 60;
-                  return (
-                    <View key={`tick_${minute}`} style={[styles.timeTick, { left }]}> 
-                      <Text style={styles.timeTickLabel}>
-                        {formatTime(new Date(2000, 0, 1, hour, mins, 0), preferences.timeFormat)}
-                      </Text>
-                    </View>
-                  );
-                })}
-
-                <View style={[styles.timelineBody, { top: AXIS_HEIGHT, height: timelineBodyHeight }]}> 
-                  {rowLayout.placed.map((event) => {
-                    const left = event.startMinute * pxPerMinute;
-                    const width = Math.max(42, (event.endMinute - event.startMinute) * pxPerMinute);
-                    const top = event.row * rowHeight + 6;
-                    return (
-                      <Pressable
-                        key={event.id}
-                        onPress={() => handleTimelinePress(event)}
-                        style={[
-                          styles.eventCard,
-                          {
-                            left,
-                            width,
-                            top,
-                            height: Math.max(28, rowHeight - 12),
-                          },
-                          event.isHabit ? styles.habitEventBase : styles.taskEventBase,
-                          event.completed && (event.isHabit ? styles.habitEventCompleted : styles.taskEventCompleted),
-                        ]}
-                      >
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.eventTitle,
-                            !event.isHabit && !event.completed && styles.taskEventTitleOnAccent,
-                            event.isHabit && !event.completed && styles.habitEventTitleOnAccent,
-                          ]}
-                        >
-                          {event.title}
-                        </Text>
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.eventMeta,
-                            !event.isHabit && !event.completed && styles.taskEventMetaOnAccent,
-                            event.isHabit && !event.completed && styles.habitEventMetaOnAccent,
-                          ]}
-                        >
-                          {event.isHabit ? "Habit" : "Task"}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            </ScrollView>
-          </View>
+      ) : (
+        // Portrait: stacked top-to-bottom
+        <View style={styles.content}>
+          {calendarGrid}
+          {timelineSection}
         </View>
-      </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -647,6 +675,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
     marginTop: 4,
+    marginBottom: 4,
   },
   header: {
     flexDirection: "row",
@@ -662,12 +691,34 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     color: colors.accent,
   },
+  // Portrait layout
   content: {
     flex: 1,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
     paddingTop: 2,
     gap: 0,
+  },
+  // Landscape layout
+  landscapeContent: {
+    flex: 1,
+    flexDirection: "row",
+  },
+  landscapeLeft: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+    paddingTop: 2,
+  },
+  landscapeDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
+  },
+  landscapeRight: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+    paddingTop: 2,
   },
   calendarSection: {
     paddingTop: 0,
@@ -731,7 +782,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 4,
   },
   weekHeaderCell: {
-    width: CELL_SIZE,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -746,8 +796,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexWrap: "wrap",
   },
   dayCell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radii.sm,
@@ -807,6 +855,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: 4,
+  },
+  timelineSectionLandscape: {
+    borderTopWidth: 0,
+    flex: 1,
   },
   timelineShell: {
     flex: 1,

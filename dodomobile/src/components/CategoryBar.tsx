@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAlert } from "../state/AlertContext";
 import { useCategories } from "../state/CategoriesContext";
 import { spacing, radii, fontSize } from "../theme/colors";
 import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
@@ -21,6 +22,7 @@ type Props = {
 export function CategoryBar({ selected, onSelect }: Props) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { showAlert } = useAlert();
   const { categories, addCategory, editCategory, removeCategory, setCategoryOrder } = useCategories();
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [manageModalVisible, setManageModalVisible] = useState(false);
@@ -51,7 +53,7 @@ export function CategoryBar({ selected, onSelect }: Props) {
       await addCategory({ name, color: addColor, icon: addIcon });
       setAddModalVisible(false);
     } catch (err) {
-      Alert.alert("Error", err instanceof Error ? err.message : "Failed to add category");
+      showAlert("Error", err instanceof Error ? err.message : "Failed to add category");
     } finally {
       setBusy(false);
     }
@@ -77,14 +79,14 @@ export function CategoryBar({ selected, onSelect }: Props) {
       setEditModalVisible(false);
       setEditingCategory(null);
     } catch (err) {
-      Alert.alert("Error", err instanceof Error ? err.message : "Failed to update category");
+      showAlert("Error", err instanceof Error ? err.message : "Failed to update category");
     } finally {
       setBusy(false);
     }
   }
 
   function handleDelete(category: Category) {
-    Alert.alert("Delete category?", `Delete "${category.name}"?`, [
+    showAlert("Delete category?", `Delete "${category.name}"?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -97,7 +99,7 @@ export function CategoryBar({ selected, onSelect }: Props) {
                 onSelect(null);
               }
             } catch (err) {
-              Alert.alert("Error", err instanceof Error ? err.message : "Failed to delete category");
+              showAlert("Error", err instanceof Error ? err.message : "Failed to delete category");
             }
           })();
         },
@@ -117,7 +119,7 @@ export function CategoryBar({ selected, onSelect }: Props) {
     try {
       await setCategoryOrder(nextOrder);
     } catch (err) {
-      Alert.alert("Error", err instanceof Error ? err.message : "Failed to reorder categories");
+      showAlert("Error", err instanceof Error ? err.message : "Failed to reorder categories");
     }
   }
 

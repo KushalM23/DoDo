@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAlert } from "../state/AlertContext";
 import { CustomDateTimePicker } from "./CustomDateTimePicker";
 import { AppIcon } from "./AppIcon";
 import type { CreateTaskInput, Priority } from "../types/task";
@@ -55,6 +56,7 @@ export function TaskForm({
   const colors = useThemeColors();
   const themeMode = useThemeMode();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { showAlert } = useAlert();
   const { preferences } = usePreferences();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -107,7 +109,7 @@ export function TaskForm({
   async function handleSubmit() {
     if (!title.trim()) return;
     if (!Number.isFinite(durationMinutes) || durationMinutes < 1) {
-      Alert.alert("Invalid duration", "Duration must be at least 1 minute.");
+      showAlert("Invalid duration", "Duration must be at least 1 minute.");
       return;
     }
     setBusy(true);
@@ -125,7 +127,7 @@ export function TaskForm({
       });
       onCancel();
     } catch (err) {
-      Alert.alert("Failed to create task", err instanceof Error ? err.message : "Unknown error");
+      showAlert("Failed to create task", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setBusy(false);
     }
@@ -141,7 +143,7 @@ export function TaskForm({
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
       <Pressable style={styles.overlay} onPress={onCancel}>
-        <Pressable style={styles.popup} onPress={() => {}}>
+        <Pressable style={styles.popup} onPress={() => { }}>
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Header */}
             <View style={styles.popupHeader}>

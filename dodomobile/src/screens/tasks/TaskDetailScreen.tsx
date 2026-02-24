@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAlert } from "../../state/AlertContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -19,18 +20,18 @@ import { formatDateTime, toLocalDateKey } from "../../utils/dateTime";
 
 type UndoState =
   | {
-      kind: "complete";
-      task: CreateTaskInput & {
-        id: string;
-        completed: boolean;
-        completedAt: string | null;
-        timerStartedAt: string | null;
-        actualDurationMinutes: number;
-        completionXp: number;
-        createdAt: string;
-      };
-      message: string;
-    }
+    kind: "complete";
+    task: CreateTaskInput & {
+      id: string;
+      completed: boolean;
+      completedAt: string | null;
+      timerStartedAt: string | null;
+      actualDurationMinutes: number;
+      completionXp: number;
+      createdAt: string;
+    };
+    message: string;
+  }
   | { kind: "delete"; taskId: string; message: string };
 
 function localDateOnly(iso: string): string {
@@ -47,9 +48,10 @@ export function TaskDetailScreen() {
   const colors = useThemeColors();
   const themeMode = useThemeMode();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { showAlert } = useAlert();
   const route = useRoute<RouteProp<RootStackParamList, "TaskDetail">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { tasks, loading: tasksLoading, initialized: tasksInitialized, toggleTaskCompletion, startTimer, pauseTimer, removeTask, updateTaskDetails } = useTasks();
+  const { tasks, loading: tasksLoading, initialized: tasksInitialized, toggleTaskCompletion, removeTask, updateTaskDetails } = useTasks();
   const { categories, loading: categoriesLoading, initialized: categoriesInitialized } = useCategories();
   const { preferences } = usePreferences();
 
@@ -62,7 +64,6 @@ export function TaskDetailScreen() {
   const [postponeDate, setPostponeDate] = useState(new Date());
   const [busy, setBusy] = useState(false);
   const [noteDraft, setNoteDraft] = useState(task?.description ?? "");
-  const [hasStartedInSession, setHasStartedInSession] = useState(!!task?.timerStartedAt);
   const [savingNote, setSavingNote] = useState(false);
   const [undoState, setUndoState] = useState<UndoState | null>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
@@ -76,13 +77,7 @@ export function TaskDetailScreen() {
     setNoteDraft(task?.description ?? "");
   }, [task?.id, task?.description]);
 
-  useEffect(() => {
-    setHasStartedInSession(!!task?.timerStartedAt);
-  }, [task?.id]);
 
-  useEffect(() => {
-    if (task?.timerStartedAt) setHasStartedInSession(true);
-  }, [task?.timerStartedAt]);
 
   useEffect(() => {
     if (!lockInMode) return;
@@ -192,17 +187,6 @@ export function TaskDetailScreen() {
     }
   }
 
-  async function handleStartOrResume() {
-    if (!task || task.completed || pendingDelete) return;
-    setHasStartedInSession(true);
-    void startTimer(task);
-  }
-
-  async function handlePause() {
-    if (!task || !task.timerStartedAt || pendingDelete) return;
-    void pauseTimer(task);
-  }
-
   function handleDelete() {
     if (!task) return;
     setPendingDelete(true);
@@ -224,7 +208,7 @@ export function TaskDetailScreen() {
         deadline: nextDeadline.toISOString(),
       });
     } catch (err) {
-      Alert.alert("Failed to postpone", err instanceof Error ? err.message : "Unknown error");
+      showAlert("Failed to postpone", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setBusy(false);
     }
@@ -252,7 +236,7 @@ export function TaskDetailScreen() {
     try {
       await updateTaskDetails(task.id, { description: trimmed });
     } catch (err) {
-      Alert.alert("Failed to save notes", err instanceof Error ? err.message : "Unknown error");
+      showAlert("Failed to save notes", err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSavingNote(false);
     }
@@ -279,10 +263,6 @@ export function TaskDetailScreen() {
     );
   }
 
-  const showStart = !task.completed && !task.timerStartedAt && !hasStartedInSession;
-  const showResume = !task.completed && !task.timerStartedAt && hasStartedInSession;
-  const showPause = !task.completed && !!task.timerStartedAt;
-
   if (lockInMode) {
     const hour24 = lockTime.getHours();
     const lockHour = String(preferences.timeFormat === "24h" ? hour24 : ((hour24 + 11) % 12) + 1).padStart(2, "0");
@@ -307,18 +287,6 @@ export function TaskDetailScreen() {
           </View>
 
           <View style={styles.lockActionsRow}>
-            {showStart || showResume ? (
-              <Pressable style={[styles.lockActionBtn, styles.lockStartBtn]} onPress={handleStartOrResume}>
-                <AppIcon name="play" size={16} color={colors.success} />
-                <Text style={[styles.lockActionText, { color: colors.success }]}>{showStart ? "Start" : "Resume"}</Text>
-              </Pressable>
-            ) : null}
-            {showPause ? (
-              <Pressable style={[styles.lockActionBtn, styles.lockPauseBtn]} onPress={handlePause}>
-                <AppIcon name="clock" size={16} color={colors.accent} />
-                <Text style={[styles.lockActionText, { color: colors.accent }]}>Pause</Text>
-              </Pressable>
-            ) : null}
             <Pressable style={[styles.lockActionBtn, styles.lockCompleteBtn]} onPress={handleComplete} disabled={busy}>
               <AppIcon name="check" size={16} color={task.completed ? colors.mutedText : colors.accent} />
               <Text style={[styles.lockActionText, { color: task.completed ? colors.mutedText : colors.accent }]}>
@@ -355,59 +323,59 @@ export function TaskDetailScreen() {
 
       <View style={{ flex: 1 }}>
         {!pendingDelete ? (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
 
-          <Text style={styles.label}>Details</Text>
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <AppIcon name="calendar" size={14} color={colors.mutedText} />
-              <Text style={styles.infoLabel}>Scheduled</Text>
-              <Text style={styles.infoValue}>
-                {formatDateTime(task.scheduledAt, {
-                  dateFormat: preferences.dateFormat,
-                  timeFormat: preferences.timeFormat,
-                  weekStart: preferences.weekStart,
-                })}
-              </Text>
+            <Text style={styles.label}>Details</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <AppIcon name="calendar" size={14} color={colors.mutedText} />
+                <Text style={styles.infoLabel}>Scheduled</Text>
+                <Text style={styles.infoValue}>
+                  {formatDateTime(task.scheduledAt, {
+                    dateFormat: preferences.dateFormat,
+                    timeFormat: preferences.timeFormat,
+                    weekStart: preferences.weekStart,
+                  })}
+                </Text>
+              </View>
+              <View style={styles.infoSep} />
+              <View style={styles.infoRow}>
+                <AppIcon name="clock" size={14} color={colors.mutedText} />
+                <Text style={styles.infoLabel}>Duration</Text>
+                <Text style={styles.infoValue}>{task.durationMinutes ? `${task.durationMinutes} min` : "-"}</Text>
+              </View>
+              <View style={styles.infoSep} />
+              <View style={styles.infoRow}>
+                <AppIcon name={category?.icon ?? "inbox"} size={14} color={category?.color ?? colors.mutedText} />
+                <Text style={styles.infoLabel}>Category</Text>
+                <Text style={styles.infoValue}>{categoryName}</Text>
+              </View>
+              <View style={styles.infoSep} />
+              <View style={styles.infoRow}>
+                <AppIcon name={priorityInfo?.icon ?? "minus-circle"} size={14} color={priorityInfo?.color ?? colors.mutedText} />
+                <Text style={styles.infoLabel}>Priority</Text>
+                <Text style={styles.infoValue}>{priorityInfo?.label ?? "-"}</Text>
+              </View>
             </View>
-            <View style={styles.infoSep} />
-            <View style={styles.infoRow}>
-              <AppIcon name="clock" size={14} color={colors.mutedText} />
-              <Text style={styles.infoLabel}>Duration</Text>
-              <Text style={styles.infoValue}>{task.durationMinutes ? `${task.durationMinutes} min` : "-"}</Text>
-            </View>
-            <View style={styles.infoSep} />
-            <View style={styles.infoRow}>
-              <AppIcon name={category?.icon ?? "inbox"} size={14} color={category?.color ?? colors.mutedText} />
-              <Text style={styles.infoLabel}>Category</Text>
-              <Text style={styles.infoValue}>{categoryName}</Text>
-            </View>
-            <View style={styles.infoSep} />
-            <View style={styles.infoRow}>
-              <AppIcon name={priorityInfo?.icon ?? "minus-circle"} size={14} color={priorityInfo?.color ?? colors.mutedText} />
-              <Text style={styles.infoLabel}>Priority</Text>
-              <Text style={styles.infoValue}>{priorityInfo?.label ?? "-"}</Text>
-            </View>
-          </View>
 
-          <View style={styles.notesHeader}>
-            <Text style={styles.label}>Notes</Text>
-            <Pressable style={styles.noteSaveBtn} onPress={handleSaveNote} disabled={savingNote}>
-              <AppIcon name="save" size={14} color={savingNote ? colors.mutedText : colors.accent} />
-            </Pressable>
-          </View>
-          <View style={styles.notesCard}>
-            <TextInput
-              style={styles.notesInput}
-              value={noteDraft}
-              onChangeText={setNoteDraft}
-              placeholder="Add notes..."
-              placeholderTextColor={colors.mutedText}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
-        </ScrollView>
+            <View style={styles.notesHeader}>
+              <Text style={styles.label}>Notes</Text>
+              <Pressable style={styles.noteSaveBtn} onPress={handleSaveNote} disabled={savingNote}>
+                <AppIcon name="save" size={14} color={savingNote ? colors.mutedText : colors.accent} />
+              </Pressable>
+            </View>
+            <View style={styles.notesCard}>
+              <TextInput
+                style={styles.notesInput}
+                value={noteDraft}
+                onChangeText={setNoteDraft}
+                placeholder="Add notes..."
+                placeholderTextColor={colors.mutedText}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+          </ScrollView>
         ) : (
           <View style={styles.deletedState}>
             <AppIcon name="trash-2" size={24} color={colors.danger} />
@@ -431,50 +399,29 @@ export function TaskDetailScreen() {
         />
 
         <View style={styles.primaryActionsRow}>
-        {showStart && (
-          <Pressable style={[styles.actionBtn, styles.startBtn]} onPress={handleStartOrResume}>
-            <AppIcon name="play" size={18} color={colors.success} />
-            <Text style={[styles.actionBtnText, { color: colors.success }]}>Start</Text>
+          <Pressable style={[styles.actionBtn, styles.completeBtn]} onPress={handleComplete} disabled={busy}>
+            <AppIcon name="check" size={18} color={task.completed ? colors.mutedText : colors.accent} />
+            <Text style={[styles.actionBtnText, { color: task.completed ? colors.mutedText : colors.accent }]}>
+              {task.completed ? "Undo" : "Complete"}
+            </Text>
           </Pressable>
-        )}
-
-        {showResume && (
-          <Pressable style={[styles.actionBtn, styles.startBtn]} onPress={handleStartOrResume}>
-            <AppIcon name="play" size={18} color={colors.success} />
-            <Text style={[styles.actionBtnText, { color: colors.success }]}>Resume</Text>
-          </Pressable>
-        )}
-
-        {showPause && (
-          <Pressable style={[styles.actionBtn, styles.pauseBtn]} onPress={handlePause}>
-            <AppIcon name="clock" size={18} color={colors.accent} />
-            <Text style={[styles.actionBtnText, { color: colors.accent }]}>Pause</Text>
-          </Pressable>
-        )}
-
-        <Pressable style={[styles.actionBtn, styles.completeBtn]} onPress={handleComplete} disabled={busy}>
-          <AppIcon name="check" size={18} color={task.completed ? colors.mutedText : colors.accent} />
-          <Text style={[styles.actionBtnText, { color: task.completed ? colors.mutedText : colors.accent }]}>
-            {task.completed ? "Undo" : "Complete"}
-          </Text>
-        </Pressable>
         </View>
 
         <View style={styles.secondaryActionsRow}>
-        <Pressable style={[styles.actionBtn, styles.editBtn]} onPress={() => setEditVisible(true)} disabled={busy}>
-          <AppIcon name="edit" size={18} color={colors.text} />
-          <Text style={[styles.actionBtnText, { color: colors.text }]}>Edit</Text>
-        </Pressable>
+          <Pressable style={[styles.actionBtn, styles.editBtn]} onPress={() => setEditVisible(true)} disabled={busy}>
+            <AppIcon name="edit" size={18} color={colors.text} />
+            <Text style={[styles.actionBtnText, { color: colors.text }]}>Edit</Text>
+          </Pressable>
 
-        <Pressable style={[styles.actionBtn, styles.postponeBtn]} onPress={handlePostpone} disabled={busy}>
-          <AppIcon name="calendar" size={18} color={colors.text} />
-          <Text style={[styles.actionBtnText, { color: colors.text }]}>Postpone</Text>
-        </Pressable>
+          <Pressable style={[styles.actionBtn, styles.postponeBtn]} onPress={handlePostpone} disabled={busy}>
+            <AppIcon name="calendar" size={18} color={colors.text} />
+            <Text style={[styles.actionBtnText, { color: colors.text }]}>Postpone</Text>
+          </Pressable>
 
-        <Pressable style={[styles.actionBtn, styles.deleteBtn]} onPress={handleDelete} disabled={busy}>
-          <AppIcon name="trash-2" size={18} color={colors.danger} />
-          <Text style={[styles.actionBtnText, { color: colors.danger }]}>Delete</Text>
-        </Pressable>
+          <Pressable style={[styles.actionBtn, styles.deleteBtn]} onPress={handleDelete} disabled={busy}>
+            <AppIcon name="trash-2" size={18} color={colors.danger} />
+            <Text style={[styles.actionBtnText, { color: colors.danger }]}>Delete</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -512,7 +459,7 @@ export function TaskDetailScreen() {
 
       <Modal transparent animationType="fade" visible={postponeVisible} onRequestClose={() => setPostponeVisible(false)}>
         <Pressable style={styles.overlay} onPress={() => setPostponeVisible(false)}>
-          <Pressable style={styles.postponePopup} onPress={() => {}}>
+          <Pressable style={styles.postponePopup} onPress={() => { }}>
             <Text style={styles.postponeTitle}>Postpone task</Text>
 
             {postponeMode === "options" ? (

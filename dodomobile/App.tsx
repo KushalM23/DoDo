@@ -9,6 +9,7 @@ import { CategoriesProvider } from "./src/state/CategoriesContext";
 import { HabitsProvider } from "./src/state/HabitsContext";
 import { PreferencesProvider, usePreferences } from "./src/state/PreferencesContext";
 import { ThemeColorsProvider, useThemeColors, useThemeMode } from "./src/theme/ThemeProvider";
+import { AlertProvider } from "./src/state/AlertContext";
 
 function AppNavigation() {
   const colors = useThemeColors();
@@ -53,7 +54,9 @@ function AppShell() {
 
   return (
     <ThemeColorsProvider mode={mode}>
-      <AppNavigation />
+      <AlertProvider>
+        <AppNavigation />
+      </AlertProvider>
     </ThemeColorsProvider>
   );
 }

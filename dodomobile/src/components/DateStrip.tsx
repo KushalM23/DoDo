@@ -6,6 +6,7 @@ import { type ThemeColors, useThemeColors, useThemeMode } from "../theme/ThemePr
 type Props = {
   selectedDate: string; // YYYY-MM-DD
   onSelectDate: (date: string) => void;
+  incompleteDateKeys?: Set<string>;
 };
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -34,7 +35,7 @@ function generateDays(): { key: string; dateStr: string; dayName: string; dayNum
 const DAYS = generateDays();
 const ITEM_WIDTH = 52;
 
-export function DateStrip({ selectedDate, onSelectDate }: Props) {
+export function DateStrip({ selectedDate, onSelectDate, incompleteDateKeys }: Props) {
   const colors = useThemeColors();
   const themeMode = useThemeMode();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -53,6 +54,7 @@ export function DateStrip({ selectedDate, onSelectDate }: Props) {
     ({ item }: { item: (typeof DAYS)[0] }) => {
       const active = item.dateStr === selectedDate;
       const isToday = item.dateStr === DAYS[CENTER_INDEX].dateStr;
+      const hasIncomplete = incompleteDateKeys?.has(item.dateStr) ?? false;
       return (
         <Pressable
           style={[styles.dayItem, isToday && styles.dayItemToday, active && styles.dayItemActive]}
@@ -60,18 +62,20 @@ export function DateStrip({ selectedDate, onSelectDate }: Props) {
         >
           <Text style={[styles.dayName, active && styles.dayNameActive]}>{item.dayName}</Text>
           <Text style={[styles.dayNum, active && styles.dayNumActive]}>{item.dayNum}</Text>
-          {isToday && <View style={[styles.todayDot, active && styles.todayDotActive]} />}
+          <View style={styles.dotRow}>
+            {hasIncomplete && <View style={[styles.incompleteDot, active && styles.incompleteDotActive]} />}
+          </View>
         </Pressable>
       );
     },
-    [selectedDate, onSelectDate, styles],
+    [selectedDate, onSelectDate, styles, incompleteDateKeys],
   );
 
   return (
     <FlatList
       ref={listRef}
       data={DAYS}
-      extraData={`${selectedDate}:${themeMode}`}
+      extraData={`${selectedDate}:${themeMode}:${incompleteDateKeys?.size ?? 0}`}
       horizontal
       initialScrollIndex={initialIndex}
       onLayout={() => {
@@ -125,7 +129,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 2,
   },
   dayNameActive: {
-    color: colors.surface,
+    color: colors.text,
   },
   dayNum: {
     fontSize: fontSize.md + 1,
@@ -133,16 +137,32 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
   },
   dayNumActive: {
-    color: colors.surface,
+    color: colors.text,
+    fontWeight: "700",
+  },
+  dotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 3,
+    minHeight: 5,
   },
   todayDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.accent,
-    marginTop: 3,
   },
   todayDotActive: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.text,
+  },
+  incompleteDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.danger,
+  },
+  incompleteDotActive: {
+    backgroundColor: colors.text,
   },
 });

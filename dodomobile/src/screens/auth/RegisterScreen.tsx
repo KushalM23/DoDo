@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAlert } from "../../state/AlertContext";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useAuth } from "../../state/AuthContext";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
@@ -11,6 +12,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 export function RegisterScreen({ navigation }: Props) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { showAlert } = useAlert();
   const { signUp } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -19,17 +21,17 @@ export function RegisterScreen({ navigation }: Props) {
 
   async function onSubmit() {
     if (!displayName.trim()) {
-      Alert.alert("Display name required", "Please enter your display name.");
+      showAlert("Display name required", "Please enter your display name.");
       return;
     }
 
     setBusy(true);
     try {
       await signUp(email, password, displayName);
-      Alert.alert("Registration successful", "If email confirmation is enabled, confirm your email before login.");
+      showAlert("Registration successful", "If email confirmation is enabled, confirm your email before login.");
       navigation.navigate("Login");
     } catch (error) {
-      Alert.alert("Registration failed", error instanceof Error ? error.message : "Unknown error");
+      showAlert("Registration failed", error instanceof Error ? error.message : "Unknown error");
     } finally {
       setBusy(false);
     }

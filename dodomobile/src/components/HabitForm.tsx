@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAlert } from "../state/AlertContext";
 import { AppIcon } from "./AppIcon";
 import { CustomDateTimePicker } from "./CustomDateTimePicker";
 import { DEFAULT_HABIT_ICON, HABIT_ICON_OPTIONS, type CreateHabitInput, type Habit, type HabitFrequencyType, type HabitIcon } from "../types/habit";
@@ -37,6 +38,7 @@ export function HabitForm({ visible, mode = "create", initialValues, onCancel, o
   const colors = useThemeColors();
   const themeMode = useThemeMode();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { showAlert } = useAlert();
   const { preferences } = usePreferences();
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState<HabitIcon>(DEFAULT_HABIT_ICON);
@@ -90,7 +92,7 @@ export function HabitForm({ visible, mode = "create", initialValues, onCancel, o
     const parsedInterval = Math.max(2, Math.min(365, Number(intervalDays) || 2));
     const parsedDuration = customToMinutes(durationValue, durationUnit);
     if (frequencyType === "custom_days" && customDays.length === 0) {
-      Alert.alert("Missing days", "Choose at least one day for custom frequency.");
+      showAlert("Missing days", "Choose at least one day for custom frequency.");
       return;
     }
 
@@ -110,7 +112,7 @@ export function HabitForm({ visible, mode = "create", initialValues, onCancel, o
       });
       onCancel();
     } catch (err) {
-      Alert.alert("Failed", err instanceof Error ? err.message : "Unable to save habit.");
+      showAlert("Failed", err instanceof Error ? err.message : "Unable to save habit.");
     } finally {
       setBusy(false);
     }
@@ -119,7 +121,7 @@ export function HabitForm({ visible, mode = "create", initialValues, onCancel, o
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
       <Pressable style={styles.overlay} onPress={onCancel}>
-        <Pressable style={styles.popup} onPress={() => {}}>
+        <Pressable style={styles.popup} onPress={() => { }}>
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
               <Text style={styles.heading}>{mode === "edit" ? "Edit Habit" : "New Habit"}</Text>

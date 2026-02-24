@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAlert } from "../../state/AlertContext";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useAuth } from "../../state/AuthContext";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
@@ -11,6 +12,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 export function LoginScreen({ navigation }: Props) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { showAlert } = useAlert();
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +23,7 @@ export function LoginScreen({ navigation }: Props) {
     try {
       await signIn(email, password);
     } catch (error) {
-      Alert.alert("Login failed", error instanceof Error ? error.message : "Unknown error");
+      showAlert("Login failed", error instanceof Error ? error.message : "Unknown error");
     } finally {
       setBusy(false);
     }

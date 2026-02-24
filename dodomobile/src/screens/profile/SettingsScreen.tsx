@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAlert } from "../../state/AlertContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -50,6 +51,7 @@ function SegmentedControl<T extends string>({
 export function SettingsScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { showAlert } = useAlert();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { signOut } = useAuth();
   const {
@@ -68,7 +70,7 @@ export function SettingsScreen() {
   async function handlePasswordChange() {
     const trimmed = newPassword.trim();
     if (trimmed.length < 6) {
-      Alert.alert("Invalid password", "Password must be at least 6 characters.");
+      showAlert("Invalid password", "Password must be at least 6 characters.");
       return;
     }
 
@@ -76,16 +78,16 @@ export function SettingsScreen() {
     try {
       await changePassword(trimmed);
       setNewPassword("");
-      Alert.alert("Password updated", "Your password was changed successfully.");
+      showAlert("Password updated", "Your password was changed successfully.");
     } catch (error) {
-      Alert.alert("Change failed", error instanceof Error ? error.message : "Unknown error");
+      showAlert("Change failed", error instanceof Error ? error.message : "Unknown error");
     } finally {
       setChangingPassword(false);
     }
   }
 
   function confirmDeleteAccount() {
-    Alert.alert(
+    showAlert(
       "Delete account",
       "This permanently deletes your account and all related data. This action cannot be undone.",
       [
@@ -107,7 +109,7 @@ export function SettingsScreen() {
       await deleteAccount();
       await signOut();
     } catch (error) {
-      Alert.alert("Delete failed", error instanceof Error ? error.message : "Unknown error");
+      showAlert("Delete failed", error instanceof Error ? error.message : "Unknown error");
     } finally {
       setDeletingAccount(false);
     }
