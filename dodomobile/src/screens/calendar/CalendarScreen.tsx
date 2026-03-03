@@ -7,6 +7,7 @@ import { usePreferences } from "../../state/PreferencesContext";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { spacing, radii, fontSize } from "../../theme/colors";
+import { fonts } from "../../theme/fonts";
 import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { AppIcon } from "../../components/AppIcon";
 import { LoadingScreen } from "../../components/LoadingScreen";
@@ -463,7 +464,7 @@ export function CalendarScreen() {
   });
 
   if (initialLoading) {
-    return <LoadingScreen title="Loading calendar" iconName="calendar" />;
+    return <LoadingScreen title="Loading calendar" />;
   }
 
   // Calendar grid section (reusable for both portrait and landscape)
@@ -673,6 +674,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   timelineTitle: {
     fontSize: fontSize.lg,
     fontWeight: "700",
+    fontFamily: fonts.heading,
     color: colors.text,
     marginTop: 4,
     marginBottom: 4,
@@ -689,6 +691,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   appName: {
     fontSize: fontSize.xxl,
     fontWeight: "800",
+    fontFamily: fonts.heading,
     color: colors.accent,
   },
   // Portrait layout
@@ -743,6 +746,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   monthLabel: {
     fontSize: fontSize.lg,
     fontWeight: "700",
+    fontFamily: fonts.heading,
     color: colors.text,
   },
   todayBtn: {
@@ -798,13 +802,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   dayCell: {
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radii.sm,
+    borderRadius: 14,
     position: "relative",
   },
   daySelected: {
     borderWidth: 1.5,
     borderColor: colors.accent,
-    backgroundColor: "transparent",
+    backgroundColor: colors.surface,
+    shadowColor: "rgba(0,0,0,0.4)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   daySelectedToday: {
     backgroundColor: colors.accentLight,
@@ -891,11 +900,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   eventCard: {
     position: "absolute",
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    paddingHorizontal: 6,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     justifyContent: "center",
+    shadowColor: "rgba(0,0,0,0.3)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   taskEventBase: {
     backgroundColor: colors.accent,

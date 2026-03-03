@@ -13,14 +13,15 @@ export type AppIconName =
   | "book-open"
   | "bed"
   | "calendar"
-    | "cup-soda"
-    | "droplets"
-    | "dumbbell"
-    | "leaf"
-    | "music"
-    | "target"
-    | "utensils"
+  | "cup-soda"
+  | "droplets"
+  | "dumbbell"
+  | "leaf"
+  | "music"
+  | "target"
+  | "utensils"
   | "check"
+  | "check-circle"
   | "check-square"
   | "chevron-down"
   | "chevron-left"
@@ -74,10 +75,11 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   bed: "bed",
   briefcase: "briefcase",
   calendar: "calendar",
-    "cup-soda": "cup-soda",
-    droplets: "droplets",
-    dumbbell: "dumbbell",
+  "cup-soda": "cup-soda",
+  droplets: "droplets",
+  dumbbell: "dumbbell",
   check: "check",
+  "check-circle": "circle-check",
   "check-square": "square-check",
   "chevron-down": "chevron-down",
   "chevron-left": "chevron-left",

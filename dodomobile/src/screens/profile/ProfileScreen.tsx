@@ -1,5 +1,19 @@
-import React, { useEffect, useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+/**
+ * ProfileScreen — Object-Based Layout
+ *
+ * Hero: User Avatar & Name
+ * Main Stats: Level, XP, Streak
+ * Full Stats: All recovered stats from previous implementation
+ */
+import React, { useEffect, useMemo, useRef } from "react";
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,13 +21,15 @@ import { useAuth } from "../../state/AuthContext";
 import { useTasks } from "../../state/TasksContext";
 import { useHabits } from "../../state/HabitsContext";
 import { useCategories } from "../../state/CategoriesContext";
-import { spacing, radii, fontSize } from "../../theme/colors";
-import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
-import { AppIcon } from "../../components/AppIcon";
+import { AppIcon, type AppIconName } from "../../components/AppIcon";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
+import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
+import { fonts } from "../../theme/fonts";
 import { toLocalDateKey } from "../../utils/dateTime";
 import { habitAppliesToDate } from "../../utils/habits";
+
+/* ─── Streak calculation ──────────────────────────────────── */
 
 function calculateStreaks(completedDateKeys: string[]): { currentStreak: number; bestStreak: number } {
   if (completedDateKeys.length === 0) {
@@ -56,20 +72,61 @@ function calculateStreaks(completedDateKeys: string[]): { currentStreak: number;
   return { currentStreak, bestStreak };
 }
 
+/* ─── Stat row component ──────────────────────────────────── */
+
+function StatRow({ label, value, icon, meta }: { label: string; value: string | number; icon: AppIconName; meta?: string }) {
+  const colors = useThemeColors();
+  return (
+    <View style={{
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 20,
+      gap: 20,
+    }}>
+      <View style={{
+        width: 40, height: 40, borderRadius: 20,
+        alignItems: "center", justifyContent: "center",
+      }}>
+        <AppIcon name={icon} size={20} color={colors.accent} />
+      </View>
+      <View style={{ flex: 1, justifyContent: "center" }}>
+        <Text style={{ fontSize: 16, fontFamily: fonts.bodySemiBold, color: colors.text }}>{label}</Text>
+      </View>
+      <Text style={{ fontSize: 24, fontFamily: fonts.headingSemiBold, color: colors.text, letterSpacing: -0.5 }}>{value}</Text>
+    </View>
+  );
+}
+
+/* ─── Main ─────────────────────────────────────────────────── */
 export function ProfileScreen() {
   const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const mainStyles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, refreshUser } = useAuth();
-  const { tasks, loading: tasksLoading, initialized: tasksInitialized } = useTasks();
-  const { habits, loading: habitsLoading, initialized: habitsInitialized, loadHistory, completionMap } = useHabits();
-  const { categories, loading: categoriesLoading, initialized: categoriesInitialized } = useCategories();
+  const { tasks, initialized: tInit } = useTasks();
+  const { habits, initialized: hInit, loadHistory, completionMap } = useHabits();
+  const { categories, initialized: cInit } = useCategories();
 
+  const xpBarAnim = useRef(new Animated.Value(0)).current;
+  const heroFade = useRef(new Animated.Value(0)).current;
+  const xpFade = useRef(new Animated.Value(0)).current;
+  const statsFade = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => { void refreshUser(); }, [refreshUser]);
   useEffect(() => {
-    void refreshUser();
     void loadHistory({ days: 30 }).catch(() => {});
-  }, [refreshUser, loadHistory]);
+  }, [loadHistory]);
 
+  // Stagger entrance animations
+  useEffect(() => {
+    Animated.stagger(120, [
+      Animated.spring(heroFade, { toValue: 1, damping: 18, stiffness: 100, useNativeDriver: true }),
+      Animated.spring(xpFade, { toValue: 1, damping: 18, stiffness: 100, useNativeDriver: true }),
+      Animated.spring(statsFade, { toValue: 1, damping: 18, stiffness: 100, useNativeDriver: true }),
+    ]).start();
+  }, [heroFade, xpFade, statsFade]);
+
+  /* ── Derived stats ── */
   const completedTasks = useMemo(() => tasks.filter((t) => t.completed), [tasks]);
   const completedDateKeys = useMemo(
     () => completedTasks.map((t) => toLocalDateKey(t.completedAt ?? t.scheduledAt)),
@@ -95,32 +152,20 @@ export function ProfileScreen() {
       const key = task.categoryId ?? "uncategorized";
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-
     let topKey = "uncategorized";
     let topCount = 0;
     for (const [key, count] of counts.entries()) {
-      if (count > topCount) {
-        topKey = key;
-        topCount = count;
-      }
+      if (count > topCount) { topKey = key; topCount = count; }
     }
-
     const categoryName =
       topKey === "uncategorized"
         ? "Uncategorized"
         : categories.find((c) => c.id === topKey)?.name ?? "Unknown";
-
     return { categoryName, count: topCount };
   }, [categories, completedTasks]);
 
   const peakWindow = useMemo(() => {
-    const buckets = {
-      Morning: 0, // 5-11
-      Afternoon: 0, // 12-16
-      Evening: 0, // 17-21
-      Night: 0, // 22-4
-    } as Record<string, number>;
-
+    const buckets = { Morning: 0, Afternoon: 0, Evening: 0, Night: 0 } as Record<string, number>;
     for (const task of completedTasks) {
       const source = task.completedAt ?? task.scheduledAt;
       const hour = new Date(source).getHours();
@@ -129,14 +174,10 @@ export function ProfileScreen() {
       else if (hour >= 17 && hour <= 21) buckets.Evening += 1;
       else buckets.Night += 1;
     }
-
     let label = "Morning";
     let count = 0;
     for (const [window, windowCount] of Object.entries(buckets)) {
-      if (windowCount > count) {
-        label = window;
-        count = windowCount;
-      }
+      if (windowCount > count) { label = window; count = windowCount; }
     }
     return { label, count };
   }, [completedTasks]);
@@ -145,21 +186,17 @@ export function ProfileScreen() {
     const days: string[] = [];
     const now = new Date();
     for (let i = 0; i < 30; i++) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
+      const d = new Date(now); d.setDate(now.getDate() - i);
       days.push(toLocalDateKey(d));
     }
-
-    let applicable = 0;
-    let completed = 0;
+    let applicable = 0, completed = 0;
     for (const habit of habits) {
       for (const day of days) {
         if (!habitAppliesToDate(habit, day)) continue;
-        applicable += 1;
-        if (completionMap[habit.id]?.[day]) completed += 1;
+        applicable++;
+        if (completionMap[habit.id]?.[day]) completed++;
       }
     }
-
     const rate = applicable > 0 ? Math.round((completed / applicable) * 100) : 0;
     return { rate, applicable, completed };
   }, [completionMap, habits]);
@@ -177,393 +214,167 @@ export function ProfileScreen() {
   const xpIntoLevel = user?.xp_into_level ?? 0;
   const xpForNextLevel = user?.xp_for_next_level ?? 200;
   const levelProgress = xpForNextLevel > 0 ? xpIntoLevel / xpForNextLevel : 0;
-  const xpToNextLevel = user?.xp_to_next_level ?? Math.max(0, xpForNextLevel - xpIntoLevel);
   const displayName = user?.display_name?.trim() || user?.email?.split("@")[0] || "Guest";
 
-  if (
-    !tasksInitialized ||
-    !habitsInitialized ||
-    !categoriesInitialized ||
-    (tasksLoading && tasks.length === 0) ||
-    (habitsLoading && habits.length === 0) ||
-    (categoriesLoading && categories.length === 0)
-  ) {
+  useEffect(() => {
+    Animated.spring(xpBarAnim, { toValue: levelProgress, damping: 20, stiffness: 120, useNativeDriver: false }).start();
+  }, [levelProgress, xpBarAnim]);
+
+  const xpBarWidth = xpBarAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] });
+
+  if (!tInit || !hInit || !cInit) {
     return <LoadingScreen title="Loading profile" />;
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={styles.appName}>Dodo</Text>
-      </View>
+    <SafeAreaView style={mainStyles.container} edges={["top"]}>
+      <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.profileRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase() ?? "?"}</Text>
+        {/* ── HERO: Avatar + Name ── */}
+        <Animated.View style={[mainStyles.heroBlock, { opacity: heroFade, transform: [{ translateY: heroFade.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+          {/* Settings top-right */}
+          <Pressable
+            style={mainStyles.settingsBtn}
+            onPress={() => navigation.navigate("Settings")}
+          >
+            <AppIcon name="settings" size={20} color={colors.accent} />
+          </Pressable>
+          <Text style={mainStyles.hugeName} numberOfLines={1} adjustsFontSizeToFit>{displayName}</Text>
+        </Animated.View>
+
+        {/* ── Level + XP + Streak ── */}
+        <Animated.View style={[mainStyles.xpSection, { opacity: xpFade, transform: [{ translateY: xpFade.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+          <View style={mainStyles.levelRow}>
+            <Text style={mainStyles.levelNum}>Lv.{level}</Text>
+            <View style={mainStyles.streakRow}>
+            <AppIcon name="flame" size={24} color={colors.accent} />
+            <Text style={mainStyles.streakNum}>{currentStreak} day streak</Text>
+          </View>
           </View>
 
-          <View style={styles.profileMeta}>
-            <Text style={styles.displayName}>{displayName}</Text>
-            <Text style={styles.email}>{user?.email ?? "Not signed in"}</Text>
+          <View style={mainStyles.xpTrack}>
+            <Animated.View style={[mainStyles.xpFill, { width: xpBarWidth }]} />
           </View>
-        </View>
-
-        <View style={styles.progressSection}>
-          <View style={styles.streakRow}>
-            <View>
-              <Text style={styles.progressLabel}>Current streak</Text>
-              <Text style={styles.progressValue}>{currentStreak} day{currentStreak === 1 ? "" : "s"}</Text>
-            </View>
-            <View style={styles.levelPill}>
-              <Text style={styles.levelText}>LVL {level}</Text>
-            </View>
+          <View style={mainStyles.xpRow}>
+            <Text style={mainStyles.xpVal}>{xpIntoLevel} / {xpForNextLevel} XP</Text>
+            <Text style={mainStyles.xpTarget}>to level {level + 1}</Text>
           </View>
+        </Animated.View>
 
-          <View style={styles.xpHeader}>
-            <Text style={styles.xpText}>{xp} XP total</Text>
-            <Text style={styles.xpHint}>{xpToNextLevel} XP to next level</Text>
-          </View>
-          <View style={styles.xpTrack}>
-            <View style={[styles.xpFill, { width: `${Math.max(4, levelProgress * 100)}%` }]} />
-          </View>
-        </View>
+        {/* ── Full Stats List ── */}
+        <Animated.View style={[mainStyles.statsSection, { opacity: statsFade, transform: [{ translateY: statsFade.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+          <Text style={mainStyles.statsTitle}>Stats</Text>
 
-        <Pressable style={styles.settingsBtn} onPress={() => navigation.navigate("Settings")}> 
-          <AppIcon name="settings" size={16} color={colors.text} />
-          <Text style={styles.settingsText}>Settings</Text>
-          <AppIcon name="chevron-right" size={16} color={colors.mutedText} />
-        </Pressable>
+          <StatRow label="Tasks completed" value={totalCompleted} icon="check-square" meta="Total tasks marked done" />
+          <StatRow label="Completion rate" value={`${completionPct}%`} icon="percent" meta={`${totalCompleted} of ${totalTasks} total`} />
+          <StatRow label="Best streak" value={`${bestStreak}d`} icon="flame-kindling" meta="Longest consecutive days" />
+          <StatRow label="Active tasks" value={activeTasks} icon="square" meta="Open and not yet completed" />
+          <StatRow label="Avg done/day (7d)" value={avgCompletedPerDay} icon="calendar" meta="Last 7-day rolling average" />
+          <StatRow label="On-time rate" value={`${onTimeRate}%`} icon="clock" meta={`${onTimeCompletions} completed before deadline`} />
+          <StatRow label="Overdue tasks" value={overdueTasks} icon="alert-circle" meta="Open tasks past deadline" />
+          <StatRow label="Top category" value={categoryProductivity.count} icon="briefcase" meta={`Most productive: ${categoryProductivity.categoryName}`} />
+          <StatRow label="Peak window" value={peakWindow.label} icon="sun" meta={`${peakWindow.count} completions`} />
+          <StatRow label="Habits" value={habits.length} icon="repeat" />
+          <StatRow label="Habit rate (30d)" value={`${habitAdherence.rate}%`} icon="percent" meta={`${habitAdherence.completed}/${habitAdherence.applicable} check-ins`} />
+        </Animated.View>
 
-        <Text style={styles.sectionTitle}>Stats</Text>
-
-        <View style={styles.statsStack}>
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="check-square" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>Tasks completed</Text>
-            </View>
-            <Text style={styles.statValue}>{totalCompleted}</Text>
-            <Text style={styles.statMeta}>Total tasks marked done</Text>
-          </View>
-
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="percent" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>Completion percentage</Text>
-            </View>
-            <Text style={styles.statValue}>{completionPct}%</Text>
-            <View style={styles.meterTrack}>
-              <View style={[styles.meterFill, { width: `${Math.max(2, completionPct)}%` }]} />
-            </View>
-          </View>
-
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="flame" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>Current streak</Text>
-            </View>
-            <Text style={styles.statValue}>{currentStreak}</Text>
-            <Text style={styles.statMeta}>Active streak right now</Text>
-          </View>
-
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="flame-kindling" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>Best streak</Text>
-            </View>
-            <Text style={styles.statValue}>{bestStreak}</Text>
-            <Text style={styles.statMeta}>Longest run of consecutive days</Text>
-          </View>
-
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="square" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>Active tasks</Text>
-            </View>
-            <Text style={styles.statValue}>{activeTasks}</Text>
-            <Text style={styles.statMeta}>Open and not yet completed</Text>
-          </View>
-
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="calendar" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>Avg done/day (7d)</Text>
-            </View>
-            <Text style={styles.statValue}>{avgCompletedPerDay}</Text>
-            <Text style={styles.statMeta}>Last 7-day rolling average</Text>
-          </View>
-
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="percent" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>On-time completion rate</Text>
-            </View>
-            <Text style={styles.statValue}>{onTimeRate}%</Text>
-            <Text style={styles.statMeta}>{onTimeCompletions} completed before deadline</Text>
-          </View>
-
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="alert-circle" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>Overdue tasks</Text>
-            </View>
-            <Text style={styles.statValue}>{overdueTasks}</Text>
-            <Text style={styles.statMeta}>Open tasks past their deadline</Text>
-          </View>
-
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="briefcase" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>Category productivity</Text>
-            </View>
-            <Text style={styles.statValue}>{categoryProductivity.count}</Text>
-            <Text style={styles.statMeta}>Top category: {categoryProductivity.categoryName}</Text>
-          </View>
-
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="sun" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>Peak productive window</Text>
-            </View>
-            <Text style={styles.statValue}>{peakWindow.label}</Text>
-            <Text style={styles.statMeta}>{peakWindow.count} completions in top window</Text>
-          </View>
-
-          <View style={styles.statSpotlight}>
-            <View style={styles.statHeadingRow}>
-              <View style={styles.statIconWrap}>
-                <AppIcon name="repeat" size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statLabel}>Habit adherence (30d)</Text>
-            </View>
-            <Text style={styles.statValue}>{habitAdherence.rate}%</Text>
-            <Text style={styles.statMeta}>{habitAdherence.completed}/{habitAdherence.applicable} applicable check-ins</Text>
-          </View>
-        </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: 14,
-    paddingBottom: spacing.sm,
-  },
-  appName: {
-    fontSize: fontSize.xxl,
-    fontWeight: "800",
-    color: colors.accent,
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl + spacing.lg,
-    gap: spacing.lg,
-  },
-  profileRow: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-  },
-  avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: colors.accentLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    fontSize: fontSize.xxl,
-    fontWeight: "700",
-    color: colors.accent,
-  },
-  profileMeta: {
-    marginLeft: spacing.lg,
-    flex: 1,
-  },
-  displayName: {
-    fontSize: fontSize.xl,
-    color: colors.text,
-    fontWeight: "700",
-  },
-  email: {
-    fontSize: fontSize.sm,
-    color: colors.text,
-    marginTop: spacing.xs,
-  },
-  progressSection: {
-    width: "100%",
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  streakRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  progressLabel: {
-    color: colors.mutedText,
-    fontSize: fontSize.xs,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  progressValue: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: "700",
-    marginTop: spacing.xs,
-  },
-  xpHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  xpText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-  },
-  xpTrack: {
-    height: 12,
-    borderRadius: 999,
-    backgroundColor: colors.border,
-    overflow: "hidden",
-  },
-  xpFill: {
-    height: "100%",
-    backgroundColor: colors.accent,
-    borderRadius: 999,
-  },
-  xpHint: {
-    color: colors.mutedText,
-    fontSize: fontSize.xs,
-  },
-  levelPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-  },
-  levelText: {
-    color: colors.accent,
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-  },
-  settingsBtn: {
-    width: "100%",
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  settingsText: {
-    color: colors.text,
-    fontWeight: "700",
-    fontSize: fontSize.md,
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  sectionTitle: {
-    color: colors.mutedText,
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.7,
-    marginBottom: spacing.sm,
-  },
-  statsStack: {
-    width: "100%",
-    gap: spacing.md,
-  },
-  statSpotlight: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    minHeight: 118,
-  },
-  statIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.accentLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statHeadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  statLabel: {
-    color: colors.mutedText,
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-  },
-  statValue: {
-    color: colors.text,
-    fontSize: fontSize.xxl + 6,
-    fontWeight: "700",
-    marginTop: spacing.md,
-    lineHeight: fontSize.xxl + 12,
-  },
-  statMeta: {
-    color: colors.mutedText,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xs,
-  },
-  meterTrack: {
-    height: 8,
-    marginTop: spacing.sm,
-    borderRadius: 999,
-    backgroundColor: colors.border,
-    overflow: "hidden",
-  },
-  meterFill: {
-    height: "100%",
-    backgroundColor: colors.accent,
-    borderRadius: 999,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    heroBlock: {
+      alignItems: "center",
+      paddingTop: 24,
+      paddingBottom: 24,
+      paddingHorizontal: 28,
+    },
+    settingsBtn: {
+      position: "absolute",
+      top: 40,
+      right: 28,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    hugeName: {
+      fontSize: 48,
+      fontFamily: fonts.heading,
+      color: colors.text,
+      letterSpacing: -1.5,
+      textAlign: "center",
+    },
+    levelRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    xpSection: {
+      paddingHorizontal: 28,
+      paddingTop: 8,
+      paddingBottom: 20,
+      gap: 10,
+    },
+    levelNum: {
+      fontSize: 28,
+      fontFamily: fonts.heading,
+      color: colors.text,
+      letterSpacing: -1,
+    },
+    xpTrack: {
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.surfaceLight,
+      overflow: "hidden",
+    },
+    xpFill: {
+      height: "100%",
+      backgroundColor: colors.accent,
+      borderRadius: 4,
+    },
+    xpRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    xpVal: {
+      fontSize: 14,
+      fontFamily: fonts.bodyBold,
+      color: colors.text,
+      letterSpacing: -0.3,
+    },
+    xpTarget: {
+      fontSize: 13,
+      fontFamily: fonts.bodySemiBold,
+      color: colors.mutedText,
+    },
+    streakRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginTop: 16,
+    },
+    streakNum: {
+      fontSize: 24,
+      fontFamily: fonts.bodyBold,
+      color: colors.text,
+    },
+    statsSection: {
+      paddingHorizontal: 28,
+    },
+    statsTitle: {
+      fontSize: 44,
+      fontFamily: fonts.heading,
+      color: colors.accent,
+      marginBottom: 4,
+      letterSpacing: -0.5,
+    },
+  });

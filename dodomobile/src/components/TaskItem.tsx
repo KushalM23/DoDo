@@ -38,11 +38,24 @@ function priorityIcon(priority: number): "arrow-up-circle" | "minus-circle" | "a
 const SWIPE_THRESHOLD = 74;
 const SWIPE_LIMIT = 108;
 
-export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelete, onSwipeLeft, onPress, onLongPress, selected, selectionMode }: TaskItemProps) {
+export function TaskItem({
+  task,
+  category,
+  isHabit,
+  habitIcon,
+  onToggle,
+  onDelete,
+  onSwipeLeft,
+  onPress,
+  onLongPress,
+  selected,
+  selectionMode,
+}: TaskItemProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { preferences } = usePreferences();
   const translateX = useRef(new Animated.Value(0)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
 
   // Keep refs so the PanResponder always uses latest values
   const taskRef = useRef(task);
@@ -96,7 +109,7 @@ export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelet
       onPanResponderRelease: (_, gs) => {
         if (selectionModeRef.current) return;
         if (gs.dx <= -SWIPE_THRESHOLD) {
-          Animated.timing(translateX, { toValue: -SWIPE_LIMIT, duration: 140, useNativeDriver: true }).start(() => {
+          Animated.timing(translateX, { toValue: -SWIPE_LIMIT, duration: 120, useNativeDriver: true }).start(() => {
             onSwipeLeftRef.current(taskRef.current);
             translateX.setValue(0);
           });
@@ -104,27 +117,42 @@ export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelet
         }
 
         if (gs.dx >= SWIPE_THRESHOLD) {
-          Animated.timing(translateX, { toValue: SWIPE_LIMIT, duration: 140, useNativeDriver: true }).start(() => {
+          Animated.timing(translateX, { toValue: SWIPE_LIMIT, duration: 120, useNativeDriver: true }).start(() => {
             onDeleteRef.current(taskRef.current.id);
             translateX.setValue(0);
           });
           return;
         }
 
-        Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 90, friction: 9 }).start();
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 120, friction: 10 }).start();
       },
     }),
   ).current;
+
+  function handlePressIn() {
+    Animated.spring(pressScale, { toValue: 0.98, useNativeDriver: true, speed: 40 }).start();
+  }
+
+  function handlePressOut() {
+    Animated.spring(pressScale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }).start();
+  }
+
+  const priorityPillColor = isHabit
+    ? `${colors.habitBadge}20`
+    : `${priorityColor(task.priority, colors)}20`;
+  const priorityIconColor = isHabit ? colors.habitBadge : priorityColor(task.priority, colors);
 
   return (
     <View style={styles.outer}>
       {!selectionMode && (
         <View style={styles.actionsRow}>
           <Animated.View style={[styles.actionPane, styles.actionPaneLeft, styles.deleteActionBg, { opacity: leftActionOpacity }]}>
-            <AppIcon name="trash-2" size={15} color="#fff" />
+            <AppIcon name="trash-2" size={16} color="#fff" />
+            <Text style={styles.actionLabel}>Delete</Text>
           </Animated.View>
           <Animated.View style={[styles.actionPane, styles.actionPaneRight, styles.completeActionBg, { opacity: rightActionOpacity }]}>
-            <AppIcon name="check" size={15} color="#fff" />
+            <AppIcon name="check" size={16} color="#fff" />
+            <Text style={styles.actionLabel}>Done</Text>
           </Animated.View>
         </View>
       )}
@@ -134,200 +162,191 @@ export function TaskItem({ task, category, isHabit, habitIcon, onToggle, onDelet
           styles.card,
           task.completed && styles.completedCard,
           selected && styles.selectedCard,
-          { transform: [{ translateX: selectionMode ? 0 : translateX }] },
+          { transform: [{ translateX: selectionMode ? 0 : translateX }, { scale: pressScale }] },
         ]}
         {...(selectionMode ? {} : panResponder.panHandlers)}
       >
+        {/* Checkbox */}
         {selectionMode ? (
-          // Checkbox-style selection indicator
           <Pressable
-            style={styles.checkbox}
+            style={styles.checkboxWrap}
             onPress={() => onPressRef.current?.(taskRef.current)}
             onLongPress={() => onLongPressRef.current?.(taskRef.current)}
           >
-            <View style={[styles.checkboxInner, selected && styles.checkboxChecked]}>
-              {selected && <AppIcon name="check" size={13} color="#fff" />}
+            <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
+              {selected && <AppIcon name="check" size={11} color="#fff" />}
             </View>
           </Pressable>
         ) : (
-          <Pressable style={styles.checkbox} onPress={() => onToggleRef.current(taskRef.current)}>
-            <View style={[styles.checkboxInner, task.completed && styles.checkboxChecked]}>
-              {task.completed && <AppIcon name="check" size={13} color="#fff" />}
+          <Pressable style={styles.checkboxWrap} onPress={() => onToggleRef.current(taskRef.current)}>
+            <View style={[styles.checkbox, task.completed && styles.checkboxChecked]}>
+              {task.completed && <AppIcon name="check" size={11} color="#fff" />}
             </View>
           </Pressable>
         )}
 
+        {/* Leading icon pill */}
         {showLeadingIcon && leadingIcon ? (
-          <View style={[styles.leadingIconPill, { backgroundColor: `${leadingIconColor}22` }]}>
-            <AppIcon name={leadingIcon} size={17} color={leadingIconColor} />
+          <View style={[styles.leadingIconPill, { backgroundColor: `${leadingIconColor}18` }]}>
+            <AppIcon name={leadingIcon} size={15} color={leadingIconColor} />
           </View>
         ) : null}
 
+        {/* Content */}
         <Pressable
           style={styles.content}
           onPress={() => onPressRef.current?.(taskRef.current)}
           onLongPress={() => onLongPressRef.current?.(taskRef.current)}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
           delayLongPress={400}
         >
-          <View style={styles.titleRow}>
-            <Text style={[styles.title, task.completed && styles.completedText]} numberOfLines={1}>
-              {task.title}
-            </Text>
-          </View>
+          <Text style={[styles.title, task.completed && styles.completedText]} numberOfLines={1}>
+            {task.title}
+          </Text>
           <View style={styles.metaRow}>
-            <AppIcon name="clock" size={11} color={colors.mutedText} />
+            <AppIcon name="clock" size={10} color={colors.mutedText} />
             <Text style={styles.meta}>{formatTime(task.scheduledAt, preferences.timeFormat)}</Text>
             {task.durationMinutes != null && (
               <>
-                <Text style={styles.metaDot}> · </Text>
+                <Text style={styles.metaDot}>·</Text>
                 <Text style={styles.meta}>{task.durationMinutes}m</Text>
               </>
             )}
           </View>
         </Pressable>
 
-        <View style={styles.badgesCol}>
-          <View style={styles.badgeTopRow}>
-            <View
-              style={[
-                styles.priorityPill,
-                {
-                  backgroundColor: isHabit
-                    ? `${colors.habitBadge}22`
-                    : `${priorityColor(task.priority, colors)}22`,
-                },
-              ]}
-            >
-              <AppIcon
-                name={isHabit ? "repeat" : priorityIcon(task.priority)}
-                size={13}
-                color={isHabit ? colors.habitBadge : priorityColor(task.priority, colors)}
-              />
-            </View>
-          </View>
+        {/* Priority badge */}
+        <View style={[styles.priorityPill, { backgroundColor: priorityPillColor }]}>
+          <AppIcon
+            name={isHabit ? "repeat" : priorityIcon(task.priority)}
+            size={12}
+            color={priorityIconColor}
+          />
         </View>
       </Animated.View>
     </View>
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  outer: {
-    marginBottom: spacing.sm,
-    overflow: "hidden",
-    borderRadius: radii.md,
-  },
-  actionsRow: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: "row",
-    borderRadius: radii.md,
-    overflow: "hidden",
-  },
-  actionPane: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionPaneLeft: {
-    alignItems: "flex-start",
-    paddingLeft: spacing.lg,
-  },
-  actionPaneRight: {
-    alignItems: "flex-end",
-    paddingRight: spacing.lg,
-  },
-  deleteActionBg: {
-    backgroundColor: colors.danger,
-  },
-  completeActionBg: {
-    backgroundColor: colors.success,
-  },
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  completedCard: {
-    opacity: 0.55,
-  },
-  selectedCard: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-  },
-  checkbox: {
-    padding: 2,
-  },
-  leadingIconPill: {
-    width: 30,
-    height: 30,
-    borderRadius: radii.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxInner: {
-    width: 22,
-    height: 22,
-    borderRadius: radii.sm,
-    borderWidth: 2,
-    borderColor: colors.mutedText,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxChecked: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  content: {
-    flex: 1,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  title: {
-    fontSize: fontSize.md,
-    fontWeight: "600",
-    color: colors.text,
-    flex: 1,
-  },
-  completedText: {
-    textDecorationLine: "line-through",
-    color: colors.mutedText,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    marginTop: 3,
-  },
-  meta: {
-    fontSize: fontSize.xs,
-    color: colors.mutedText,
-  },
-  metaDot: {
-    color: colors.mutedText,
-    fontSize: fontSize.xs,
-  },
-  priorityPill: {
-    width: 24,
-    height: 24,
-    borderRadius: radii.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badgesCol: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-  },
-  badgeTopRow: {
-    flexDirection: "row",
-    gap: 6,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    outer: {
+      marginBottom: spacing.xs,
+      overflow: "hidden",
+      borderRadius: radii.lg,
+    },
+    actionsRow: {
+      ...StyleSheet.absoluteFillObject,
+      flexDirection: "row",
+      borderRadius: radii.lg,
+      overflow: "hidden",
+    },
+    actionPane: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+    },
+    actionPaneLeft: {
+      alignItems: "flex-start",
+      paddingLeft: spacing.sm,
+    },
+    actionPaneRight: {
+      alignItems: "flex-end",
+      paddingRight: spacing.sm,
+    },
+    actionLabel: {
+      color: "#fff",
+      fontSize: fontSize.xs,
+      fontWeight: "700",
+    },
+    deleteActionBg: {
+      backgroundColor: colors.danger,
+    },
+    completeActionBg: {
+      backgroundColor: colors.success,
+    },
+    card: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: spacing.sm - 2,
+      paddingHorizontal: spacing.sm,
+      gap: spacing.xs,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.6,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    completedCard: {
+      opacity: 0.45,
+    },
+    selectedCard: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentLight,
+      shadowColor: colors.accent,
+    },
+    checkboxWrap: {
+      padding: 4,
+    },
+    leadingIconPill: {
+      width: 32,
+      height: 32,
+      borderRadius: radii.md,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.borderStrong,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    checkboxChecked: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    content: {
+      flex: 1,
+    },
+    title: {
+      fontSize: fontSize.md,
+      fontWeight: "600",
+      color: colors.text,
+      letterSpacing: -0.2,
+    },
+    completedText: {
+      textDecorationLine: "line-through",
+      color: colors.mutedText,
+    },
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 4,
+    },
+    meta: {
+      fontSize: fontSize.xs,
+      color: colors.mutedText,
+      fontWeight: "500",
+    },
+    metaDot: {
+      color: colors.mutedText,
+      fontSize: fontSize.xs,
+    },
+    priorityPill: {
+      width: 28,
+      height: 28,
+      borderRadius: radii.sm,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+  });

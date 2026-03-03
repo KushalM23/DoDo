@@ -2,6 +2,22 @@
   "migIndex": 1,
   "data": [
     {
+      "path": "assets/fonts/Oswald-Bold.ttf",
+      "sha1": "ad9b3cfc85965c43f35c6f1be746c403164f4887"
+    },
+    {
+      "path": "assets/fonts/Oswald-Medium.ttf",
+      "sha1": "d38de92e345ff5fddae4c2cfcf4bf7fc2078a55b"
+    },
+    {
+      "path": "assets/fonts/Oswald-Regular.ttf",
+      "sha1": "a4d65cfe5bbcada841362f131a1fe37905078fbc"
+    },
+    {
+      "path": "assets/fonts/Oswald-SemiBold.ttf",
+      "sha1": "b5098d6bb09a27632046957acfb93730f4a6f8fb"
+    },
+    {
       "path": "assets/fonts/Poppins-Bold.ttf",
       "sha1": "45e4d582cbb4dab2bbad3f624fad9ae567c66547"
     },

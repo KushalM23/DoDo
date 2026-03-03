@@ -13,6 +13,7 @@ import { useHabits } from "../../state/HabitsContext";
 import { usePreferences } from "../../state/PreferencesContext";
 import type { RootStackParamList } from "../../navigation/RootNavigator";
 import { fontSize, radii, spacing } from "../../theme/colors";
+import { fonts } from "../../theme/fonts";
 import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
 import { formatHabitFrequency, minuteToLabel } from "../../utils/habits";
 
@@ -388,7 +389,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   lockClockLine: {
     color: "#fff",
     fontSize: 88,
-    fontWeight: "800",
+    fontFamily: fonts.heading,
     lineHeight: 110,
     letterSpacing: 0.5,
     includeFontPadding: true,
@@ -411,12 +412,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   lockTitle: {
     color: colors.text,
     fontSize: fontSize.xl,
-    fontWeight: "700",
+    fontFamily: fonts.headingMedium,
     textAlign: "center",
   },
   lockMeta: {
     color: colors.mutedText,
     fontSize: fontSize.sm,
+    fontFamily: fonts.body,
     textAlign: "center",
   },
   lockCompleteBtn: {
@@ -444,12 +446,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: spacing.sm,
   },
   lockSessionText: {
-    fontWeight: "700",
     fontSize: fontSize.sm,
   },
   lockCompleteText: {
     color: "#fff",
-    fontWeight: "700",
+    fontFamily: fonts.bodyBold,
     fontSize: fontSize.sm,
   },
   lockExitBtn: {
@@ -493,7 +494,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   headerTitle: {
     color: colors.text,
     fontSize: fontSize.lg,
-    fontWeight: "700",
+    fontFamily: fonts.headingMedium,
   },
   placeholder: {
     width: 20,
@@ -509,7 +510,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   name: {
     color: colors.text,
     fontSize: fontSize.xl,
-    fontWeight: "800",
+    fontFamily: fonts.headingSemiBold,
     textAlign: "center",
   },
   streakRow: {
@@ -528,17 +529,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   streakValue: {
     color: colors.habitBadge,
     fontSize: 26,
-    fontWeight: "800",
+    fontFamily: fonts.headingSemiBold,
   },
   streakLabel: {
     color: colors.mutedText,
     fontSize: fontSize.xs,
+    fontFamily: fonts.body,
     marginTop: spacing.xs,
   },
   sectionTitle: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: "700",
+    fontFamily: fonts.headingRegular,
     marginTop: spacing.sm,
   },
   weekRow: {
@@ -572,7 +574,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   weekLabel: {
     color: colors.mutedText,
     fontSize: 10,
-    fontWeight: "700",
+    fontFamily: fonts.bodyBold,
   },
   weekLabelToday: {
     color: colors.text,
@@ -593,13 +595,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   infoLabel: {
     color: colors.mutedText,
     fontSize: fontSize.xs,
+    fontFamily: fonts.body,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   infoValue: {
     color: colors.text,
     fontSize: fontSize.sm,
-    fontWeight: "700",
+    fontFamily: fonts.bodyBold,
   },
   completeBtn: {
     marginTop: spacing.sm,
@@ -613,7 +616,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   completeBtnText: {
     color: "#fff",
-    fontWeight: "700",
+    fontFamily: fonts.bodyBold,
     fontSize: fontSize.sm,
   },
   sessionActionsRow: {
@@ -641,7 +644,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   sessionBtnText: {
     fontSize: fontSize.sm,
-    fontWeight: "700",
   },
   actionsRow: {
     flexDirection: "row",
@@ -671,7 +673,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   actionText: {
     color: colors.accent,
     fontSize: fontSize.sm,
-    fontWeight: "700",
+    fontFamily: fonts.bodyBold,
   },
   emptyWrap: {
     flex: 1,
@@ -681,6 +683,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   emptyText: {
     color: colors.mutedText,
     fontSize: fontSize.md,
+    fontFamily: fonts.body,
   },
   disabled: {
     opacity: 0.5,
@@ -712,12 +715,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   undoText: {
     color: colors.text,
     fontSize: fontSize.md,
-    fontWeight: "600",
+    fontFamily: fonts.bodySemiBold,
   },
   undoAction: {
     color: colors.accent,
     fontSize: fontSize.md,
-    fontWeight: "700",
+    fontFamily: fonts.bodyBold,
   },
   lockTimerWrap: {
     marginTop: spacing.md,

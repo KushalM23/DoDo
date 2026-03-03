@@ -48,7 +48,7 @@ const normalizeTypographyStyle = (style) => {
 	}
 
 	if (!currentFamily) {
-		next.fontFamily = poppins.regular;
+		next.fontFamily = poppins.bold;
 	}
 
 	return next;

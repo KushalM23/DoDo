@@ -33,7 +33,8 @@ function generateDays(): { key: string; dateStr: string; dayName: string; dayNum
 }
 
 const DAYS = generateDays();
-const ITEM_WIDTH = 52;
+const ITEM_WIDTH = 50;
+const ITEM_GAP = 6;
 
 export function DateStrip({ selectedDate, onSelectDate, incompleteDateKeys }: Props) {
   const colors = useThemeColors();
@@ -57,13 +58,25 @@ export function DateStrip({ selectedDate, onSelectDate, incompleteDateKeys }: Pr
       const hasIncomplete = incompleteDateKeys?.has(item.dateStr) ?? false;
       return (
         <Pressable
-          style={[styles.dayItem, isToday && styles.dayItemToday, active && styles.dayItemActive]}
+          style={[
+            styles.dayItem,
+            isToday && !active && styles.dayItemToday,
+            active && styles.dayItemActive,
+          ]}
           onPress={() => onSelectDate(item.dateStr)}
         >
-          <Text style={[styles.dayName, active && styles.dayNameActive]}>{item.dayName}</Text>
-          <Text style={[styles.dayNum, active && styles.dayNumActive]}>{item.dayNum}</Text>
+          <Text style={[styles.dayName, active && styles.dayNameActive, isToday && !active && styles.dayNameToday]}>
+            {item.dayName}
+          </Text>
+          <Text style={[styles.dayNum, active && styles.dayNumActive]}>
+            {item.dayNum}
+          </Text>
           <View style={styles.dotRow}>
-            {hasIncomplete && <View style={[styles.incompleteDot, active && styles.incompleteDotActive]} />}
+            {hasIncomplete ? (
+              <View style={[styles.incompleteDot, active && styles.incompleteDotActive]} />
+            ) : (
+              <View style={styles.dotPlaceholder} />
+            )}
           </View>
         </Pressable>
       );
@@ -91,78 +104,82 @@ export function DateStrip({ selectedDate, onSelectDate, incompleteDateKeys }: Pr
         requestAnimationFrame(() => centerIndex(initialIndex, false));
       }}
       getItemLayout={(_, index) => ({
-        length: ITEM_WIDTH + 6,
-        offset: (ITEM_WIDTH + 6) * index,
+        length: ITEM_WIDTH + ITEM_GAP,
+        offset: (ITEM_WIDTH + ITEM_GAP) * index,
         index,
       })}
     />
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  container: {
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: spacing.xs,
-  },
-  dayItem: {
-    width: ITEM_WIDTH,
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  dayItemActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  dayItemToday: {
-    backgroundColor: colors.accentLight,
-    borderColor: colors.accent,
-  },
-  dayName: {
-    fontSize: fontSize.xs,
-    color: colors.mutedText,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  dayNameActive: {
-    color: colors.text,
-  },
-  dayNum: {
-    fontSize: fontSize.md + 1,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  dayNumActive: {
-    color: colors.text,
-    fontWeight: "700",
-  },
-  dotRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    marginTop: 3,
-    minHeight: 5,
-  },
-  todayDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.accent,
-  },
-  todayDotActive: {
-    backgroundColor: colors.text,
-  },
-  incompleteDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: colors.danger,
-  },
-  incompleteDotActive: {
-    backgroundColor: colors.text,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      alignItems: "center",
+      gap: ITEM_GAP,
+      paddingHorizontal: 4,
+    },
+    dayItem: {
+      width: ITEM_WIDTH,
+      alignItems: "center",
+      paddingVertical: spacing.xs - 2,
+      borderRadius: radii.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    dayItemActive: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    dayItemToday: {
+      backgroundColor: colors.accentLight,
+      borderColor: colors.accent,
+    },
+    dayName: {
+      fontSize: 10,
+      color: colors.mutedText,
+      fontWeight: "700",
+      marginBottom: 2,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    dayNameActive: {
+      color: "#fff",
+    },
+    dayNameToday: {
+      color: colors.accent,
+    },
+    dayNum: {
+      fontSize: fontSize.md,
+      fontWeight: "800",
+      color: colors.text,
+    },
+    dayNumActive: {
+      color: "#fff",
+    },
+    dotRow: {
+      marginTop: 4,
+      height: 5,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    dotPlaceholder: {
+      width: 5,
+      height: 5,
+    },
+    incompleteDot: {
+      width: 5,
+      height: 5,
+      borderRadius: 2.5,
+      backgroundColor: colors.danger,
+    },
+    incompleteDotActive: {
+      backgroundColor: "rgba(255,255,255,0.8)",
+    },
+  });

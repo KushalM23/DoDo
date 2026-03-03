@@ -11,5 +11,8 @@
     "mobile:android": "npm --prefix dodomobile run android",
     "mobile:ios": "npm --prefix dodomobile run ios",
     "mobile:typecheck": "npm --prefix dodomobile run typecheck"
+  },
+  "dependencies": {
+    "react-native-shadow-2": "^7.1.2"
   }
 }

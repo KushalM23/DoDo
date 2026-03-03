@@ -27,7 +27,6 @@ type PreferencesContextValue = {
   setDarkMode: (enabled: boolean) => Promise<void>;
   setDateFormat: (format: DateFormatPreference) => Promise<void>;
   setTimeFormat: (format: TimeFormatPreference) => Promise<void>;
-  setWeekStart: (weekStart: WeekStartPreference) => Promise<void>;
   resetPreferences: () => Promise<void>;
 };
 
@@ -76,9 +75,6 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       },
       async setTimeFormat(format: TimeFormatPreference) {
         await updatePreferences({ ...preferences, timeFormat: format });
-      },
-      async setWeekStart(weekStart: WeekStartPreference) {
-        await updatePreferences({ ...preferences, weekStart });
       },
       async resetPreferences() {
         await updatePreferences(DEFAULT_PREFERENCES);
