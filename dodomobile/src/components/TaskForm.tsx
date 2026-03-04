@@ -1,6 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,7 +8,8 @@ import {
   View,
 } from 'react-native';
 import {useAlert} from '../state/AlertContext';
-import {CustomDateTimePicker} from './CustomDateTimePicker';
+import {CustomDatePicker} from './CustomDatePicker';
+import {CustomTimePicker} from './CustomTimePicker';
 import {AppIcon} from './AppIcon';
 import type {CreateTaskInput, Priority} from '../types/task';
 import type {Category} from '../types/category';
@@ -21,6 +21,8 @@ import {
 } from '../theme/ThemeProvider';
 import {usePreferences} from '../state/PreferencesContext';
 import {formatDate, formatTime} from '../utils/dateTime';
+import {FormPopup, FormTab} from './FormPopup';
+import {fonts} from '../theme/fonts';
 
 type TaskFormProps = {
   visible: boolean;
@@ -74,12 +76,13 @@ export function TaskForm({
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>(2);
   const [scheduledAt, setScheduledAt] = useState(new Date());
-  const [durationMinutes, setDurationMinutes] = useState(45);
-  const [durationCustom, setDurationCustom] = useState('45');
+  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [durationCustom, setDurationCustom] = useState('60');
   const [durationUnit, setDurationUnit] = useState<'min' | 'hour'>('min');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
+  
+  const [activeTab, setActiveTab] = useState('');
 
   useEffect(() => {
     if (visible) {
@@ -125,20 +128,17 @@ export function TaskForm({
         );
 
         setScheduledAt(nextDate);
-        setDurationMinutes(45);
-        setDurationCustom('45');
+        setDurationMinutes(60);
+        setDurationCustom('60');
         setDurationUnit('min');
         setCategoryId(defaultCategoryId);
       }
-
-      setShowPicker(false);
+      setActiveTab('');
     }
   }, [visible, defaultCategoryId, defaultDate, initialValues, mode]);
 
   async function handleSubmit() {
-    if (!title.trim()) {
-      return;
-    }
+    if (!title.trim()) return;
     if (!Number.isFinite(durationMinutes) || durationMinutes < 1) {
       showAlert('Invalid duration', 'Duration must be at least 1 minute.');
       return;
@@ -171,365 +171,319 @@ export function TaskForm({
 
   function customToMinutes(raw: string, unit: 'min' | 'hour') {
     const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) {
-      return durationMinutes;
-    }
+    if (!Number.isFinite(parsed)) return durationMinutes;
     const base = unit === 'hour' ? parsed * 60 : parsed;
     return Math.max(1, Math.min(1440, Math.trunc(base)));
   }
 
+  const priorityIcon = priority === 3 ? 'arrow-up-circle' : priority === 2 ? 'minus-circle' : 'arrow-down-circle';
+  const durationLabel = `${durationMinutes} ${durationMinutes === 1 ? 'min' : 'mins'}`;
+  
+  const selectedCat = categories.find(c => c.id === categoryId);
+  const categoryLabel = selectedCat?.name || 'Category';
+  const categoryIcon = selectedCat?.icon || 'package';
+
+  const tabs: FormTab[] = [
+    {
+      id: 'priority',
+      icon: priorityIcon,
+    },
+    {
+      id: 'date',
+      icon: 'calendar',
+      valueDisplay: formatDate(scheduledAt, preferences.dateFormat),
+    },
+    {
+      id: 'time',
+      icon: 'clock',
+      valueDisplay: formatTime(scheduledAt, preferences.timeFormat),
+    },
+    {
+      id: 'duration',
+      icon: 'hourglass',
+      valueDisplay: durationLabel,
+    },
+  ];
+
+  if (categories.length > 0) {
+    tabs.push({
+      id: 'category',
+      icon: categoryIcon as any,
+      valueDisplay: categoryLabel,
+    });
+  }
+
   return (
-    <Modal
-      transparent
-      animationType="fade"
+    <FormPopup
       visible={visible}
-      onRequestClose={onCancel}>
-      <Pressable style={styles.overlay} onPress={onCancel}>
-        <Pressable style={styles.popup} onPress={() => {}}>
+      title={mode === 'edit' ? 'Edit Task' : 'New Task'}
+      onCancel={onCancel}
+      onSubmit={handleSubmit}
+      busy={busy}
+      submitLabel={submitLabel ?? (mode === 'edit' ? 'Save' : 'Add')}
+      nameValue={title}
+      onNameChange={setTitle}
+      namePlaceholder="Dodo's task"
+      showNotes={false}
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}>
+      
+      {activeTab === 'priority' && (
+        <View>
+          <Text style={styles.contentLabel}>Priority Level</Text>
+          <View style={styles.wrapRow}>
+            {([1, 2, 3] as Priority[]).map(p => {
+              const active = priority === p;
+              const col =
+                p === 3
+                  ? colors.highPriority
+                  : p === 2
+                  ? colors.mediumPriority
+                  : colors.lowPriority;
+              return (
+                <Pressable
+                  key={p}
+                  style={[
+                    styles.chipBtn,
+                    active && {backgroundColor: col + '25', borderColor: col},
+                  ]}
+                  onPress={() => setPriority(p)}>
+                  <AppIcon
+                    name={
+                      p === 3
+                        ? 'arrow-up-circle'
+                        : p === 2
+                        ? 'minus-circle'
+                        : 'arrow-down-circle'
+                    }
+                    size={18}
+                    color={active ? col : colors.mutedText}
+                  />
+                  <Text style={[styles.chipBtnText, active && {color: col}]}>
+                    {p === 1 ? 'Low' : p === 2 ? 'Medium' : 'High'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {activeTab === 'date' && (
+        <View>
+          <CustomDatePicker
+            key={`task-form-picker-date-${themeMode}`}
+            value={scheduledAt}
+            onChange={setScheduledAt}
+            weekStart={preferences.weekStart}
+          />
+        </View>
+      )}
+
+      {activeTab === 'time' && (
+        <View>
+          <CustomTimePicker
+            key={`task-form-picker-time-${themeMode}`}
+            value={scheduledAt}
+            onChange={setScheduledAt}
+            timeFormat={preferences.timeFormat}
+          />
+        </View>
+      )}
+
+      {activeTab === 'duration' && (
+        <View>
+          <Text style={styles.contentLabel}>Quick Select</Text>
           <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled">
-            {/* Header */}
-            <View style={styles.popupHeader}>
-              <Text style={styles.heading}>
-                {mode === 'edit' ? 'Edit Task' : 'New Task'}
-              </Text>
-              <Pressable onPress={onCancel} hitSlop={12}>
-                <AppIcon name="x" size={22} color={colors.mutedText} />
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.durationRow}>
+            {DURATION_OPTIONS.map(opt => {
+              const active = durationMinutes === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  style={[
+                    styles.durationChip,
+                    active && styles.durationChipActive,
+                  ]}
+                  onPress={() => {
+                    setDurationMinutes(opt.value);
+                    setDurationCustom(String(opt.value));
+                    setDurationUnit('min');
+                  }}>
+                  <Text
+                    style={[
+                      styles.durationText,
+                      active && styles.durationTextActive,
+                    ]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          
+          <Text style={[styles.contentLabel, {marginTop: spacing.md}]}>Custom Duration</Text>
+          <View style={styles.customDurationRow}>
+            <TextInput
+              style={styles.customDurationInput}
+              value={durationCustom}
+              onChangeText={raw => {
+                const clean = raw.replace(/[^0-9]/g, '').slice(0, 4);
+                setDurationCustom(clean);
+                if (clean.length === 0) return;
+                setDurationMinutes(customToMinutes(clean, durationUnit));
+              }}
+              onBlur={() => {
+                const normalized = customToMinutes(durationCustom, durationUnit);
+                setDurationMinutes(normalized);
+                const display =
+                  durationUnit === 'hour'
+                    ? Math.max(1, Math.round(normalized / 60))
+                    : normalized;
+                setDurationCustom(String(display));
+              }}
+              keyboardType="number-pad"
+              maxLength={4}
+              placeholder="Custom"
+              placeholderTextColor={colors.mutedText}
+            />
+            <View style={styles.unitToggleTrack}>
+              <Pressable
+                style={[
+                  styles.unitToggleOption,
+                  durationUnit === 'min' && styles.unitToggleOptionActive,
+                ]}
+                onPress={() => {
+                  setDurationUnit('min');
+                  setDurationCustom(String(durationMinutes));
+                }}>
+                <Text
+                  style={[
+                    styles.unitToggleText,
+                    durationUnit === 'min' && styles.unitToggleTextActive,
+                  ]}>
+                  min
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.unitToggleOption,
+                  durationUnit === 'hour' && styles.unitToggleOptionActive,
+                ]}
+                onPress={() => {
+                  setDurationUnit('hour');
+                  setDurationCustom(
+                    String(Math.max(1, Math.round(durationMinutes / 60))),
+                  );
+                }}>
+                <Text
+                  style={[
+                    styles.unitToggleText,
+                    durationUnit === 'hour' && styles.unitToggleTextActive,
+                  ]}>
+                  hour
+                </Text>
               </Pressable>
             </View>
+          </View>
+        </View>
+      )}
 
-            {/* Title */}
-            <TextInput
-              style={styles.input}
-              placeholder="Dodo's task"
-              placeholderTextColor={colors.mutedText}
-              value={title}
-              onChangeText={setTitle}
-              autoFocus
-              returnKeyType="done"
-            />
-
-            <TextInput
-              style={[styles.input, styles.notesInput]}
-              placeholder="Add notes (optional)"
-              placeholderTextColor={colors.mutedText}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              textAlignVertical="top"
-            />
-
-            {/* Priority */}
-            <Text style={styles.label}>Priority</Text>
-            <View style={styles.row}>
-              {([1, 2, 3] as Priority[]).map(p => {
-                const active = priority === p;
-                const col =
-                  p === 3
-                    ? colors.highPriority
-                    : p === 2
-                    ? colors.mediumPriority
-                    : colors.lowPriority;
-                return (
-                  <Pressable
-                    key={p}
-                    style={[
-                      styles.chipBtn,
-                      active && {backgroundColor: col + '25', borderColor: col},
-                    ]}
-                    onPress={() => setPriority(p)}>
-                    <AppIcon
-                      name={
-                        p === 3
-                          ? 'arrow-up-circle'
-                          : p === 2
-                          ? 'minus-circle'
-                          : 'arrow-down-circle'
-                      }
-                      size={14}
-                      color={active ? col : colors.mutedText}
-                    />
-                    <Text style={[styles.chipBtnText, active && {color: col}]}>
-                      {p === 1 ? 'Low' : p === 2 ? 'Medium' : 'High'}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* Date & Time */}
-            <Text style={styles.label}>Date & Time</Text>
-            <Pressable
-              style={styles.pickerBtn}
-              onPress={() => setShowPicker(prev => !prev)}>
-              <AppIcon name="calendar" size={16} color={colors.accent} />
-              <Text style={styles.pickerBtnText}>
-                {formatDate(scheduledAt, preferences.dateFormat)},{' '}
-                {formatTime(scheduledAt, preferences.timeFormat)}
-              </Text>
-              <AppIcon name="chevron-down" size={16} color={colors.mutedText} />
-            </Pressable>
-            {showPicker && (
-              <CustomDateTimePicker
-                key={`task-form-picker-${themeMode}`}
-                value={scheduledAt}
-                onChange={setScheduledAt}
-                timeFormat={preferences.timeFormat}
-                weekStart={preferences.weekStart}
-              />
-            )}
-
-            {/* Duration */}
-            <Text style={styles.label}>Duration</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.durationRow}>
-              {DURATION_OPTIONS.map(opt => {
-                const active = durationMinutes === opt.value;
-                return (
-                  <Pressable
-                    key={opt.value}
-                    style={[
-                      styles.durationChip,
-                      active && styles.durationChipActive,
-                    ]}
-                    onPress={() => {
-                      setDurationMinutes(opt.value);
-                      setDurationCustom(String(opt.value));
-                      setDurationUnit('min');
-                    }}>
-                    <Text
-                      style={[
-                        styles.durationText,
-                        active && styles.durationTextActive,
-                      ]}>
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <View style={styles.customDurationRow}>
-              <TextInput
-                style={styles.customDurationInput}
-                value={durationCustom}
-                onChangeText={raw => {
-                  const clean = raw.replace(/[^0-9]/g, '').slice(0, 4);
-                  setDurationCustom(clean);
-                  if (clean.length === 0) {
-                    return;
-                  }
-                  setDurationMinutes(customToMinutes(clean, durationUnit));
-                }}
-                onBlur={() => {
-                  const normalized = customToMinutes(
-                    durationCustom,
-                    durationUnit,
-                  );
-                  setDurationMinutes(normalized);
-                  const display =
-                    durationUnit === 'hour'
-                      ? Math.max(1, Math.round(normalized / 60))
-                      : normalized;
-                  setDurationCustom(String(display));
-                }}
-                keyboardType="number-pad"
-                maxLength={4}
-                placeholder="Custom duration"
-                placeholderTextColor={colors.mutedText}
-              />
-              <View style={styles.unitToggleTrack}>
+      {activeTab === 'category' && (
+        <View>
+          <Text style={styles.contentLabel}>Select Category</Text>
+          <View style={styles.wrapRow}>
+            {categories.map(cat => {
+              const active = categoryId === cat.id;
+              return (
                 <Pressable
-                  style={[
-                    styles.unitToggleOption,
-                    durationUnit === 'min' && styles.unitToggleOptionActive,
-                  ]}
-                  onPress={() => {
-                    setDurationUnit('min');
-                    setDurationCustom(String(durationMinutes));
-                  }}>
+                  key={cat.id}
+                  style={[styles.catChip, active && styles.catChipActive]}
+                  onPress={() => setCategoryId(active ? null : cat.id)}>
+                  <AppIcon 
+                    name={cat.icon as any} 
+                    size={16} 
+                    color={active ? colors.accent : colors.mutedText} 
+                  />
                   <Text
                     style={[
-                      styles.unitToggleText,
-                      durationUnit === 'min' && styles.unitToggleTextActive,
+                      styles.catChipText,
+                      active && styles.catChipTextActive,
                     ]}>
-                    min
+                    {cat.name}
                   </Text>
                 </Pressable>
-                <Pressable
-                  style={[
-                    styles.unitToggleOption,
-                    durationUnit === 'hour' && styles.unitToggleOptionActive,
-                  ]}
-                  onPress={() => {
-                    setDurationUnit('hour');
-                    setDurationCustom(
-                      String(Math.max(1, Math.round(durationMinutes / 60))),
-                    );
-                  }}>
-                  <Text
-                    style={[
-                      styles.unitToggleText,
-                      durationUnit === 'hour' && styles.unitToggleTextActive,
-                    ]}>
-                    hour
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Category */}
-            {categories.length > 0 && (
-              <>
-                <Text style={styles.label}>Category</Text>
-                <View style={styles.row}>
-                  {categories.map(cat => {
-                    const active = categoryId === cat.id;
-                    return (
-                      <Pressable
-                        key={cat.id}
-                        style={[styles.catChip, active && styles.catChipActive]}
-                        onPress={() => setCategoryId(active ? null : cat.id)}>
-                        <Text
-                          style={[
-                            styles.catChipText,
-                            active && styles.catChipTextActive,
-                          ]}>
-                          {cat.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </>
-            )}
-
-            {/* Submit */}
-            <Pressable
-              style={[
-                styles.submitBtn,
-                (busy || !title.trim()) && styles.disabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={busy || !title.trim()}>
-              <AppIcon
-                name={mode === 'edit' ? 'save' : 'plus'}
-                size={18}
-                color="#fff"
-              />
-              <Text style={styles.submitText}>
-                {busy
-                  ? 'Saving...'
-                  : submitLabel ??
-                    (mode === 'edit' ? 'Save Changes' : 'Add Task')}
-              </Text>
-            </Pressable>
-          </ScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+              );
+            })}
+          </View>
+        </View>
+      )}
+    </FormPopup>
   );
 }
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    overlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.6)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.lg,
-    },
-    popup: {
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      padding: spacing.xl,
-      width: '100%',
-      maxWidth: 400,
-      maxHeight: '85%',
-    },
-    popupHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacing.lg,
-    },
-    heading: {
-      fontSize: fontSize.xl,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    label: {
+    contentLabel: {
+      fontFamily: fonts.bodyBold,
+      fontSize: fontSize.sm,
       color: colors.mutedText,
-      fontWeight: '600',
-      fontSize: fontSize.xs,
-      marginBottom: spacing.sm,
-      marginTop: spacing.lg,
       textTransform: 'uppercase',
       letterSpacing: 0.5,
+      marginBottom: spacing.sm,
     },
-    input: {
-      backgroundColor: colors.surfaceLight,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radii.md,
-      paddingHorizontal: 14,
-      paddingVertical: 14,
-      color: colors.text,
-      fontSize: 16,
-    },
-    notesInput: {
-      minHeight: 90,
-      marginTop: spacing.sm,
-    },
-    row: {
+    wrapRow: {
       flexDirection: 'row',
-      gap: spacing.sm,
       flexWrap: 'wrap',
+      gap: spacing.sm,
     },
     chipBtn: {
       flex: 1,
+      minWidth: '30%',
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: radii.sm,
-      paddingVertical: 10,
+      borderRadius: 50,
+      paddingVertical: 14,
       alignItems: 'center',
       backgroundColor: colors.surfaceLight,
       flexDirection: 'row',
       justifyContent: 'center',
-      gap: 4,
+      gap: 6,
     },
     chipBtnText: {
+      fontFamily: fonts.bodyBold,
       color: colors.mutedText,
-      fontWeight: '600',
       fontSize: fontSize.sm,
-    },
-    pickerBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.surfaceLight,
-      borderRadius: radii.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-      gap: spacing.sm,
-    },
-    pickerBtnText: {
-      color: colors.text,
-      fontSize: fontSize.md,
-      fontWeight: '600',
-      flex: 1,
     },
     durationRow: {
       gap: spacing.sm,
+      paddingVertical: 4,
+      alignItems: 'flex-start',
+    },
+    durationChip: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 50,
+      backgroundColor: colors.surfaceLight,
+    },
+    durationChipActive: {
+      backgroundColor: colors.accent,
+    },
+    durationText: {
+      fontFamily: fonts.bodyMedium,
+      color: colors.text,
+      fontSize: fontSize.sm,
+    },
+    durationTextActive: {
+      color: colors.text,
+      fontFamily: fonts.bodyBold,
     },
     customDurationRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: spacing.sm,
       gap: spacing.sm,
     },
     customDurationInput: {
@@ -537,92 +491,59 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceLight,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: radii.sm,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      borderRadius: 50,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: 10,
       color: colors.text,
-      fontSize: fontSize.sm,
-      fontWeight: '600',
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSize.md,
     },
     unitToggleTrack: {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      borderRadius: radii.sm,
+      borderRadius: 50,
       flexDirection: 'row',
       overflow: 'hidden',
     },
     unitToggleOption: {
       paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      paddingVertical: 10,
     },
     unitToggleOptionActive: {
       backgroundColor: colors.accentLight,
     },
     unitToggleText: {
+      fontFamily: fonts.bodyMedium,
       color: colors.mutedText,
       fontSize: fontSize.sm,
-      fontWeight: '700',
     },
     unitToggleTextActive: {
       color: colors.accent,
-    },
-    durationChip: {
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      borderRadius: radii.sm,
-      backgroundColor: colors.surfaceLight,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    durationChipActive: {
-      backgroundColor: colors.accentLight,
-      borderColor: colors.accent,
-    },
-    durationText: {
-      color: colors.mutedText,
-      fontWeight: '600',
-      fontSize: fontSize.sm,
-    },
-    durationTextActive: {
-      color: colors.accent,
+      fontFamily: fonts.bodyBold,
     },
     catChip: {
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      borderRadius: radii.sm,
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 50,
       backgroundColor: colors.surfaceLight,
       borderWidth: 1,
       borderColor: colors.border,
+      alignItems: 'center',
+      gap: 8,
     },
     catChipActive: {
       backgroundColor: colors.accentLight,
       borderColor: colors.accent,
     },
     catChipText: {
+      fontFamily: fonts.bodyMedium,
       color: colors.mutedText,
-      fontWeight: '600',
       fontSize: fontSize.sm,
     },
     catChipTextActive: {
       color: colors.accent,
-    },
-    submitBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacing.sm,
-      borderRadius: radii.md,
-      paddingVertical: 14,
-      backgroundColor: colors.accent,
-      marginTop: spacing.xl,
-    },
-    submitText: {
-      color: '#fff',
-      fontWeight: '700',
-      fontSize: fontSize.md,
-    },
-    disabled: {
-      opacity: 0.5,
+      fontFamily: fonts.bodyBold,
     },
   });

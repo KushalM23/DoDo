@@ -29,6 +29,7 @@ import {useHabits} from '../../state/HabitsContext';
 import {useCategories} from '../../state/CategoriesContext';
 import {useAlert} from '../../state/AlertContext';
 import {TaskForm} from '../../components/TaskForm';
+import {ManageCategoriesModal} from '../../components/ManageCategoriesModal';
 import {AppIcon, type AppIconName} from '../../components/AppIcon';
 import {sortTasks} from '../../utils/taskSort';
 import {habitAppliesToDate, minuteToIso} from '../../utils/habits';
@@ -569,11 +570,13 @@ export function TasksScreen() {
     useHabits();
   const {categories} = useCategories();
   const [formVisible, setFormVisible] = useState(false);
+  const [manageCategoriesVisible, setManageCategoriesVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [activePage, setActivePage] = useState(0);
 
-  // FAB animation
+  // FAB animations
   const addBtnScale = useRef(new Animated.Value(1)).current;
+  const manageBtnScale = useRef(new Animated.Value(1)).current;
   const pageScrollRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
@@ -704,7 +707,31 @@ export function TasksScreen() {
         <PageDots count={pages.length} scrollX={scrollX} colors={colors} />
       </View>
 
-      {/* Floating Add Button */}
+      {/* Manage Categories Button (Left) */}
+      <Animated.View
+        style={[styles.leftFabContainer, {transform: [{scale: manageBtnScale}]}]}>
+        <Pressable
+          style={styles.fabcategory}
+          onPress={() => setManageCategoriesVisible(true)}
+          onPressIn={() =>
+            Animated.spring(manageBtnScale, {
+              toValue: 0.9,
+              useNativeDriver: true,
+              speed: 40,
+            }).start()
+          }
+          onPressOut={() =>
+            Animated.spring(manageBtnScale, {
+              toValue: 1,
+              useNativeDriver: true,
+              speed: 20,
+            }).start()
+          }>
+          <AppIcon name="inbox" size={20} color={colors.accent} />
+        </Pressable>
+      </Animated.View>
+
+      {/* Floating Add Button (Right) */}
       <Animated.View
         style={[styles.fabContainer, {transform: [{scale: addBtnScale}]}]}>
         <Pressable
@@ -736,6 +763,11 @@ export function TasksScreen() {
         onCancel={() => setFormVisible(false)}
         onSubmit={handleCreateTask}
       />
+      
+      <ManageCategoriesModal
+        visible={manageCategoriesVisible}
+        onClose={() => setManageCategoriesVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -760,6 +792,13 @@ const createStyles = (colors: ThemeColors) =>
       right: 32,
       zIndex: 100,
     },
+    leftFabContainer: {
+      position: 'absolute',
+      bottom: 86,
+      left: 28,
+      zIndex: 100,
+      backgroundColor: 'transparent'
+    },
     fab: {
       width: 64,
       height: 64,
@@ -767,10 +806,12 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.accent,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: colors.accent,
-      shadowOffset: {width: 0, height: 8},
-      shadowOpacity: 0.5,
-      shadowRadius: 16,
-      elevation: 8,
+    },
+    fabcategory: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   });

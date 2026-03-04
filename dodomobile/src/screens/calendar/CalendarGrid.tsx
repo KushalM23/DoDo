@@ -168,7 +168,6 @@ export function CalendarGrid({
     });
   };
 
-  const panX = useRef(new Animated.Value(0)).current;
   // Separate animated value for month crossfade transitions
   const monthTransitionAnim = useRef(new Animated.Value(1)).current;
 
@@ -178,18 +177,8 @@ export function CalendarGrid({
         const {dx, dy} = gestureState;
         return Math.abs(dx) > 10 || Math.abs(dy) > 10;
       },
-      onPanResponderMove: (_, gestureState) => {
-        const {dx, dy} = gestureState;
-        const {mode: currentMode} = stateRef.current;
-
-        // In week mode, block horizontal drags entirely
-        if (currentMode === 'week' && Math.abs(dx) > Math.abs(dy)) {
-          return;
-        }
-        // Only track horizontal pan in month mode
-        if (currentMode === 'month' && Math.abs(dx) > Math.abs(dy)) {
-          panX.setValue(dx);
-        }
+      onPanResponderMove: () => {
+        // No-op for dragging. We only process swipes on release.
       },
       onPanResponderRelease: (_, gestureState) => {
         const {dx, dy} = gestureState;
@@ -204,12 +193,6 @@ export function CalendarGrid({
             setMode('week');
             setCurrentDate(parseDateKey(currentSelDate));
           }
-          Animated.timing(panX, {
-            toValue: 0,
-            duration: 400,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }).start();
         } else {
           // --- Horizontal swipe: navigate months ---
           if (currentMode === 'week') {
@@ -217,49 +200,27 @@ export function CalendarGrid({
             return;
           }
 
-          const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+          const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.15;
 
           if (Math.abs(dx) > SWIPE_THRESHOLD) {
             // dx > 0 means swiped right → previous month (-1)
             // dx < 0 means swiped left  → next month (+1)
             const direction = dx > 0 ? -1 : 1;
 
-            Animated.timing(panX, {
+            Animated.timing(monthTransitionAnim, {
               toValue: 0,
               duration: 100,
-              easing: Easing.out(Easing.cubic),
+              easing: Easing.out(Easing.quad),
               useNativeDriver: true,
             }).start(() => {
-              // 2 & 4. Fade out and immediately fade back in (Native UI Thread sequence - no bridge gap)
-              Animated.sequence([
-                Animated.timing(monthTransitionAnim, {
-                  toValue: 0,
-                  duration: 50,
-                  easing: Easing.out(Easing.quad),
-                  useNativeDriver: true,
-                }),
-                Animated.timing(monthTransitionAnim, {
-                  toValue: 1,
-                  duration: 50,
-                  easing: Easing.in(Easing.quad),
-                  useNativeDriver: true,
-                }),
-              ]).start();
-
-              // 3. Fire the state update exactly when the fade is at the bottom (opacity 0ish)
-              // By decoupling it from the Native timing callback, the screen never stays blank.
-              setTimeout(() => {
-                shiftMonth(direction);
-              }, 50);
+              shiftMonth(direction);
+              Animated.timing(monthTransitionAnim, {
+                toValue: 1,
+                duration: 100,
+                easing: Easing.in(Easing.quad),
+                useNativeDriver: true,
+              }).start();
             });
-          } else {
-            // Swipe didn't cross threshold — snap back
-            Animated.timing(panX, {
-              toValue: 0,
-              duration: 50,
-              easing: Easing.out(Easing.cubic),
-              useNativeDriver: true,
-            }).start();
           }
         }
       },
@@ -367,12 +328,6 @@ export function CalendarGrid({
     [currentDate],
   );
 
-  // Calculate drag-based scale (shrinks slightly while dragging)
-  const dragScale = panX.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
-    outputRange: [0.92, 1, 0.92],
-    extrapolate: 'clamp',
-  });
 
   // Calculate transition fade
   const fadeAnim = monthTransitionAnim.interpolate({
@@ -393,13 +348,8 @@ export function CalendarGrid({
       style={[styles.calendarSection, isLandscape && {flex: 1}]}
       {...panResponder.panHandlers}>
       {/* Wrap month label + week headers + grid in the fade animation
-          so everything fades together during month transitions.
-          Note: Drag scale, drag fade, and horizontal translation are applied. */}
-      <Animated.View
-        style={{
-          opacity: fadeAnim,
-          transform: [{translateX: panX}, {scale: dragScale}],
-        }}>
+          so everything fades together during month transitions. */}
+      <Animated.View style={{opacity: fadeAnim}}>
         <View style={styles.monthControls}>
           <Text style={styles.monthLabel}>{monthLabel}</Text>
         </View>
