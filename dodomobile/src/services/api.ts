@@ -28,15 +28,23 @@ export function setAuthSession(session: { token: string; refreshToken: string } 
 
 async function performTokenRefresh(): Promise<string | null> {
   if (!authRefreshToken) return null;
-  const refreshed = await refreshAuthSession(authRefreshToken);
-  if (!refreshed.token || !refreshed.refreshToken) {
+  try {
+    const refreshed = await refreshAuthSession(authRefreshToken);
+    if (!refreshed.token || !refreshed.refreshToken) {
+      return null;
+    }
+    setAuthSession({ token: refreshed.token, refreshToken: refreshed.refreshToken });
+    if (sessionRefreshHandler) {
+      await sessionRefreshHandler({ token: refreshed.token, refreshToken: refreshed.refreshToken });
+    }
+    return refreshed.token;
+  } catch (err) {
+    setAuthSession(null);
+    if (sessionRefreshHandler) {
+      await sessionRefreshHandler(null);
+    }
     return null;
   }
-  setAuthSession({ token: refreshed.token, refreshToken: refreshed.refreshToken });
-  if (sessionRefreshHandler) {
-    await sessionRefreshHandler({ token: refreshed.token, refreshToken: refreshed.refreshToken });
-  }
-  return refreshed.token;
 }
 
 async function tryRefreshAccessToken(): Promise<string | null> {
@@ -56,7 +64,8 @@ async function apiRequest<T>(
   requiresAuth = true,
   hasRetried = false,
 ): Promise<T> {
-  if (requiresAuth && !authToken) {
+  const tokenUsed = authToken;
+  if (requiresAuth && !tokenUsed) {
     throw new Error("You are not logged in.");
   }
 
@@ -65,7 +74,7 @@ async function apiRequest<T>(
     method,
     headers: {
       "Content-Type": "application/json",
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      ...(tokenUsed ? { Authorization: `Bearer ${tokenUsed}` } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -86,6 +95,11 @@ async function apiRequest<T>(
 
   if (!response.ok) {
     if (response.status === 401 && requiresAuth && !hasRetried) {
+      if (authToken !== tokenUsed) {
+        // Token was already refreshed by another concurrent request, retry immediately
+        return apiRequest<T>(path, method, body, requiresAuth, true);
+      }
+      
       const refreshedToken = await tryRefreshAccessToken();
       if (refreshedToken) {
         return apiRequest<T>(path, method, body, requiresAuth, true);

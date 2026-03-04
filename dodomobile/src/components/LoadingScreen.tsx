@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
-import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
+import React, {useEffect, useMemo, useRef} from 'react';
+import {Animated, StyleSheet, Text, View} from 'react-native';
+import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
 
-type Props = { variant?: "app" | "screen"; title?: string };
+type Props = {variant?: 'app' | 'screen'; title?: string};
 
-export function LoadingScreen({ variant = "screen", title }: Props) {
+export function LoadingScreen({variant = 'screen', title}: Props) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -50,37 +50,44 @@ export function LoadingScreen({ variant = "screen", title }: Props) {
     outputRange: [0.25, 0.55],
   });
 
-  if (variant === "app") {
+  if (variant === 'app') {
     return (
       <View style={styles.container}>
         <Animated.View
           style={[
             styles.brandSlab,
             {
-              transform: [{ scale: scaleAnim }],
+              transform: [{scale: scaleAnim}],
               opacity: opacityAnim,
               shadowOpacity,
             },
-          ]}
-        >
+          ]}>
           <View style={styles.brandDot} />
         </Animated.View>
-        <Text style={styles.brandName}>{title ?? "dodo"}</Text>
+        <Text style={styles.brandName}>{title ?? 'dodo'}</Text>
       </View>
     );
   }
 
   // Screen loader: three pulsing dots
   const dot1 = opacityAnim;
-  const dot2 = opacityAnim.interpolate({ inputRange: [0.6, 1], outputRange: [0.4, 0.8] });
-  const dot3 = opacityAnim.interpolate({ inputRange: [0.6, 1], outputRange: [0.2, 0.5] });
+  const dot2 = opacityAnim.interpolate({
+    inputRange: [0.6, 1],
+    outputRange: [0.4, 0.8],
+  });
+  const dot3 = opacityAnim.interpolate({
+    inputRange: [0.6, 1],
+    outputRange: [0.2, 0.5],
+  });
 
   return (
     <View style={styles.container}>
       <Animated.View style={styles.dotRow}>
-        <Animated.View style={[styles.dot, styles.dotOrange, { opacity: dot1 }]} />
-        <Animated.View style={[styles.dot, styles.dotSm, { opacity: dot2 }]} />
-        <Animated.View style={[styles.dot, styles.dotSm, { opacity: dot3 }]} />
+        <Animated.View
+          style={[styles.dot, styles.dotOrange, {opacity: dot1}]}
+        />
+        <Animated.View style={[styles.dot, styles.dotSm, {opacity: dot2}]} />
+        <Animated.View style={[styles.dot, styles.dotSm, {opacity: dot3}]} />
       </Animated.View>
       {title ? <Text style={styles.inlineLabel}>{title}</Text> : null}
     </View>
@@ -92,8 +99,8 @@ const createStyles = (c: ThemeColors) =>
     container: {
       flex: 1,
       backgroundColor: c.background,
-      alignItems: "center",
-      justifyContent: "center",
+      alignItems: 'center',
+      justifyContent: 'center',
       gap: 20,
     },
     brandSlab: {
@@ -101,10 +108,10 @@ const createStyles = (c: ThemeColors) =>
       height: 80,
       borderRadius: 28,
       backgroundColor: c.accent,
-      alignItems: "center",
-      justifyContent: "center",
+      alignItems: 'center',
+      justifyContent: 'center',
       shadowColor: c.accent,
-      shadowOffset: { width: 0, height: 12 },
+      shadowOffset: {width: 0, height: 12},
       shadowRadius: 24,
       elevation: 12,
     },
@@ -112,17 +119,17 @@ const createStyles = (c: ThemeColors) =>
       width: 26,
       height: 26,
       borderRadius: 13,
-      backgroundColor: "#fff",
+      backgroundColor: '#fff',
     },
     brandName: {
       fontSize: 32,
-      fontWeight: "900",
+      fontWeight: '900',
       color: c.text,
       letterSpacing: -1.5,
     },
     dotRow: {
-      flexDirection: "row",
-      alignItems: "center",
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: 8,
     },
     dot: {
@@ -140,9 +147,9 @@ const createStyles = (c: ThemeColors) =>
     },
     inlineLabel: {
       fontSize: 13,
-      fontWeight: "700",
+      fontWeight: '700',
       color: c.mutedText,
-      textTransform: "uppercase",
+      textTransform: 'uppercase',
       letterSpacing: 1.5,
     },
   });

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {useEffect, useRef, useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -9,22 +9,22 @@ import {
   Platform,
   UIManager,
   type LayoutChangeEvent,
-} from "react-native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { TasksScreen } from "../screens/tasks/TasksScreen";
-import { HabitScreen } from "../screens/habit/HabitScreen";
-import { CalendarScreen } from "../screens/calendar/CalendarScreen";
-import { ProfileScreen } from "../screens/profile/ProfileScreen";
-import { fontSize } from "../theme/colors";
-import { fonts } from "../theme/fonts";
-import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
-import { AppIcon, type AppIconName } from "../components/AppIcon";
+} from 'react-native';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import type {BottomTabBarProps} from '@react-navigation/bottom-tabs';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {TasksScreen} from '../screens/tasks/TasksScreen';
+import {HabitScreen} from '../screens/habit/HabitScreen';
+import {CalendarScreen} from '../screens/calendar/CalendarScreen';
+import {ProfileScreen} from '../screens/profile/ProfileScreen';
+import {fontSize} from '../theme/colors';
+import {fonts} from '../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
+import {AppIcon, type AppIconName} from '../components/AppIcon';
 
 // Enable LayoutAnimation on Android
 if (
-  Platform.OS === "android" &&
+  Platform.OS === 'android' &&
   UIManager.setLayoutAnimationEnabledExperimental
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -46,10 +46,10 @@ type TabItem = {
 };
 
 const TAB_ITEMS: TabItem[] = [
-  { key: "TasksTab", label: "Tasks", icon: "check-square" },
-  { key: "HabitTab", label: "Habits", icon: "repeat" },
-  { key: "CalendarTab", label: "Calendar", icon: "calendar" },
-  { key: "ProfileTab", label: "Profile", icon: "user" },
+  {key: 'TasksTab', label: 'Tasks', icon: 'check-square'},
+  {key: 'HabitTab', label: 'Habits', icon: 'repeat'},
+  {key: 'CalendarTab', label: 'Calendar', icon: 'calendar'},
+  {key: 'ProfileTab', label: 'Profile', icon: 'user'},
 ];
 
 const BAR_PADDING = 7;
@@ -57,69 +57,79 @@ const BAR_PADDING = 7;
 const LAYOUT_ANIM_CONFIG = {
   duration: 350,
   update: {
-    type: LayoutAnimation.Types.easeInEaseOut,
-    property: LayoutAnimation.Properties.scaleXY,
+    type: LayoutAnimation.Types.spring,
+    springDamping: 0.7,
   },
   create: {
-    type: LayoutAnimation.Types.easeInEaseOut,
-    property: LayoutAnimation.Properties.opacity,
-    duration: 250,
+    type: LayoutAnimation.Types.spring,
+    property: LayoutAnimation.Properties.scaleXY,
+    springDamping: 0.7,
   },
   delete: {
-    type: LayoutAnimation.Types.easeOut,
+    type: LayoutAnimation.Types.spring,
     property: LayoutAnimation.Properties.opacity,
-    duration: 150,
+    springDamping: 0.7,
   },
 };
 
 /* ─── Custom Tab Bar ──────────────────────────────────────── */
-function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+function CustomTabBar({state, navigation}: BottomTabBarProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
-  // Pill position & width animated values
-  const pillLeft = useRef(new Animated.Value(BAR_PADDING)).current;
-  const pillWidth = useRef(new Animated.Value(0)).current;
+  // Pill edge animated values for stretchy effect
+  const leftEdge = useRef(new Animated.Value(BAR_PADDING)).current;
+  const rightEdge = useRef(new Animated.Value(BAR_PADDING)).current;
 
   // Store measured tab layouts
-  const tabLayouts = useRef<Record<number, { x: number; width: number }>>({});
+  const tabLayouts = useRef<Record<number, {x: number; width: number}>>({});
   const hasInit = useRef(false);
+  const currentTargetX = useRef(BAR_PADDING);
 
   const slidePillTo = useCallback(
     (index: number) => {
       const m = tabLayouts.current[index];
-      if (!m) return;
+      if (!m) {
+        return;
+      }
+
+      const targetLeft = m.x;
+      const targetRight = m.x + m.width;
 
       // First layout → snap immediately, no animation
       if (!hasInit.current) {
-        pillLeft.setValue(m.x);
-        pillWidth.setValue(m.width);
+        leftEdge.setValue(targetLeft);
+        rightEdge.setValue(targetRight);
+        currentTargetX.current = targetLeft;
         hasInit.current = true;
         return;
       }
 
+      // Check movement direction to create a stretch effect (leading edge moves fast, trailing edge moves slow)
+      const isMovingRight = targetLeft > currentTargetX.current;
+      currentTargetX.current = targetLeft;
+
+      const fastSpring = {tension: 90, friction: 10, useNativeDriver: false};
+      const slowSpring = {tension: 40, friction: 12, useNativeDriver: false};
+
       Animated.parallel([
-        Animated.spring(pillLeft, {
-          toValue: m.x,
-          useNativeDriver: false,
-          tension: 70,
-          friction: 11,
+        Animated.spring(leftEdge, {
+          toValue: targetLeft,
+          ...(isMovingRight ? slowSpring : fastSpring),
         }),
-        Animated.spring(pillWidth, {
-          toValue: m.width,
-          useNativeDriver: false,
-          tension: 70,
-          friction: 11,
+        Animated.spring(rightEdge, {
+          toValue: targetRight,
+          ...(isMovingRight ? fastSpring : slowSpring),
         }),
       ]).start();
     },
-    [pillLeft, pillWidth],
+    [leftEdge, rightEdge],
   );
 
   const onTabLayout = useCallback(
     (index: number, e: LayoutChangeEvent) => {
-      const { x, width } = e.nativeEvent.layout;
-      tabLayouts.current[index] = { x, width };
+      const {x, width} = e.nativeEvent.layout;
+      tabLayouts.current[index] = {x, width};
 
       // When the active tab reports its layout, animate pill to it
       if (index === state.index) {
@@ -138,22 +148,20 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     <View
       style={[
         styles.tabBarOuter,
-        { paddingBottom: Math.max(insets.bottom, 12) },
-      ]}
-    >
+        {paddingBottom: Math.max(insets.bottom, 12)},
+      ]}>
       {/* Shadow wrapper for extra depth on iOS */}
-      <View style={[styles.shadowWrap, { shadowColor: colors.shadow }]}>
+      <View style={[styles.shadowWrap, {shadowColor: colors.shadow}]}>
         <View
-          style={[styles.tabBarContainer, { backgroundColor: colors.surface }]}
-        >
+          style={[styles.tabBarContainer, {backgroundColor: colors.surface}]}>
           {/* ── Sliding pill background ── */}
           <Animated.View
             style={[
               styles.slidingPill,
               {
                 backgroundColor: colors.accent,
-                left: pillLeft,
-                width: pillWidth,
+                left: leftEdge,
+                width: Animated.subtract(rightEdge, leftEdge),
               },
             ]}
           />
@@ -165,7 +173,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
             const onPress = () => {
               const event = navigation.emit({
-                type: "tabPress",
+                type: 'tabPress',
                 target: route.key,
                 canPreventDefault: true,
               });
@@ -176,7 +184,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
             const onLongPress = () => {
               navigation.emit({
-                type: "tabLongPress",
+                type: 'tabLongPress',
                 target: route.key,
               });
             };
@@ -185,7 +193,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
               <TouchableOpacity
                 key={route.key}
                 accessibilityRole="button"
-                accessibilityState={isFocused ? { selected: true } : {}}
+                accessibilityState={isFocused ? {selected: true} : {}}
                 onPress={onPress}
                 onLongPress={onLongPress}
                 activeOpacity={0.7}
@@ -193,8 +201,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
                   styles.tabButton,
                   !isFocused && styles.tabButtonInactive,
                 ]}
-                onLayout={(e) => onTabLayout(index, e)}
-              >
+                onLayout={e => onTabLayout(index, e)}>
                 <AppIcon
                   name={item.icon}
                   size={22}
@@ -204,10 +211,9 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
                   <Text
                     style={[
                       styles.label,
-                      { color: colors.text, fontSize: fontSize.sm },
+                      {color: colors.text, fontSize: fontSize.sm},
                     ]}
-                    numberOfLines={1}
-                  >
+                    numberOfLines={1}>
                     {item.label}
                   </Text>
                 )}
@@ -224,9 +230,8 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 export function MainTabs() {
   return (
     <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
+      tabBar={props => <CustomTabBar {...props} />}
+      screenOptions={{headerShown: false, lazy: false}}>
       <Tab.Screen name="TasksTab" component={TasksScreen} />
       <Tab.Screen name="HabitTab" component={HabitScreen} />
       <Tab.Screen name="CalendarTab" component={CalendarScreen} />
@@ -238,11 +243,11 @@ export function MainTabs() {
 /* ─── Styles ──────────────────────────────────────────────── */
 const styles = StyleSheet.create({
   tabBarOuter: {
-    position: "absolute",
-    bottom: 0,
+    position: 'absolute',
+    bottom: 6,
     left: 0,
     right: 0,
-    alignItems: "center",
+    alignItems: 'center',
     paddingTop: 8,
   },
   shadowWrap: {
@@ -250,7 +255,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     ...Platform.select({
       ios: {
-        shadowOffset: { width: 0, height: 10 },
+        shadowOffset: {width: 0, height: 10},
         shadowOpacity: 1,
         shadowRadius: 30,
       },
@@ -260,24 +265,24 @@ const styles = StyleSheet.create({
     }),
   },
   tabBarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 40,
     paddingVertical: BAR_PADDING,
     paddingHorizontal: BAR_PADDING,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   slidingPill: {
-    position: "absolute",
+    position: 'absolute',
     top: BAR_PADDING,
     bottom: BAR_PADDING,
     borderRadius: 32,
   },
   tabButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
     gap: 10,
@@ -288,7 +293,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fonts.bodyBold,
-    textAlign: "center",
+    textAlign: 'center',
     letterSpacing: 0.2,
   },
 });

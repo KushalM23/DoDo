@@ -1,38 +1,39 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useAlert } from "../../state/AlertContext";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation, useRoute } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RouteProp } from "@react-navigation/native";
-import { AppIcon } from "../../components/AppIcon";
-import { HoldToConfirmButton } from "../../components/HoldToConfirmButton";
-import { HabitForm } from "../../components/HabitForm";
-import { LoadingScreen } from "../../components/LoadingScreen";
-import { useHabits } from "../../state/HabitsContext";
-import { usePreferences } from "../../state/PreferencesContext";
-import type { RootStackParamList } from "../../navigation/RootNavigator";
-import { fontSize, radii, spacing } from "../../theme/colors";
-import { fonts } from "../../theme/fonts";
-import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
-import { formatHabitFrequency, minuteToLabel } from "../../utils/habits";
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {useAlert} from '../../state/AlertContext';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {RouteProp} from '@react-navigation/native';
+import {AppIcon} from '../../components/AppIcon';
+import {HoldToConfirmButton} from '../../components/HoldToConfirmButton';
+import {HabitForm} from '../../components/HabitForm';
+import {LoadingScreen} from '../../components/LoadingScreen';
+import {useHabits} from '../../state/HabitsContext';
+import {usePreferences} from '../../state/PreferencesContext';
+import type {RootStackParamList} from '../../navigation/RootNavigator';
+import {fontSize, radii, spacing} from '../../theme/colors';
+import {fonts} from '../../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
+import {formatHabitFrequency, minuteToLabel} from '../../utils/habits';
 
-type HabitDetailRoute = RouteProp<RootStackParamList, "HabitDetail">;
+type HabitDetailRoute = RouteProp<RootStackParamList, 'HabitDetail'>;
 
 function dateKey(date: Date): string {
   const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
 
 export function HabitDetailScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { showAlert } = useAlert();
+  const {showAlert} = useAlert();
   const route = useRoute<HabitDetailRoute>();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { preferences } = usePreferences();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const {preferences} = usePreferences();
   const {
     habits,
     loading,
@@ -52,9 +53,11 @@ export function HabitDetailScreen() {
   const [lockInMode, setLockInMode] = useState(false);
   const [lockTime, setLockTime] = useState(() => new Date());
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
 
-  const habit = habits.find((h) => h.id === route.params.habitId);
+  const habit = habits.find(h => h.id === route.params.habitId);
 
   const today = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => dateKey(today), [today]);
@@ -69,13 +72,18 @@ export function HabitDetailScreen() {
     return out;
   }, [today]);
 
-  const todayWeekKey = useMemo(() => dateKey(weekDays[weekDays.length - 1]), [weekDays]);
+  const todayWeekKey = useMemo(
+    () => dateKey(weekDays[weekDays.length - 1]),
+    [weekDays],
+  );
 
   useEffect(() => {
-    if (!habit) return;
+    if (!habit) {
+      return;
+    }
     const start = dateKey(weekDays[0]);
     const end = dateKey(weekDays[weekDays.length - 1]);
-    void loadHistory({ habitId: habit.id, startDate: start, endDate: end });
+    void loadHistory({habitId: habit.id, startDate: start, endDate: end});
   }, [habit?.id, loadHistory, weekDays]);
 
   const undoActionRef = useRef<(() => Promise<void>) | null>(null);
@@ -87,12 +95,12 @@ export function HabitDetailScreen() {
   }, []);
 
   useEffect(() => {
-    if (!lockInMode) return;
+    if (!lockInMode) {
+      return;
+    }
     const timer = setInterval(() => setLockTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, [lockInMode]);
-
-
 
   if (!initialized || (loading && habits.length === 0)) {
     return <LoadingScreen title="Loading habit" />;
@@ -100,7 +108,7 @@ export function HabitDetailScreen() {
 
   if (!habit) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
             <AppIcon name="chevron-left" size={20} color={colors.text} />
@@ -121,11 +129,13 @@ export function HabitDetailScreen() {
 
   if (lockInMode) {
     const hour24 = lockTime.getHours();
-    const lockHour = String(preferences.timeFormat === "24h" ? hour24 : ((hour24 + 11) % 12) + 1).padStart(2, "0");
-    const lockMinute = String(lockTime.getMinutes()).padStart(2, "0");
+    const lockHour = String(
+      preferences.timeFormat === '24h' ? hour24 : ((hour24 + 11) % 12) + 1,
+    ).padStart(2, '0');
+    const lockMinute = String(lockTime.getMinutes()).padStart(2, '0');
 
     return (
-      <SafeAreaView style={styles.lockContainer} edges={["top", "bottom"]}>
+      <SafeAreaView style={styles.lockContainer} edges={['top', 'bottom']}>
         <View style={styles.lockContent}>
           <View style={styles.lockClockWrap}>
             <Text style={styles.lockClockLine}>{lockHour}</Text>
@@ -134,16 +144,33 @@ export function HabitDetailScreen() {
 
           <View style={styles.lockInfoBlock}>
             <View style={styles.lockIconPill}>
-              <AppIcon name={currentHabit.icon} size={18} color={colors.habitBadge} />
+              <AppIcon
+                name={currentHabit.icon}
+                size={18}
+                color={colors.habitBadge}
+              />
             </View>
             <Text style={styles.lockTitle}>{currentHabit.title}</Text>
-            <Text style={styles.lockMeta}>{formatHabitFrequency(currentHabit)}</Text>
-            <Text style={styles.lockMeta}>{minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}</Text>
+            <Text style={styles.lockMeta}>
+              {formatHabitFrequency(currentHabit)}
+            </Text>
+            <Text style={styles.lockMeta}>
+              {minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}
+            </Text>
           </View>
 
-          <Pressable style={[styles.lockCompleteBtn, busy && styles.disabled]} disabled={busy} onPress={toggleTodayCompletion}>
-            <AppIcon name={completedToday ? "rotate-ccw" : "check"} size={16} color="#fff" />
-            <Text style={styles.lockCompleteText}>{completedToday ? "Undo Today" : "Mark Complete"}</Text>
+          <Pressable
+            style={[styles.lockCompleteBtn, busy && styles.disabled]}
+            disabled={busy}
+            onPress={toggleTodayCompletion}>
+            <AppIcon
+              name={completedToday ? 'rotate-ccw' : 'check'}
+              size={16}
+              color="#fff"
+            />
+            <Text style={styles.lockCompleteText}>
+              {completedToday ? 'Undo Today' : 'Mark Complete'}
+            </Text>
           </Pressable>
 
           <HoldToConfirmButton
@@ -202,7 +229,10 @@ export function HabitDetailScreen() {
       try {
         await setHabitCompletedOn(habitId, date, false);
       } catch (err) {
-        showAlert("Failed to undo habit", err instanceof Error ? err.message : "Unknown error");
+        showAlert(
+          'Failed to undo habit',
+          err instanceof Error ? err.message : 'Unknown error',
+        );
       }
     };
 
@@ -222,26 +252,30 @@ export function HabitDetailScreen() {
         setUndoProgress(0);
       }
     } catch (err) {
-      showAlert("Failed", err instanceof Error ? err.message : "Unable to update completion.");
+      showAlert(
+        'Failed',
+        err instanceof Error ? err.message : 'Unable to update completion.',
+      );
     } finally {
       setBusy(false);
     }
   }
 
-
-
   function onDelete() {
-    showAlert("Delete Habit", "This will remove the habit and its history.", [
-      { text: "Cancel", style: "cancel" },
+    showAlert('Delete Habit', 'This will remove the habit and its history.', [
+      {text: 'Cancel', style: 'cancel'},
       {
-        text: "Delete",
-        style: "destructive",
+        text: 'Delete',
+        style: 'destructive',
         onPress: async () => {
           try {
             await removeHabit(currentHabit.id);
             navigation.goBack();
           } catch (err) {
-            showAlert("Failed", err instanceof Error ? err.message : "Unable to delete habit.");
+            showAlert(
+              'Failed',
+              err instanceof Error ? err.message : 'Unable to delete habit.',
+            );
           }
         },
       },
@@ -249,23 +283,30 @@ export function HabitDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.headerSide}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          style={styles.headerSide}>
           <AppIcon name="chevron-left" size={20} color={colors.text} />
         </Pressable>
         <View style={styles.headerTitleWrap}>
           <View style={styles.headerIconPill}>
-            <AppIcon name={currentHabit.icon} size={14} color={colors.habitBadge} />
+            <AppIcon
+              name={currentHabit.icon}
+              size={14}
+              color={colors.habitBadge}
+            />
           </View>
-          <Text style={styles.name} numberOfLines={1}>{currentHabit.title}</Text>
+          <Text style={styles.name} numberOfLines={1}>
+            {currentHabit.title}
+          </Text>
         </View>
         <View style={styles.headerSide} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-
-
         <View style={styles.streakRow}>
           <View style={styles.streakCard}>
             <Text style={styles.streakValue}>{currentHabit.currentStreak}</Text>
@@ -279,16 +320,26 @@ export function HabitDetailScreen() {
 
         <Text style={styles.sectionTitle}>Last 7 Days</Text>
         <View style={styles.weekRow}>
-          {weekDays.map((day) => {
+          {weekDays.map(day => {
             const key = dateKey(day);
             const completed = isHabitCompletedOn(currentHabit.id, key);
-            const dayLabel = day.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 3);
+            const dayLabel = day
+              .toLocaleDateString('en-US', {weekday: 'short'})
+              .slice(0, 3);
             return (
               <View key={key} style={styles.weekDay}>
                 <View style={[styles.weekDot, completed && styles.weekDotDone]}>
-                  {completed ? <AppIcon name="check" size={10} color="#fff" /> : null}
+                  {completed ? (
+                    <AppIcon name="check" size={10} color="#fff" />
+                  ) : null}
                 </View>
-                <Text style={[styles.weekLabel, key === todayWeekKey && styles.weekLabelToday]}>{dayLabel}</Text>
+                <Text
+                  style={[
+                    styles.weekLabel,
+                    key === todayWeekKey && styles.weekLabelToday,
+                  ]}>
+                  {dayLabel}
+                </Text>
               </View>
             );
           })}
@@ -297,51 +348,77 @@ export function HabitDetailScreen() {
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Frequency</Text>
-            <Text style={styles.infoValue}>{formatHabitFrequency(currentHabit)}</Text>
+            <Text style={styles.infoValue}>
+              {formatHabitFrequency(currentHabit)}
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Time</Text>
-            <Text style={styles.infoValue}>{minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}</Text>
+            <Text style={styles.infoValue}>
+              {minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Duration</Text>
-            <Text style={styles.infoValue}>{currentHabit.durationMinutes ? `${currentHabit.durationMinutes} min` : "-"}</Text>
+            <Text style={styles.infoValue}>
+              {currentHabit.durationMinutes
+                ? `${currentHabit.durationMinutes} min`
+                : '-'}
+            </Text>
           </View>
         </View>
 
-        <Pressable style={[styles.completeBtn, busy && styles.disabled]} disabled={busy} onPress={toggleTodayCompletion}>
-          <AppIcon name={completedToday ? "rotate-ccw" : "check"} size={16} color="#fff" />
-          <Text style={styles.completeBtnText}>{completedToday ? "Undo Today" : "Mark Today Complete"}</Text>
+        <Pressable
+          style={[styles.completeBtn, busy && styles.disabled]}
+          disabled={busy}
+          onPress={toggleTodayCompletion}>
+          <AppIcon
+            name={completedToday ? 'rotate-ccw' : 'check'}
+            size={16}
+            color="#fff"
+          />
+          <Text style={styles.completeBtnText}>
+            {completedToday ? 'Undo Today' : 'Mark Today Complete'}
+          </Text>
         </Pressable>
 
         {undoVisible && (
           <View style={styles.undoBar}>
             <View style={styles.undoProgressTrack}>
-              <View style={[styles.undoProgressFill, { width: `${Math.max(0, Math.min(1, undoProgress)) * 100}%` }]} />
+              <View
+                style={[
+                  styles.undoProgressFill,
+                  {width: `${Math.max(0, Math.min(1, undoProgress)) * 100}%`},
+                ]}
+              />
             </View>
             <Text style={styles.undoText}>Habit completed</Text>
             <Pressable
               onPress={() => {
                 void undoActionRef.current?.();
               }}
-              hitSlop={10}
-            >
+              hitSlop={10}>
               <Text style={styles.undoAction}>Undo</Text>
             </Pressable>
           </View>
         )}
 
         <View style={styles.actionsRow}>
-          <Pressable style={styles.actionBtn} onPress={() => setEditVisible(true)}>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => setEditVisible(true)}>
             <AppIcon name="edit" size={14} color={colors.accent} />
             <Text style={styles.actionText}>Edit Habit</Text>
           </Pressable>
-          <Pressable style={[styles.actionBtn, styles.deleteBtn]} onPress={onDelete}>
+          <Pressable
+            style={[styles.actionBtn, styles.deleteBtn]}
+            onPress={onDelete}>
             <AppIcon name="trash-2" size={14} color={colors.danger} />
-            <Text style={[styles.actionText, { color: colors.danger }]}>Delete</Text>
+            <Text style={[styles.actionText, {color: colors.danger}]}>
+              Delete
+            </Text>
           </Pressable>
         </View>
-
       </ScrollView>
 
       <HoldToConfirmButton
@@ -361,369 +438,370 @@ export function HabitDetailScreen() {
         mode="edit"
         initialValues={currentHabit}
         onCancel={() => setEditVisible(false)}
-        onSubmit={(payload) => editHabit(currentHabit.id, payload)}
+        onSubmit={payload => editHabit(currentHabit.id, payload)}
       />
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  lockContainer: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  lockContent: {
-    flex: 1,
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xl,
-    gap: spacing.md,
-  },
-  lockClockWrap: {
-    alignItems: "center",
-    marginTop: spacing.lg,
-    paddingTop: spacing.xs,
-  },
-  lockClockLine: {
-    color: "#fff",
-    fontSize: 88,
-    fontFamily: fonts.heading,
-    lineHeight: 110,
-    letterSpacing: 0.5,
-    includeFontPadding: true,
-  },
-  lockInfoBlock: {
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  lockIconPill: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.habitBadge,
-    backgroundColor: colors.habitBadgeLight,
-    marginBottom: spacing.xs,
-  },
-  lockTitle: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontFamily: fonts.headingMedium,
-    textAlign: "center",
-  },
-  lockMeta: {
-    color: colors.mutedText,
-    fontSize: fontSize.sm,
-    fontFamily: fonts.body,
-    textAlign: "center",
-  },
-  lockCompleteBtn: {
-    width: "100%",
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.accent,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  lockSessionBtn: {
-    width: "100%",
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  lockSessionText: {
-    fontSize: fontSize.sm,
-  },
-  lockCompleteText: {
-    color: "#fff",
-    fontFamily: fonts.bodyBold,
-    fontSize: fontSize.sm,
-  },
-  lockExitBtn: {
-    alignSelf: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: 12,
-    paddingBottom: spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  headerSide: {
-    width: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitleWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerIconPill: {
-    width: 28,
-    height: 28,
-    borderRadius: radii.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.habitBadgeLight,
-    borderWidth: 1,
-    borderColor: colors.habitBadge,
-    marginBottom: spacing.xs,
-  },
-  headerTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontFamily: fonts.headingMedium,
-  },
-  placeholder: {
-    width: 20,
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 120,
-    gap: spacing.md,
-  },
-  name: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontFamily: fonts.headingSemiBold,
-    textAlign: "center",
-  },
-  streakRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  streakCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    alignItems: "center",
-  },
-  streakValue: {
-    color: colors.habitBadge,
-    fontSize: 26,
-    fontFamily: fonts.headingSemiBold,
-  },
-  streakLabel: {
-    color: colors.mutedText,
-    fontSize: fontSize.xs,
-    fontFamily: fonts.body,
-    marginTop: spacing.xs,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontFamily: fonts.headingRegular,
-    marginTop: spacing.sm,
-  },
-  weekRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.md,
-  },
-  weekDay: {
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  weekDot: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceLight,
-  },
-  weekDotDone: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
-  },
-  weekLabel: {
-    color: colors.mutedText,
-    fontSize: 10,
-    fontFamily: fonts.bodyBold,
-  },
-  weekLabelToday: {
-    color: colors.text,
-  },
-  infoCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  infoLabel: {
-    color: colors.mutedText,
-    fontSize: fontSize.xs,
-    fontFamily: fonts.body,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  infoValue: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontFamily: fonts.bodyBold,
-  },
-  completeBtn: {
-    marginTop: spacing.sm,
-    borderRadius: radii.md,
-    backgroundColor: colors.accent,
-    paddingVertical: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  completeBtnText: {
-    color: "#fff",
-    fontFamily: fonts.bodyBold,
-    fontSize: fontSize.sm,
-  },
-  sessionActionsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  sessionBtn: {
-    flex: 1,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: spacing.xs,
-  },
-  sessionStartBtn: {
-    borderColor: colors.success,
-    backgroundColor: colors.successLight,
-  },
-  sessionPauseBtn: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-  },
-  sessionBtnText: {
-    fontSize: fontSize.sm,
-  },
-  actionsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  lockInFloatingBtn: {
-    position: "absolute",
-    bottom: spacing.lg,
-    alignSelf: "center",
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
-  },
-  deleteBtn: {
-    borderColor: colors.danger,
-    backgroundColor: colors.dangerLight,
-  },
-  actionText: {
-    color: colors.accent,
-    fontSize: fontSize.sm,
-    fontFamily: fonts.bodyBold,
-  },
-  emptyWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyText: {
-    color: colors.mutedText,
-    fontSize: fontSize.md,
-    fontFamily: fonts.body,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  undoBar: {
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    overflow: "hidden",
-  },
-  undoProgressTrack: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 4,
-    backgroundColor: colors.border,
-  },
-  undoProgressFill: {
-    height: "100%",
-    backgroundColor: colors.accent,
-  },
-  undoText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontFamily: fonts.bodySemiBold,
-  },
-  undoAction: {
-    color: colors.accent,
-    fontSize: fontSize.md,
-    fontFamily: fonts.bodyBold,
-  },
-  lockTimerWrap: {
-    marginTop: spacing.md,
-    alignItems: "center",
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    lockContainer: {
+      flex: 1,
+      backgroundColor: '#000',
+    },
+    lockContent: {
+      flex: 1,
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.xxl,
+      paddingBottom: spacing.xl,
+      gap: spacing.md,
+    },
+    lockClockWrap: {
+      alignItems: 'center',
+      marginTop: spacing.lg,
+      paddingTop: spacing.xs,
+    },
+    lockClockLine: {
+      color: '#fff',
+      fontSize: 88,
+      fontFamily: fonts.heading,
+      lineHeight: 110,
+      letterSpacing: 0.5,
+      includeFontPadding: true,
+    },
+    lockInfoBlock: {
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    lockIconPill: {
+      width: 36,
+      height: 36,
+      borderRadius: radii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.habitBadge,
+      backgroundColor: colors.habitBadgeLight,
+      marginBottom: spacing.xs,
+    },
+    lockTitle: {
+      color: colors.text,
+      fontSize: fontSize.xl,
+      fontFamily: fonts.headingMedium,
+      textAlign: 'center',
+    },
+    lockMeta: {
+      color: colors.mutedText,
+      fontSize: fontSize.sm,
+      fontFamily: fonts.body,
+      textAlign: 'center',
+    },
+    lockCompleteBtn: {
+      width: '100%',
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
+      paddingVertical: spacing.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    lockSessionBtn: {
+      width: '100%',
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingVertical: spacing.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    lockSessionText: {
+      fontSize: fontSize.sm,
+    },
+    lockCompleteText: {
+      color: '#fff',
+      fontFamily: fonts.bodyBold,
+      fontSize: fontSize.sm,
+    },
+    lockExitBtn: {
+      alignSelf: 'center',
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: 12,
+      paddingBottom: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    headerSide: {
+      width: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerTitleWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerIconPill: {
+      width: 28,
+      height: 28,
+      borderRadius: radii.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.habitBadgeLight,
+      borderWidth: 1,
+      borderColor: colors.habitBadge,
+      marginBottom: spacing.xs,
+    },
+    headerTitle: {
+      color: colors.text,
+      fontSize: fontSize.lg,
+      fontFamily: fonts.headingMedium,
+    },
+    placeholder: {
+      width: 20,
+    },
+    scroll: {
+      flex: 1,
+    },
+    content: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: 120,
+      gap: spacing.md,
+    },
+    name: {
+      color: colors.text,
+      fontSize: fontSize.xl,
+      fontFamily: fonts.headingSemiBold,
+      textAlign: 'center',
+    },
+    streakRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    streakCard: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.md,
+      padding: spacing.md,
+      alignItems: 'center',
+    },
+    streakValue: {
+      color: colors.habitBadge,
+      fontSize: 26,
+      fontFamily: fonts.headingSemiBold,
+    },
+    streakLabel: {
+      color: colors.mutedText,
+      fontSize: fontSize.xs,
+      fontFamily: fonts.body,
+      marginTop: spacing.xs,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: fontSize.md,
+      fontFamily: fonts.headingRegular,
+      marginTop: spacing.sm,
+    },
+    weekRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.md,
+      paddingHorizontal: spacing.xs,
+      paddingVertical: spacing.md,
+    },
+    weekDay: {
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    weekDot: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surfaceLight,
+    },
+    weekDotDone: {
+      backgroundColor: colors.success,
+      borderColor: colors.success,
+    },
+    weekLabel: {
+      color: colors.mutedText,
+      fontSize: 10,
+      fontFamily: fonts.bodyBold,
+    },
+    weekLabelToday: {
+      color: colors.text,
+    },
+    infoCard: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.md,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    infoLabel: {
+      color: colors.mutedText,
+      fontSize: fontSize.xs,
+      fontFamily: fonts.body,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    infoValue: {
+      color: colors.text,
+      fontSize: fontSize.sm,
+      fontFamily: fonts.bodyBold,
+    },
+    completeBtn: {
+      marginTop: spacing.sm,
+      borderRadius: radii.md,
+      backgroundColor: colors.accent,
+      paddingVertical: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    completeBtnText: {
+      color: '#fff',
+      fontFamily: fonts.bodyBold,
+      fontSize: fontSize.sm,
+    },
+    sessionActionsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    sessionBtn: {
+      flex: 1,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      backgroundColor: colors.surface,
+      paddingVertical: spacing.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: spacing.xs,
+    },
+    sessionStartBtn: {
+      borderColor: colors.success,
+      backgroundColor: colors.successLight,
+    },
+    sessionPauseBtn: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentLight,
+    },
+    sessionBtnText: {
+      fontSize: fontSize.sm,
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    lockInFloatingBtn: {
+      position: 'absolute',
+      bottom: spacing.lg,
+      alignSelf: 'center',
+    },
+    actionBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.md,
+      backgroundColor: colors.surface,
+      paddingVertical: spacing.md,
+    },
+    deleteBtn: {
+      borderColor: colors.danger,
+      backgroundColor: colors.dangerLight,
+    },
+    actionText: {
+      color: colors.accent,
+      fontSize: fontSize.sm,
+      fontFamily: fonts.bodyBold,
+    },
+    emptyWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyText: {
+      color: colors.mutedText,
+      fontSize: fontSize.md,
+      fontFamily: fonts.body,
+    },
+    disabled: {
+      opacity: 0.5,
+    },
+    undoBar: {
+      borderRadius: radii.lg,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      overflow: 'hidden',
+    },
+    undoProgressTrack: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      height: 4,
+      backgroundColor: colors.border,
+    },
+    undoProgressFill: {
+      height: '100%',
+      backgroundColor: colors.accent,
+    },
+    undoText: {
+      color: colors.text,
+      fontSize: fontSize.md,
+      fontFamily: fonts.bodySemiBold,
+    },
+    undoAction: {
+      color: colors.accent,
+      fontSize: fontSize.md,
+      fontFamily: fonts.bodyBold,
+    },
+    lockTimerWrap: {
+      marginTop: spacing.md,
+      alignItems: 'center',
+    },
+  });

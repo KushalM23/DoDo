@@ -7,7 +7,7 @@
  * Swipe left/right to navigate between pages.
  * Page indicator dots at bottom.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Animated,
   Dimensions,
@@ -20,45 +20,76 @@ import {
   StyleSheet,
   Text,
   View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useTasks } from "../../state/TasksContext";
-import { useHabits } from "../../state/HabitsContext";
-import { useCategories } from "../../state/CategoriesContext";
-import { useAlert } from "../../state/AlertContext";
-import { TaskForm } from "../../components/TaskForm";
-import { AppIcon, type AppIconName } from "../../components/AppIcon";
-import { sortTasks } from "../../utils/taskSort";
-import { habitAppliesToDate, minuteToIso } from "../../utils/habits";
-import { spacing, fontSize } from "../../theme/colors";
-import { fonts } from "../../theme/fonts";
-import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
-import type { CreateTaskInput, Task } from "../../types/task";
-import type { Habit } from "../../types/habit";
-import type { Category } from "../../types/category";
-import type { RootStackParamList } from "../../navigation/RootNavigator";
+} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useTasks} from '../../state/TasksContext';
+import {useHabits} from '../../state/HabitsContext';
+import {useCategories} from '../../state/CategoriesContext';
+import {useAlert} from '../../state/AlertContext';
+import {TaskForm} from '../../components/TaskForm';
+import {AppIcon, type AppIconName} from '../../components/AppIcon';
+import {sortTasks} from '../../utils/taskSort';
+import {habitAppliesToDate, minuteToIso} from '../../utils/habits';
+import {spacing, fontSize} from '../../theme/colors';
+import {fonts} from '../../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
+import type {CreateTaskInput, Task} from '../../types/task';
+import type {Habit} from '../../types/habit';
+import type {Category} from '../../types/category';
+import type {RootStackParamList} from '../../navigation/RootNavigator';
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
 /* ─── helpers ─────────────────────────────────────────────── */
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTH_NAMES = ["Jan", "Feb", "March", "April", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 function todayStr(): string {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}-${String(d.getDate()).padStart(2, '0')}`;
 }
 function toLocalDateStr(iso: string): string {
   const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}-${String(d.getDate()).padStart(2, '0')}`;
 }
 function isSameDay(iso: string, dateStr: string): boolean {
   return toLocalDateStr(iso) === dateStr;
 }
-function habitToTask(h: Habit, dateStr: string, completed: boolean): Task & { _isHabit: true; _habitId: string; _habitIcon: Habit["icon"] } {
+function habitToTask(
+  h: Habit,
+  dateStr: string,
+  completed: boolean,
+): Task & {_isHabit: true; _habitId: string; _habitIcon: Habit['icon']} {
   const minute = h.timeMinute ?? 9 * 60;
   const dur = h.durationMinutes ?? 30;
   return {
@@ -67,7 +98,7 @@ function habitToTask(h: Habit, dateStr: string, completed: boolean): Task & { _i
     _habitId: h.id,
     _habitIcon: h.icon,
     title: h.title,
-    description: "",
+    description: '',
     categoryId: null,
     scheduledAt: minuteToIso(dateStr, minute),
     deadline: minuteToIso(dateStr, Math.min(1439, minute + dur)),
@@ -82,10 +113,14 @@ function habitToTask(h: Habit, dateStr: string, completed: boolean): Task & { _i
   };
 }
 
-type DisplayTask = Task & { _isHabit?: boolean; _habitId?: string; _habitIcon?: Habit["icon"] };
+type DisplayTask = Task & {
+  _isHabit?: boolean;
+  _habitId?: string;
+  _habitIcon?: Habit['icon'];
+};
 
 function formatHeroDate(dateStr: string): string {
-  const parts = dateStr.split("-");
+  const parts = dateStr.split('-');
   const y = parseInt(parts[0], 10);
   const m = parseInt(parts[1], 10) - 1;
   const d = parseInt(parts[2], 10);
@@ -93,10 +128,14 @@ function formatHeroDate(dateStr: string): string {
   const dayName = DAY_NAMES[dateObj.getDay()];
   const monthName = MONTH_NAMES[dateObj.getMonth()];
 
-  let ordStr = "th";
-  if (d === 1 || d === 21 || d === 31) ordStr = "st";
-  else if (d === 2 || d === 22) ordStr = "nd";
-  else if (d === 3 || d === 23) ordStr = "rd";
+  let ordStr = 'th';
+  if (d === 1 || d === 21 || d === 31) {
+    ordStr = 'st';
+  } else if (d === 2 || d === 22) {
+    ordStr = 'nd';
+  } else if (d === 3 || d === 23) {
+    ordStr = 'rd';
+  }
 
   return `${dayName.substring(0, 3)}, ${d}${ordStr} ${monthName}`;
 }
@@ -105,34 +144,48 @@ function formatTaskTime(iso: string): string {
   const d = new Date(iso);
   let h = d.getHours();
   const m = d.getMinutes();
-  const ampm = h >= 12 ? "pm" : "am";
+  const ampm = h >= 12 ? 'pm' : 'am';
   h = h % 12;
   h = h ? h : 12;
-  const minStr = m < 10 ? "0" + m : m;
+  const minStr = m < 10 ? '0' + m : m;
   return `${h}:${minStr} ${ampm}`;
 }
 
 /** Format duration: 60+ minutes → hours format */
 function formatDuration(minutes: number | null | undefined): string | null {
-  if (minutes == null || minutes <= 0) return null;
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes == null || minutes <= 0) {
+    return null;
+  }
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
   const hours = Math.floor(minutes / 60);
   const remaining = minutes % 60;
-  const hourStr = hours === 1 ? "1 hour" : `${hours} hours`;
-  if (remaining === 0) return hourStr;
+  const hourStr = hours === 1 ? '1 hour' : `${hours} hours`;
+  if (remaining === 0) {
+    return hourStr;
+  }
   return `${hourStr} ${remaining} min`;
 }
 
 function priorityColor(priority: number, colors: ThemeColors): string {
-  if (priority === 3) return colors.highPriority;
-  if (priority === 2) return colors.mediumPriority;
+  if (priority === 3) {
+    return colors.highPriority;
+  }
+  if (priority === 2) {
+    return colors.mediumPriority;
+  }
   return colors.lowPriority;
 }
 
 function priorityIcon(priority: number): AppIconName {
-  if (priority === 3) return "arrow-up-circle";
-  if (priority === 2) return "minus-circle";
-  return "arrow-down-circle";
+  if (priority === 3) {
+    return 'arrow-up-circle';
+  }
+  if (priority === 2) {
+    return 'minus-circle';
+  }
+  return 'arrow-down-circle';
 }
 
 /* ─── Task slab (object) ───────────────────────────────────── */
@@ -152,10 +205,19 @@ function TaskSlab({
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   function handlePressIn() {
-    Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: false, speed: 40 }).start();
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: false,
+      speed: 40,
+    }).start();
   }
   function handlePressOut() {
-    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: false, speed: 20, bounciness: 8 }).start();
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: false,
+      speed: 20,
+      bounciness: 8,
+    }).start();
   }
 
   // Determine the leading icon (replaces checkmark)
@@ -166,12 +228,12 @@ function TaskSlab({
     leadingIconName = task._habitIcon as AppIconName;
     leadingIconColor = colors.habitBadge;
   } else {
-    const cat = categories.find((c) => c.id === task.categoryId);
+    const cat = categories.find(c => c.id === task.categoryId);
     if (cat) {
       leadingIconName = cat.icon as AppIconName;
       leadingIconColor = cat.color;
     } else {
-      leadingIconName = "check-circle";
+      leadingIconName = 'check-circle';
       leadingIconColor = colors.accent;
     }
   }
@@ -181,7 +243,7 @@ function TaskSlab({
   let rightIconColor: string;
 
   if (task._isHabit) {
-    rightIcon = ("repeat") as AppIconName;
+    rightIcon = 'repeat' as AppIconName;
     rightIconColor = colors.habitBadge;
   } else {
     rightIcon = priorityIcon(task.priority);
@@ -193,19 +255,17 @@ function TaskSlab({
   return (
     <Animated.View
       style={{
-        transform: [{ scale: scaleAnim }],
+        transform: [{scale: scaleAnim}],
         marginBottom: 16,
         paddingVertical: 18,
         paddingHorizontal: 4,
-      }}
-    >
+      }}>
       <Pressable
-        style={{ flexDirection: "row", alignItems: "center", gap: 14 }}
+        style={{flexDirection: 'row', alignItems: 'center', gap: 14}}
         onPress={() => onPress(task)}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        delayLongPress={400}
-      >
+        delayLongPress={400}>
         {/* Leading icon — acts as checkmark toggle */}
         <Pressable
           onPress={() => onToggle(task)}
@@ -213,39 +273,44 @@ function TaskSlab({
             width: 40,
             height: 40,
             borderRadius: 12,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
           <AppIcon
-            name={task.completed ? "check" : leadingIconName}
-            size={task.completed ? 20 : 22}
+            name={task.completed ? 'check' : leadingIconName}
+            size={24}
             color={task.completed ? leadingIconColor : leadingIconColor}
           />
         </Pressable>
 
         {/* Text */}
-        <View style={{ flex: 1 }}>
+        <View style={{flex: 1}}>
           <Text
             numberOfLines={1}
             style={{
-              fontSize: 18,
+              fontSize: 22,
               fontFamily: fonts.headingSemiBold,
               letterSpacing: 0.4,
               color: task.completed ? colors.mutedText : colors.text,
-              textDecorationLine: task.completed ? "line-through" : "none",
-            }}
-          >
+              textDecorationLine: task.completed ? 'line-through' : 'none',
+            }}>
             {task.title}
           </Text>
-          <Text style={{ fontSize: 13, color: colors.mutedText, marginTop: 5, fontFamily: fonts.bodyMedium }}>
-            {formatTaskTime(task.scheduledAt)}{durationStr ? ` • ${durationStr}` : null}
+          <Text
+            style={{
+              fontSize: 13,
+              color: colors.mutedText,
+              marginTop: 5,
+              fontFamily: fonts.bodyMedium,
+            }}>
+            {formatTaskTime(task.scheduledAt)}
+            {durationStr ? ` • ${durationStr}` : null}
           </Text>
         </View>
 
         {/* Priority or habit badge */}
-        <View style={{padding: 6 }}>
-          <AppIcon name={rightIcon} size={14} color={rightIconColor} />
+        <View style={{padding: 6}}>
+          <AppIcon name={rightIcon} size={16} color={rightIconColor} />
         </View>
       </Pressable>
     </Animated.View>
@@ -256,27 +321,82 @@ function TaskSlab({
 
 function PageDots({
   count,
-  activeIndex,
+  scrollX,
   colors,
 }: {
   count: number;
-  activeIndex: number;
+  scrollX: Animated.Value;
   colors: ThemeColors;
 }) {
-  if (count <= 1) return null;
+  if (count <= 1) {
+    return null;
+  }
+
+  const dotSize = 8;
+  const dotGap = 16;
+  const pillWidth = 20;
+  const step = dotSize + dotGap; // 16
+
+  const inputRange: number[] = [];
+  const leftOutput: number[] = [];
+  const widthOutput: number[] = [];
+
+  for (let i = 0; i < count; i++) {
+    inputRange.push(i * SCREEN_WIDTH);
+    leftOutput.push(i * step - (pillWidth - dotSize) / 2);
+    widthOutput.push(pillWidth);
+
+    if (i < count - 1) {
+      inputRange.push((i + 0.5) * SCREEN_WIDTH);
+      leftOutput.push(i * step - (pillWidth - dotSize) / 2);
+      widthOutput.push(pillWidth + step);
+    }
+  }
+
+  const indicatorLeft = scrollX.interpolate({
+    inputRange,
+    outputRange: leftOutput,
+    extrapolate: 'clamp',
+  });
+
+  const indicatorWidth = scrollX.interpolate({
+    inputRange,
+    outputRange: widthOutput,
+    extrapolate: 'clamp',
+  });
+
   return (
-    <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, paddingVertical: 12 }}>
-      {Array.from({ length: count }).map((_, i) => (
-        <View
-          key={i}
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'center',
+        paddingVertical: 12,
+      }}>
+      <View style={{flexDirection: 'row', gap: dotGap}}>
+        {Array.from({length: count}).map((_, i) => (
+          <View
+            key={`dot-${i}`}
+            style={{
+              width: dotSize,
+              height: dotSize,
+              borderRadius: dotSize / 2,
+              backgroundColor: colors.surfaceLight,
+            }}
+          />
+        ))}
+        <Animated.View
           style={{
-            width: i === activeIndex ? 20 : 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: i === activeIndex ? colors.accent : colors.surfaceLight,
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            height: dotSize,
+            borderRadius: dotSize / 2,
+            backgroundColor: colors.accent,
+            width: indicatorWidth,
+            transform: [{translateX: indicatorLeft}],
           }}
         />
-      ))}
+      </View>
     </View>
   );
 }
@@ -284,6 +404,8 @@ function PageDots({
 /* ─── Single page content ──────────────────────────────────── */
 
 function TaskPage({
+  index,
+  scrollX,
   heading,
   tasks,
   completedTasks,
@@ -294,6 +416,8 @@ function TaskPage({
   onRefresh,
   colors,
 }: {
+  index: number;
+  scrollX: Animated.Value;
   heading: string;
   tasks: DisplayTask[];
   completedTasks: Task[];
@@ -308,60 +432,96 @@ function TaskPage({
   const total = tasks.length + done;
   const progress = total > 0 ? done / total : 0;
 
+  const inputRange = [
+    (index - 1) * SCREEN_WIDTH,
+    index * SCREEN_WIDTH,
+    (index + 1) * SCREEN_WIDTH,
+  ];
+
+  const scale = scrollX.interpolate({
+    inputRange,
+    outputRange: [0.95, 1, 0.95],
+    extrapolate: 'clamp',
+  });
+
+  const opacity = scrollX.interpolate({
+    inputRange,
+    outputRange: [0.3, 1, 0.3],
+    extrapolate: 'clamp',
+  });
+
   return (
-    <View style={{ width: SCREEN_WIDTH }}>
+    <Animated.View style={{width: SCREEN_WIDTH, transform: [{scale}], opacity}}>
       <FlatList
         data={tasks}
-        keyExtractor={(t) => t.id}
+        keyExtractor={t => t.id}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor={colors.accent} />
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
         }
-        contentContainerStyle={{ paddingHorizontal: 28, paddingTop: 24, paddingBottom: 160 }}
+        contentContainerStyle={{
+          paddingHorizontal: 28,
+          paddingTop: 24,
+          paddingBottom: 160,
+        }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          <View style={{ paddingBottom: 16, paddingTop: 8, gap: 8 }}>
+          <View style={{paddingBottom: 16, paddingTop: 8, gap: 8}}>
             <Text
               style={{
                 fontSize: 38,
-                alignSelf: "center",
-                textTransform: "capitalize",
+                alignSelf: 'center',
+                textTransform: 'capitalize',
                 fontFamily: fonts.heading,
                 color: colors.text,
                 letterSpacing: -0.5,
                 marginBottom: 10,
-              }}
-            >
+              }}>
               {heading}
             </Text>
 
             {total > 0 && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginTop: 4 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginTop: 4,
+                }}>
                 <View
                   style={{
                     flex: 1,
                     height: 6,
                     borderRadius: 3,
                     backgroundColor: colors.surfaceLight,
-                    overflow: "hidden",
-                  }}
-                >
+                    overflow: 'hidden',
+                  }}>
                   <View
                     style={{
-                      height: "100%",
+                      height: '100%',
                       backgroundColor: colors.accent,
                       borderRadius: 3,
                       width: `${Math.round(progress * 100)}%`,
                     }}
                   />
                 </View>
-                <Text style={{ fontSize: 12, fontFamily: fonts.bodyBold, color: colors.mutedText, letterSpacing: 0.2 }}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontFamily: fonts.bodyBold,
+                    color: colors.mutedText,
+                    letterSpacing: 0.2,
+                  }}>
                   {done}/{total} done
                 </Text>
               </View>
             )}
           </View>
         }
-        renderItem={({ item }) => (
+        renderItem={({item}) => (
           <TaskSlab
             task={item as DisplayTask}
             onToggle={onToggle}
@@ -370,15 +530,28 @@ function TaskPage({
           />
         )}
         ListEmptyComponent={
-          <View style={{ alignItems: "center", paddingTop: 40, gap: 6 }}>
-            <Text style={{ fontSize: 22, fontFamily: fonts.bodyBold, color: colors.text, letterSpacing: -0.5 }}>
+          <View style={{alignItems: 'center', paddingTop: 40, gap: 6}}>
+            <Text
+              style={{
+                fontSize: 22,
+                fontFamily: fonts.bodyBold,
+                color: colors.text,
+                letterSpacing: -0.5,
+              }}>
               Nothing here.
             </Text>
-            <Text style={{ fontSize: 14, color: colors.mutedText, fontFamily: fonts.bodyMedium }}>Full clear!</Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: colors.mutedText,
+                fontFamily: fonts.bodyMedium,
+              }}>
+              Full clear!
+            </Text>
           </View>
         }
       />
-    </View>
+    </Animated.View>
   );
 }
 
@@ -387,11 +560,14 @@ function TaskPage({
 export function TasksScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { showAlert } = useAlert();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { tasks, loading, sortMode, refresh, addTask, toggleTaskCompletion } = useTasks();
-  const { habits, loadHistory, isHabitCompletedOn, setHabitCompletedOn } = useHabits();
-  const { categories } = useCategories();
+  const {showAlert} = useAlert();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const {tasks, loading, sortMode, refresh, addTask, toggleTaskCompletion} =
+    useTasks();
+  const {habits, loadHistory, isHabitCompletedOn, setHabitCompletedOn} =
+    useHabits();
+  const {categories} = useCategories();
   const [formVisible, setFormVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [activePage, setActivePage] = useState(0);
@@ -399,45 +575,56 @@ export function TasksScreen() {
   // FAB animation
   const addBtnScale = useRef(new Animated.Value(1)).current;
   const pageScrollRef = useRef<ScrollView>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
 
   const isTodaySelected = selectedDate === todayStr();
 
   useEffect(() => {
-    void loadHistory({ startDate: selectedDate, endDate: selectedDate }).catch(() => {});
+    void loadHistory({startDate: selectedDate, endDate: selectedDate}).catch(
+      () => {},
+    );
   }, [selectedDate, loadHistory]);
 
   const allFilteredTasks = useMemo(() => {
     const dateTasks = tasks.filter(
-      (t) => !t.completed && isSameDay(t.scheduledAt, selectedDate),
+      t => !t.completed && isSameDay(t.scheduledAt, selectedDate),
     );
     const habitTasks: DisplayTask[] = isTodaySelected
       ? habits
-        .filter((h) => habitAppliesToDate(h, selectedDate))
-        .filter((h) => !isHabitCompletedOn(h.id, selectedDate))
-        .map((h) => habitToTask(h, selectedDate, false))
+          .filter(h => habitAppliesToDate(h, selectedDate))
+          .filter(h => !isHabitCompletedOn(h.id, selectedDate))
+          .map(h => habitToTask(h, selectedDate, false))
       : [];
     return sortTasks([...dateTasks, ...habitTasks], sortMode);
-  }, [tasks, habits, selectedDate, isHabitCompletedOn, sortMode, isTodaySelected]);
+  }, [
+    tasks,
+    habits,
+    selectedDate,
+    isHabitCompletedOn,
+    sortMode,
+    isTodaySelected,
+  ]);
 
   const completedTasks = useMemo(
-    () => tasks.filter((t) => t.completed && isSameDay(t.scheduledAt, selectedDate)),
+    () =>
+      tasks.filter(t => t.completed && isSameDay(t.scheduledAt, selectedDate)),
     [tasks, selectedDate],
   );
 
   // Build pages: [overview, ...categories]
   const pages = useMemo(() => {
     const overviewPage = {
-      key: "overview",
+      key: 'overview',
       heading: formatHeroDate(selectedDate),
       tasks: allFilteredTasks,
       completed: completedTasks,
     };
 
-    const categoryPages = categories.map((cat) => ({
+    const categoryPages = categories.map(cat => ({
       key: cat.id,
       heading: cat.name,
-      tasks: allFilteredTasks.filter((t) => t.categoryId === cat.id),
-      completed: completedTasks.filter((t) => t.categoryId === cat.id),
+      tasks: allFilteredTasks.filter(t => t.categoryId === cat.id),
+      completed: completedTasks.filter(t => t.categoryId === cat.id),
     }));
 
     return [overviewPage, ...categoryPages];
@@ -449,8 +636,14 @@ export function TasksScreen() {
 
   function handleToggle(task: DisplayTask) {
     if (task._isHabit) {
-      if (!isTodaySelected) return;
-      void setHabitCompletedOn(task._habitId!, selectedDate, !task.completed).catch(() => {});
+      if (!isTodaySelected) {
+        return;
+      }
+      void setHabitCompletedOn(
+        task._habitId!,
+        selectedDate,
+        !task.completed,
+      ).catch(() => {});
       return;
     }
     void toggleTaskCompletion(task).catch(() => {});
@@ -458,9 +651,9 @@ export function TasksScreen() {
 
   function handlePress(task: DisplayTask) {
     if (task._isHabit && task._habitId) {
-      navigation.navigate("HabitDetail", { habitId: task._habitId });
+      navigation.navigate('HabitDetail', {habitId: task._habitId});
     } else {
-      navigation.navigate("TaskDetail", { taskId: task.id });
+      navigation.navigate('TaskDetail', {taskId: task.id});
     }
   }
 
@@ -473,20 +666,26 @@ export function TasksScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Horizontal page scroller */}
-      <ScrollView
-        ref={pageScrollRef}
+      <Animated.ScrollView
+        ref={pageScrollRef as any}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{nativeEvent: {contentOffset: {x: scrollX}}}],
+          {useNativeDriver: false},
+        )}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={handlePageScroll}
-        style={{ flex: 1 }}
-        decelerationRate="fast"
-      >
-        {pages.map((page) => (
+        style={{flex: 1}}
+        decelerationRate="fast">
+        {pages.map((page, index) => (
           <TaskPage
             key={page.key}
+            index={index}
+            scrollX={scrollX}
             heading={page.heading}
             tasks={page.tasks}
             completedTasks={page.completed}
@@ -498,21 +697,33 @@ export function TasksScreen() {
             colors={colors}
           />
         ))}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Page indicator dots */}
       <View style={styles.dotsContainer}>
-        <PageDots count={pages.length} activeIndex={activePage} colors={colors} />
+        <PageDots count={pages.length} scrollX={scrollX} colors={colors} />
       </View>
 
       {/* Floating Add Button */}
-      <Animated.View style={[styles.fabContainer, { transform: [{ scale: addBtnScale }] }]}>
+      <Animated.View
+        style={[styles.fabContainer, {transform: [{scale: addBtnScale}]}]}>
         <Pressable
           style={styles.fab}
           onPress={() => setFormVisible(true)}
-          onPressIn={() => Animated.spring(addBtnScale, { toValue: 0.9, useNativeDriver: true, speed: 40 }).start()}
-          onPressOut={() => Animated.spring(addBtnScale, { toValue: 1, useNativeDriver: true, speed: 20 }).start()}
-        >
+          onPressIn={() =>
+            Animated.spring(addBtnScale, {
+              toValue: 0.9,
+              useNativeDriver: true,
+              speed: 40,
+            }).start()
+          }
+          onPressOut={() =>
+            Animated.spring(addBtnScale, {
+              toValue: 1,
+              useNativeDriver: true,
+              speed: 20,
+            }).start()
+          }>
           <AppIcon name="plus" size={32} color="#fff" />
         </Pressable>
       </Animated.View>
@@ -536,16 +747,16 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.background,
     },
     dotsContainer: {
-      position: "absolute",
+      position: 'absolute',
       bottom: 96,
       left: 0,
       right: 0,
-      alignItems: "center",
+      alignItems: 'center',
     },
     /* FAB */
     fabContainer: {
-      position: "absolute",
-      bottom: 96,
+      position: 'absolute',
+      bottom: 100,
       right: 32,
       zIndex: 100,
     },
@@ -554,10 +765,10 @@ const createStyles = (colors: ThemeColors) =>
       height: 64,
       borderRadius: 32,
       backgroundColor: colors.accent,
-      alignItems: "center",
-      justifyContent: "center",
+      alignItems: 'center',
+      justifyContent: 'center',
       shadowColor: colors.accent,
-      shadowOffset: { width: 0, height: 8 },
+      shadowOffset: {width: 0, height: 8},
       shadowOpacity: 0.5,
       shadowRadius: 16,
       elevation: 8,

@@ -1,9 +1,18 @@
-import React, { useRef, useMemo, useEffect } from "react";
-import { Animated, Modal, Pressable, StyleSheet, Text, View, KeyboardAvoidingView, Platform } from "react-native";
-import { spacing, radii, fontSize } from "../theme/colors";
-import { fonts } from "../theme/fonts";
-import { type ThemeColors, useThemeColors } from "../theme/ThemeProvider";
-import { AppIcon } from "./AppIcon";
+import React, {useRef, useMemo, useEffect} from 'react';
+import {
+  Animated,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import {spacing, radii, fontSize} from '../theme/colors';
+import {fonts} from '../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
+import {AppIcon} from './AppIcon';
 
 type CustomModalProps = {
   visible: boolean;
@@ -12,7 +21,12 @@ type CustomModalProps = {
   children: React.ReactNode;
 };
 
-export function CustomModal({ visible, title, onClose, children }: CustomModalProps) {
+export function CustomModal({
+  visible,
+  title,
+  onClose,
+  children,
+}: CustomModalProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const scaleAnim = useRef(new Animated.Value(0.88)).current;
@@ -26,13 +40,31 @@ export function CustomModal({ visible, title, onClose, children }: CustomModalPr
     if (visible) {
       setRenderVisible(true);
       Animated.parallel([
-        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, damping: 18, stiffness: 250 }),
-        Animated.timing(opacityAnim, { toValue: 1, duration: 160, useNativeDriver: true }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          damping: 18,
+          stiffness: 250,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 160,
+          useNativeDriver: true,
+        }),
       ]).start();
     } else {
       Animated.parallel([
-        Animated.spring(scaleAnim, { toValue: 0.88, useNativeDriver: true, damping: 18, stiffness: 250 }),
-        Animated.timing(opacityAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+        Animated.spring(scaleAnim, {
+          toValue: 0.88,
+          useNativeDriver: true,
+          damping: 18,
+          stiffness: 250,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 120,
+          useNativeDriver: true,
+        }),
       ]).start(() => setRenderVisible(false));
     }
   }, [visible, scaleAnim, opacityAnim]);
@@ -42,12 +74,21 @@ export function CustomModal({ visible, title, onClose, children }: CustomModalPr
   }
 
   return (
-    <Modal transparent animationType="none" visible={renderVisible} onRequestClose={onClose}>
-      <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
+    <Modal
+      transparent
+      animationType="none"
+      visible={renderVisible}
+      onRequestClose={onClose}>
+      <Animated.View style={[styles.overlay, {opacity: opacityAnim}]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView}>
-          <Animated.View style={[styles.popup, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
-
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}>
+          <Animated.View
+            style={[
+              styles.popup,
+              {transform: [{scale: scaleAnim}], opacity: opacityAnim},
+            ]}>
             <View style={styles.header}>
               <Text style={styles.title}>{title}</Text>
               <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
@@ -55,9 +96,7 @@ export function CustomModal({ visible, title, onClose, children }: CustomModalPr
               </Pressable>
             </View>
 
-            <View style={styles.content}>
-              {children}
-            </View>
+            <View style={styles.content}>{children}</View>
           </Animated.View>
         </KeyboardAvoidingView>
       </Animated.View>
@@ -69,35 +108,35 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: "rgba(0,0,0,0.85)",
-      justifyContent: "center",
-      alignItems: "center",
+      backgroundColor: 'rgba(0,0,0,0.85)',
+      justifyContent: 'center',
+      alignItems: 'center',
       paddingHorizontal: spacing.sm,
     },
     keyboardView: {
-      width: "100%",
-      alignItems: "center",
-      justifyContent: "center",
+      width: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     popup: {
-      width: "100%",
+      width: '100%',
       maxWidth: 360,
       backgroundColor: colors.surface,
       borderRadius: radii.xl,
       borderWidth: 1,
       borderColor: colors.borderStrong,
-      overflow: "hidden",
+      overflow: 'hidden',
       shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 20 },
+      shadowOffset: {width: 0, height: 20},
       shadowOpacity: 1,
       shadowRadius: 40,
       elevation: 20,
-      maxHeight: "100%",
+      maxHeight: '100%',
     },
     header: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.lg,
       paddingBottom: spacing.sm,

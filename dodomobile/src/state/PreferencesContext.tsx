@@ -1,9 +1,15 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type DateFormatPreference = "us" | "eu";
-export type TimeFormatPreference = "12h" | "24h";
-export type WeekStartPreference = "sunday" | "monday";
+export type DateFormatPreference = 'us' | 'eu';
+export type TimeFormatPreference = '12h' | '24h';
+export type WeekStartPreference = 'sunday' | 'monday';
 
 type UserPreferences = {
   darkMode: boolean;
@@ -14,12 +20,12 @@ type UserPreferences = {
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   darkMode: true,
-  dateFormat: "eu",
-  timeFormat: "12h",
-  weekStart: "monday",
+  dateFormat: 'eu',
+  timeFormat: '12h',
+  weekStart: 'monday',
 };
 
-const PREFERENCES_KEY = "@dodo/preferences";
+const PREFERENCES_KEY = '@dodo/preferences';
 
 type PreferencesContextValue = {
   preferences: UserPreferences;
@@ -30,25 +36,38 @@ type PreferencesContextValue = {
   resetPreferences: () => Promise<void>;
 };
 
-const PreferencesContext = createContext<PreferencesContextValue | undefined>(undefined);
+const PreferencesContext = createContext<PreferencesContextValue | undefined>(
+  undefined,
+);
 
-export function PreferencesProvider({ children }: { children: React.ReactNode }) {
-  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+export function PreferencesProvider({children}: {children: React.ReactNode}) {
+  const [preferences, setPreferences] =
+    useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadPreferences() {
       try {
         const raw = await AsyncStorage.getItem(PREFERENCES_KEY);
-        if (!raw) return;
+        if (!raw) {
+          return;
+        }
 
         const parsed = JSON.parse(raw) as Partial<UserPreferences>;
-        setPreferences((prev) => ({
+        setPreferences(prev => ({
           ...prev,
-          ...(typeof parsed.darkMode === "boolean" ? { darkMode: parsed.darkMode } : {}),
-          ...(parsed.dateFormat === "us" || parsed.dateFormat === "eu" ? { dateFormat: parsed.dateFormat } : {}),
-          ...(parsed.timeFormat === "12h" || parsed.timeFormat === "24h" ? { timeFormat: parsed.timeFormat } : {}),
-          ...(parsed.weekStart === "sunday" || parsed.weekStart === "monday" ? { weekStart: parsed.weekStart } : {}),
+          ...(typeof parsed.darkMode === 'boolean'
+            ? {darkMode: parsed.darkMode}
+            : {}),
+          ...(parsed.dateFormat === 'us' || parsed.dateFormat === 'eu'
+            ? {dateFormat: parsed.dateFormat}
+            : {}),
+          ...(parsed.timeFormat === '12h' || parsed.timeFormat === '24h'
+            ? {timeFormat: parsed.timeFormat}
+            : {}),
+          ...(parsed.weekStart === 'sunday' || parsed.weekStart === 'monday'
+            ? {weekStart: parsed.weekStart}
+            : {}),
         }));
       } finally {
         setLoading(false);
@@ -68,13 +87,13 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       preferences,
       loading,
       async setDarkMode(enabled: boolean) {
-        await updatePreferences({ ...preferences, darkMode: enabled });
+        await updatePreferences({...preferences, darkMode: enabled});
       },
       async setDateFormat(format: DateFormatPreference) {
-        await updatePreferences({ ...preferences, dateFormat: format });
+        await updatePreferences({...preferences, dateFormat: format});
       },
       async setTimeFormat(format: TimeFormatPreference) {
-        await updatePreferences({ ...preferences, timeFormat: format });
+        await updatePreferences({...preferences, timeFormat: format});
       },
       async resetPreferences() {
         await updatePreferences(DEFAULT_PREFERENCES);
@@ -83,13 +102,17 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     [loading, preferences],
   );
 
-  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
+  return (
+    <PreferencesContext.Provider value={value}>
+      {children}
+    </PreferencesContext.Provider>
+  );
 }
 
 export function usePreferences(): PreferencesContextValue {
   const ctx = useContext(PreferencesContext);
   if (!ctx) {
-    throw new Error("usePreferences must be used inside PreferencesProvider");
+    throw new Error('usePreferences must be used inside PreferencesProvider');
   }
   return ctx;
 }

@@ -1,19 +1,26 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
   createCategory as apiCreateCategory,
   deleteCategory as apiDeleteCategory,
   fetchCategories,
   updateCategory as apiUpdateCategory,
-} from "../services/api";
-import { useAuth } from "./AuthContext";
+} from '../services/api';
+import {useAuth} from './AuthContext';
 import {
   DEFAULT_CATEGORY_COLOR,
   DEFAULT_CATEGORY_ICON,
   type Category,
   type CategoryIcon,
   type CreateCategoryInput,
-} from "../types/category";
+} from '../types/category';
 
 type CategoriesContextValue = {
   categories: Category[];
@@ -26,19 +33,28 @@ type CategoriesContextValue = {
   setCategoryOrder: (orderedIds: string[]) => Promise<void>;
 };
 
-const CategoriesContext = createContext<CategoriesContextValue | undefined>(undefined);
+const CategoriesContext = createContext<CategoriesContextValue | undefined>(
+  undefined,
+);
 
-const DEFAULT_CATEGORIES: Array<{ name: string; color: string; icon: CategoryIcon }> = [
-  { name: "Personal", color: "#E8651A", icon: "user" },
-  { name: "Work", color: "#3B82F6", icon: "briefcase" },
+const DEFAULT_CATEGORIES: Array<{
+  name: string;
+  color: string;
+  icon: CategoryIcon;
+}> = [
+  {name: 'Personal', color: '#E8651A', icon: 'user'},
+  {name: 'Work', color: '#3B82F6', icon: 'briefcase'},
 ];
-const CATEGORY_ORDER_KEY_PREFIX = "dodo.categoryOrder";
+const CATEGORY_ORDER_KEY_PREFIX = 'dodo.categoryOrder';
 
 function orderKey(userId: string): string {
   return `${CATEGORY_ORDER_KEY_PREFIX}:${userId}`;
 }
 
-function orderCategories(categories: Category[], orderedIds: string[]): Category[] {
+function orderCategories(
+  categories: Category[],
+  orderedIds: string[],
+): Category[] {
   const indexMap = new Map<string, number>();
   orderedIds.forEach((id, index) => indexMap.set(id, index));
 
@@ -46,17 +62,23 @@ function orderCategories(categories: Category[], orderedIds: string[]): Category
     const aIndex = indexMap.get(a.id);
     const bIndex = indexMap.get(b.id);
 
-    if (aIndex != null && bIndex != null) return aIndex - bIndex;
-    if (aIndex != null) return -1;
-    if (bIndex != null) return 1;
+    if (aIndex != null && bIndex != null) {
+      return aIndex - bIndex;
+    }
+    if (aIndex != null) {
+      return -1;
+    }
+    if (bIndex != null) {
+      return 1;
+    }
 
     return a.createdAt.localeCompare(b.createdAt);
   });
 }
 
 function normalizeOrder(categories: Category[], rawOrder: string[]): string[] {
-  const existingIds = new Set(categories.map((c) => c.id));
-  const nextOrder = rawOrder.filter((id) => existingIds.has(id));
+  const existingIds = new Set(categories.map(c => c.id));
+  const nextOrder = rawOrder.filter(id => existingIds.has(id));
 
   for (const category of categories) {
     if (!nextOrder.includes(category.id)) {
@@ -67,8 +89,8 @@ function normalizeOrder(categories: Category[], rawOrder: string[]): string[] {
   return nextOrder;
 }
 
-export function CategoriesProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+export function CategoriesProvider({children}: {children: React.ReactNode}) {
+  const {user} = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -76,7 +98,9 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
 
   const persistOrder = useCallback(
     async (ids: string[]) => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        return;
+      }
       await AsyncStorage.setItem(orderKey(user.id), JSON.stringify(ids));
     },
     [user?.id],
@@ -90,7 +114,36 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       return;
     }
 
+    const cacheKey = `dodo.categories:${user.id}`;
     setLoading(true);
+
+    // 1. Load from cache first
+    try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        const parsedCategories = JSON.parse(cached);
+        if (Array.isArray(parsedCategories) && parsedCategories.length > 0) {
+          const storedOrderRaw = await AsyncStorage.getItem(orderKey(user.id));
+          let storedOrder: string[] = [];
+          if (storedOrderRaw) {
+            try {
+              storedOrder = JSON.parse(storedOrderRaw) as string[];
+            } catch {
+              storedOrder = [];
+            }
+          }
+          const normalizedOrder = normalizeOrder(parsedCategories, storedOrder);
+
+          setOrderedIds(normalizedOrder);
+          setCategories(orderCategories(parsedCategories, normalizedOrder));
+          setInitialized(true); // render immediately if cache hit
+        }
+      }
+    } catch (e) {
+      console.error('[CategoriesContext] Cache load error:', e);
+    }
+
+    // 2. Fetch from network
     try {
       let nextCategories = await fetchCategories();
       if (nextCategories.length === 0) {
@@ -101,7 +154,7 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
         nextCategories = seeded;
       }
 
-      nextCategories = nextCategories.map((category) => ({
+      nextCategories = nextCategories.map(category => ({
         ...category,
         color: category.color || DEFAULT_CATEGORY_COLOR,
         icon: category.icon || DEFAULT_CATEGORY_ICON,
@@ -121,11 +174,22 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       setOrderedIds(normalizedOrder);
       setCategories(orderCategories(nextCategories, normalizedOrder));
 
-      if (storedOrderRaw == null || JSON.stringify(storedOrder) !== JSON.stringify(normalizedOrder)) {
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(nextCategories));
+
+      if (
+        storedOrderRaw == null ||
+        JSON.stringify(storedOrder) !== JSON.stringify(normalizedOrder)
+      ) {
         await persistOrder(normalizedOrder);
       }
     } catch (err) {
-      console.error("[CategoriesContext] refresh error:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        msg !== 'Invalid or expired token.' &&
+        msg !== 'You are not logged in.'
+      ) {
+        console.error('[CategoriesContext] refresh error:', err);
+      }
     } finally {
       setLoading(false);
       setInitialized(true);
@@ -139,7 +203,9 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
   const addCategory = useCallback(
     async (input: CreateCategoryInput) => {
       const name = input.name.trim();
-      if (!name) throw new Error("Category name cannot be empty.");
+      if (!name) {
+        throw new Error('Category name cannot be empty.');
+      }
 
       const created = await apiCreateCategory({
         name,
@@ -148,7 +214,10 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       });
 
       const nextCategories = [...categories, created];
-      const nextOrder = normalizeOrder(nextCategories, [...orderedIds, created.id]);
+      const nextOrder = normalizeOrder(nextCategories, [
+        ...orderedIds,
+        created.id,
+      ]);
 
       setOrderedIds(nextOrder);
       setCategories(orderCategories(nextCategories, nextOrder));
@@ -160,14 +229,16 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
   const editCategory = useCallback(
     async (id: string, input: CreateCategoryInput) => {
       const name = input.name.trim();
-      if (!name) throw new Error("Category name cannot be empty.");
+      if (!name) {
+        throw new Error('Category name cannot be empty.');
+      }
 
       const updated = await apiUpdateCategory(id, {
         name,
         color: input.color || DEFAULT_CATEGORY_COLOR,
         icon: input.icon || DEFAULT_CATEGORY_ICON,
       });
-      setCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      setCategories(prev => prev.map(c => (c.id === id ? updated : c)));
     },
     [],
   );
@@ -176,8 +247,8 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
     async (id: string) => {
       await apiDeleteCategory(id);
 
-      const nextCategories = categories.filter((c) => c.id !== id);
-      const nextOrder = orderedIds.filter((categoryId) => categoryId !== id);
+      const nextCategories = categories.filter(c => c.id !== id);
+      const nextOrder = orderedIds.filter(categoryId => categoryId !== id);
 
       setOrderedIds(nextOrder);
       setCategories(orderCategories(nextCategories, nextOrder));
@@ -190,7 +261,7 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
     async (nextOrderInput: string[]) => {
       const nextOrder = normalizeOrder(categories, nextOrderInput);
       setOrderedIds(nextOrder);
-      setCategories((prev) => orderCategories(prev, nextOrder));
+      setCategories(prev => orderCategories(prev, nextOrder));
       await persistOrder(nextOrder);
     },
     [categories, persistOrder],
@@ -211,14 +282,29 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       removeCategory,
       setCategoryOrder,
     }),
-    [addCategory, categories, editCategory, initialized, loading, refresh, removeCategory, setCategoryOrder],
+    [
+      addCategory,
+      categories,
+      editCategory,
+      initialized,
+      loading,
+      refresh,
+      removeCategory,
+      setCategoryOrder,
+    ],
   );
 
-  return <CategoriesContext.Provider value={value}>{children}</CategoriesContext.Provider>;
+  return (
+    <CategoriesContext.Provider value={value}>
+      {children}
+    </CategoriesContext.Provider>
+  );
 }
 
 export function useCategories(): CategoriesContextValue {
   const ctx = useContext(CategoriesContext);
-  if (!ctx) throw new Error("useCategories must be used inside CategoriesProvider");
+  if (!ctx) {
+    throw new Error('useCategories must be used inside CategoriesProvider');
+  }
   return ctx;
 }
