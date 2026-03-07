@@ -30,6 +30,7 @@ import {useCategories} from '../../state/CategoriesContext';
 import {useAlert} from '../../state/AlertContext';
 import {TaskForm} from '../../components/TaskForm';
 import {ManageCategoriesModal} from '../../components/ManageCategoriesModal';
+import {BottomGradient} from '../../components/BottomGradient';
 import {AppIcon, type AppIconName} from '../../components/AppIcon';
 import {sortTasks} from '../../utils/taskSort';
 import {habitAppliesToDate, minuteToIso} from '../../utils/habits';
@@ -257,9 +258,10 @@ function TaskSlab({
     <Animated.View
       style={{
         transform: [{scale: scaleAnim}],
-        marginBottom: 16,
+        marginBottom: 4,
         paddingVertical: 18,
         paddingHorizontal: 4,
+        opacity: task.completed ? 0.5 : 1,
       }}>
       <Pressable
         style={{flexDirection: 'row', alignItems: 'center', gap: 14}}
@@ -303,6 +305,7 @@ function TaskSlab({
               color: colors.mutedText,
               marginTop: 5,
               fontFamily: fonts.bodyMedium,
+              textDecorationLine: task.completed ? 'line-through' : 'none',
             }}>
             {formatTaskTime(task.scheduledAt)}
             {durationStr ? ` • ${durationStr}` : null}
@@ -415,6 +418,7 @@ function TaskPage({
   categories,
   loading,
   onRefresh,
+  onManageCategories,
   colors,
 }: {
   index: number;
@@ -427,6 +431,7 @@ function TaskPage({
   categories: Category[];
   loading: boolean;
   onRefresh: () => void;
+  onManageCategories?: () => void;
   colors: ThemeColors;
 }) {
   const done = completedTasks.length;
@@ -452,9 +457,9 @@ function TaskPage({
   });
 
   return (
-    <Animated.View style={{width: SCREEN_WIDTH, transform: [{scale}], opacity}}>
+    <Animated.View style={{width: SCREEN_WIDTH, transform: [{scale}], opacity, marginBottom: 100}}>
       <FlatList
-        data={tasks}
+        data={[...tasks, ...completedTasks]}
         keyExtractor={t => t.id}
         refreshControl={
           <RefreshControl
@@ -466,23 +471,41 @@ function TaskPage({
         contentContainerStyle={{
           paddingHorizontal: 28,
           paddingTop: 24,
-          paddingBottom: 160,
+          paddingBottom: 16,
         }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={{paddingBottom: 16, paddingTop: 8, gap: 8}}>
-            <Text
-              style={{
-                fontSize: 38,
-                alignSelf: 'center',
-                textTransform: 'capitalize',
-                fontFamily: fonts.heading,
-                color: colors.text,
-                letterSpacing: -0.5,
-                marginBottom: 10,
-              }}>
-              {heading}
-            </Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+              <Text
+                style={{
+                  fontSize: 38,
+                  alignSelf: 'center',
+                  textTransform: 'capitalize',
+                  fontFamily: fonts.heading,
+                  color: colors.text,
+                  letterSpacing: -0.5,
+                  marginBottom: 10,
+                }}>
+                {heading}
+              </Text>
+              {index !== 0 && onManageCategories && (
+                <Pressable
+                  onPress={onManageCategories}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 10,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <AppIcon name="package" size={24} color={colors.accent} />
+                </Pressable>
+              )}
+            </View>
 
             {total > 0 && (
               <View
@@ -564,8 +587,7 @@ export function TasksScreen() {
   const {showAlert} = useAlert();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const {tasks, loading, sortMode, refresh, addTask, toggleTaskCompletion} =
-    useTasks();
+  const {tasks, loading, refresh, addTask, toggleTaskCompletion} = useTasks();
   const {habits, loadHistory, isHabitCompletedOn, setHabitCompletedOn} =
     useHabits();
   const {categories} = useCategories();
@@ -576,7 +598,6 @@ export function TasksScreen() {
 
   // FAB animations
   const addBtnScale = useRef(new Animated.Value(1)).current;
-  const manageBtnScale = useRef(new Animated.Value(1)).current;
   const pageScrollRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
@@ -598,21 +619,21 @@ export function TasksScreen() {
           .filter(h => !isHabitCompletedOn(h.id, selectedDate))
           .map(h => habitToTask(h, selectedDate, false))
       : [];
-    return sortTasks([...dateTasks, ...habitTasks], sortMode);
-  }, [
-    tasks,
-    habits,
-    selectedDate,
-    isHabitCompletedOn,
-    sortMode,
-    isTodaySelected,
-  ]);
+    return sortTasks([...dateTasks, ...habitTasks], 'time_asc');
+  }, [tasks, habits, selectedDate, isHabitCompletedOn, isTodaySelected]);
 
-  const completedTasks = useMemo(
-    () =>
-      tasks.filter(t => t.completed && isSameDay(t.scheduledAt, selectedDate)),
-    [tasks, selectedDate],
-  );
+  const completedTasks = useMemo(() => {
+    const compTasks = tasks.filter(
+      t => t.completed && isSameDay(t.scheduledAt, selectedDate),
+    );
+    const compHabits: DisplayTask[] = isTodaySelected
+      ? habits
+          .filter(h => habitAppliesToDate(h, selectedDate))
+          .filter(h => isHabitCompletedOn(h.id, selectedDate))
+          .map(h => habitToTask(h, selectedDate, true))
+      : [];
+    return sortTasks([...compTasks, ...compHabits], 'time_asc');
+  }, [tasks, habits, selectedDate, isHabitCompletedOn, isTodaySelected]);
 
   // Build pages: [overview, ...categories]
   const pages = useMemo(() => {
@@ -697,39 +718,19 @@ export function TasksScreen() {
             categories={categories}
             loading={loading}
             onRefresh={() => void refresh(selectedDate)}
+            onManageCategories={() => setManageCategoriesVisible(true)}
             colors={colors}
           />
         ))}
       </Animated.ScrollView>
 
+      {/* Bottom Gradient overlay */}
+      <BottomGradient colors={colors} />
+
       {/* Page indicator dots */}
       <View style={styles.dotsContainer}>
         <PageDots count={pages.length} scrollX={scrollX} colors={colors} />
       </View>
-
-      {/* Manage Categories Button (Left) */}
-      <Animated.View
-        style={[styles.leftFabContainer, {transform: [{scale: manageBtnScale}]}]}>
-        <Pressable
-          style={styles.fabcategory}
-          onPress={() => setManageCategoriesVisible(true)}
-          onPressIn={() =>
-            Animated.spring(manageBtnScale, {
-              toValue: 0.9,
-              useNativeDriver: true,
-              speed: 40,
-            }).start()
-          }
-          onPressOut={() =>
-            Animated.spring(manageBtnScale, {
-              toValue: 1,
-              useNativeDriver: true,
-              speed: 20,
-            }).start()
-          }>
-          <AppIcon name="package" size={20} color={colors.accent} />
-        </Pressable>
-      </Animated.View>
 
       {/* Floating Add Button (Right) */}
       <Animated.View
@@ -763,7 +764,7 @@ export function TasksScreen() {
         onCancel={() => setFormVisible(false)}
         onSubmit={handleCreateTask}
       />
-      
+
       <ManageCategoriesModal
         visible={manageCategoriesVisible}
         onClose={() => setManageCategoriesVisible(false)}
@@ -784,33 +785,19 @@ const createStyles = (colors: ThemeColors) =>
       left: 0,
       right: 0,
       alignItems: 'center',
+      zIndex: 20,
     },
-    /* FAB */
     fabContainer: {
       position: 'absolute',
       bottom: 100,
-      right: 32,
+      right: 48,
       zIndex: 100,
-    },
-    leftFabContainer: {
-      position: 'absolute',
-      bottom: 86,
-      left: 28,
-      zIndex: 100,
-      backgroundColor: 'transparent'
     },
     fab: {
       width: 64,
       height: 64,
       borderRadius: 32,
       backgroundColor: colors.accent,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    fabcategory: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
       alignItems: 'center',
       justifyContent: 'center',
     },

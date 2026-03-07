@@ -23,6 +23,7 @@ import {useHabits} from '../../state/HabitsContext';
 import {useCategories} from '../../state/CategoriesContext';
 import {AppIcon, type AppIconName} from '../../components/AppIcon';
 import {LoadingScreen} from '../../components/LoadingScreen';
+import {BottomGradient} from '../../components/BottomGradient';
 import type {RootStackParamList} from '../../navigation/RootNavigator';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import {fonts} from '../../theme/fonts';
@@ -482,6 +483,8 @@ export function ProfileScreen() {
           />
         </Animated.View>
       </Animated.ScrollView>
+      {/* Bottom Gradient overlay */}
+      <BottomGradient colors={colors} />
     </SafeAreaView>
   );
 }

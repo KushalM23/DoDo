@@ -19,6 +19,7 @@ import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useHabits} from '../../state/HabitsContext';
 import {HabitForm} from '../../components/HabitForm';
+import {BottomGradient} from '../../components/BottomGradient';
 import {AppIcon} from '../../components/AppIcon';
 import {LoadingScreen} from '../../components/LoadingScreen';
 import type {Habit} from '../../types/habit';
@@ -153,6 +154,9 @@ export function HabitScreen() {
         }
       />
 
+      {/* Bottom Gradient overlay */}
+      <BottomGradient colors={colors} />
+
       {/* Floating Add Action */}
       <Animated.View
         style={[styles.fabContainer, {transform: [{scale: plusBtnScale}]}]}>
@@ -221,8 +225,8 @@ const createStyles = (colors: ThemeColors) =>
     fabContainer: {
       position: 'absolute',
       bottom: 100,
-      right: 32,
-      zIndex: 10,
+      right: 48,
+      zIndex: 20,
     },
     fab: {
       width: 64,
@@ -231,10 +235,5 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.accent,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: colors.accent,
-      shadowOffset: {width: 0, height: 8},
-      shadowOpacity: 0.5,
-      shadowRadius: 16,
-      elevation: 8,
     },
   });

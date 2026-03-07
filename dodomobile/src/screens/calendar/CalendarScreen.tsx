@@ -26,6 +26,7 @@ import {
 } from './utils';
 import {CalendarGrid} from './CalendarGrid';
 import {Timeline} from './Timeline';
+import {BottomGradient} from '../../components/BottomGradient';
 
 export function CalendarScreen() {
   const colors = useThemeColors();
@@ -197,6 +198,9 @@ export function CalendarScreen() {
           </View>
         )}
       </View>
+
+      {/* Bottom Gradient overlay */}
+      <BottomGradient colors={colors} />
     </SafeAreaView>
   );
 }
