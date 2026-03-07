@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useMemo, useState, useRef, useEffect} from 'react';
 import {
   Modal,
   Pressable,
@@ -7,7 +7,17 @@ import {
   Text,
   TextInput,
   View,
+  Animated,
+  PanResponder,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 import {useAlert} from '../state/AlertContext';
 import {useCategories} from '../state/CategoriesContext';
 import {spacing, radii, fontSize} from '../theme/colors';
@@ -56,10 +66,21 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
   
   const [busy, setBusy] = useState(false);
 
-  const orderedIds = useMemo(
-    () => categories.map(category => category.id),
-    [categories],
-  );
+  const ITEM_HEIGHT = 65; // row height 57 + 8 gap
+  const [data, setData] = useState<Category[]>(categories);
+  const draggingIdRef = useRef<string | null>(null);
+  const initialIndexRef = useRef<number>(0);
+  const pan = useRef(new Animated.ValueXY()).current;
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!draggingIdRef.current) {
+      setData(categories);
+    }
+  }, [categories]);
 
   function handleAdd() {
     setAddInputValue('');
@@ -141,27 +162,56 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
     ]);
   }
 
-  async function moveCategory(categoryId: string, direction: -1 | 1) {
-    const fromIndex = orderedIds.findIndex(id => id === categoryId);
-    if (fromIndex < 0) return;
-    const toIndex = fromIndex + direction;
-    if (toIndex < 0 || toIndex >= orderedIds.length) return;
+  const handleLongPress = (id: string, index: number) => {
+    draggingIdRef.current = id;
+    initialIndexRef.current = index;
+    setDraggingId(id);
+    pan.setValue({ x: 0, y: 0 });
+  };
 
-    const nextOrder = [...orderedIds];
-    [nextOrder[fromIndex], nextOrder[toIndex]] = [
-      nextOrder[toIndex],
-      nextOrder[fromIndex],
-    ];
+  const endDrag = () => {
+    if (!draggingIdRef.current) return;
+    draggingIdRef.current = null;
+    setDraggingId(null);
+    pan.setValue({ x: 0, y: 0 });
+    
+    const nextOrder = dataRef.current.map(c => c.id);
+    setCategoryOrder(nextOrder).catch(err => {
+      showAlert('Error', err instanceof Error ? err.message : 'Failed to reorder');
+    });
+  };
 
-    try {
-      await setCategoryOrder(nextOrder);
-    } catch (err) {
-      showAlert(
-        'Error',
-        err instanceof Error ? err.message : 'Failed to reorder categories',
-      );
-    }
-  }
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: () => draggingIdRef.current !== null,
+      onPanResponderMove: (e, gestureState) => {
+        if (!draggingIdRef.current) return;
+        pan.setValue({ x: 0, y: gestureState.dy });
+        
+        const dragId = draggingIdRef.current;
+        const newIndex = Math.max(
+          0,
+          Math.min(
+            dataRef.current.length - 1,
+            initialIndexRef.current + Math.round(gestureState.dy / ITEM_HEIGHT)
+          )
+        );
+        
+        const currentIndex = dataRef.current.findIndex(c => c.id === dragId);
+        if (newIndex !== currentIndex && currentIndex !== -1) {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setData(prev => {
+            const next = [...prev];
+            const [item] = next.splice(currentIndex, 1);
+            next.splice(newIndex, 0, item);
+            return next;
+          });
+        }
+      },
+      onPanResponderRelease: endDrag,
+      onPanResponderTerminate: endDrag,
+    })
+  ).current;
 
   return (
     <>
@@ -181,63 +231,53 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
             </View>
 
             <ScrollView style={{maxHeight: 400}} showsVerticalScrollIndicator={false}>
-              {categories.length === 0 ? (
+              {data.length === 0 ? (
                 <Text style={styles.emptyText}>No categories yet.</Text>
               ) : (
-                categories.map((category, index) => (
-                  <View key={category.id} style={styles.manageRow}>
-                    <View style={styles.manageLabelWrap}>
-                      <AppIcon
-                        name={category.icon as any}
-                        size={14}
-                        color={category.color}
-                      />
-                      <Text style={styles.manageName} numberOfLines={1}>
-                        {category.name}
-                      </Text>
-                    </View>
-                    <Pressable
-                      style={[
-                        styles.iconBtn,
-                        index === 0 && styles.iconBtnDisabled,
-                      ]}
-                      disabled={index === 0}
-                      onPress={() => void moveCategory(category.id, -1)}>
-                      <AppIcon
-                        name="arrow-up"
-                        size={14}
-                        color={index === 0 ? colors.border : colors.text}
-                      />
-                    </Pressable>
-                    <Pressable
-                      style={[
-                        styles.iconBtn,
-                        index === categories.length - 1 && styles.iconBtnDisabled,
-                      ]}
-                      disabled={index === categories.length - 1}
-                      onPress={() => void moveCategory(category.id, 1)}>
-                      <AppIcon
-                        name="arrow-down"
-                        size={14}
-                        color={
-                          index === categories.length - 1
-                            ? colors.border
-                            : colors.text
-                        }
-                      />
-                    </Pressable>
-                    <Pressable
-                      style={styles.iconBtn}
-                      onPress={() => openEditModal(category)}>
-                      <AppIcon name="edit" size={14} color={colors.mutedText} />
-                    </Pressable>
-                    <Pressable
-                      style={styles.iconBtn}
-                      onPress={() => handleDelete(category)}>
-                      <AppIcon name="trash-2" size={14} color={colors.danger} />
-                    </Pressable>
-                  </View>
-                ))
+                <View {...panResponder.panHandlers} style={{ height: data.length * ITEM_HEIGHT, position: 'relative' }}>
+                  {data.map((category, index) => {
+                    const isDragging = draggingId === category.id;
+                    const top = (isDragging ? initialIndexRef.current : index) * ITEM_HEIGHT;
+
+                    return (
+                      <Animated.View
+                        key={category.id}
+                        style={[
+                          styles.manageRowAbsolute,
+                          { top },
+                          isDragging && {
+                            zIndex: 10,
+                            transform: [{ translateY: pan.y }],
+                            ...styles.draggingItem,
+                          }
+                        ]}>
+                        <Pressable
+                          style={styles.manageLabelWrap}
+                          delayLongPress={200}
+                          onLongPress={() => handleLongPress(category.id, index)}>
+                          <AppIcon
+                            name={category.icon as any}
+                            size={14}
+                            color={category.color}
+                          />
+                          <Text style={styles.manageName} numberOfLines={1}>
+                            {category.name}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.iconBtn}
+                          onPress={() => openEditModal(category)}>
+                          <AppIcon name="edit" size={14} color={colors.mutedText} />
+                        </Pressable>
+                        <Pressable
+                          style={styles.iconBtn}
+                          onPress={() => handleDelete(category)}>
+                          <AppIcon name="trash-2" size={14} color={colors.danger} />
+                        </Pressable>
+                      </Animated.View>
+                    );
+                  })}
+                </View>
               )}
             </ScrollView>
             
@@ -283,7 +323,7 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                     ]}
                     onPress={() => setAddColor(option)}>
                     {active ? (
-                      <AppIcon name="check" size={13} color="#fff" />
+                      <AppIcon name="check" size={16} color="#fff" />
                     ) : null}
                   </Pressable>
                 );
@@ -301,7 +341,7 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                     onPress={() => setAddIcon(option)}>
                     <AppIcon
                       name={option as any}
-                      size={24}
+                      size={20}
                       color={active ? colors.accent : colors.text}
                     />
                   </Pressable>
@@ -360,7 +400,7 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                     ]}
                     onPress={() => setEditColor(option)}>
                     {active ? (
-                      <AppIcon name="check" size={13} color="#fff" />
+                      <AppIcon name="check" size={16} color="#fff" />
                     ) : null}
                   </Pressable>
                 );
@@ -378,7 +418,7 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                     onPress={() => setEditIcon(option)}>
                     <AppIcon
                       name={option as any}
-                      size={24}
+                      size={20}
                       color={active ? colors.accent : colors.text}
                     />
                   </Pressable>
@@ -424,13 +464,6 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: 36,
       width: '100%',
       maxWidth: 380,
-      borderWidth: 1,
-      borderColor: colors.borderStrong,
-      shadowColor: colors.shadow,
-      shadowOffset: {width: 0, height: 16},
-      shadowOpacity: 1,
-      shadowRadius: 32,
-      elevation: 16,
     },
     modalTitle: {
       color: colors.text,
@@ -446,8 +479,6 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.xxl,
       paddingVertical: spacing.md,
       color: colors.text,
-      borderWidth: 1.5,
-      borderColor: colors.border,
       marginBottom: spacing.sm,
       fontSize: fontSize.md,
     },
@@ -469,8 +500,6 @@ const createStyles = (colors: ThemeColors) =>
       width: 40,
       height: 40,
       borderRadius: 50,
-      borderWidth: 2.5,
-      borderColor: 'transparent',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -480,6 +509,7 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: 50,
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: colors.surfaceLight,
     },
     modalActions: {
       flexDirection: 'row',
@@ -492,8 +522,6 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: 16,
       borderRadius: 60,
       backgroundColor: colors.surfaceLight,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     modalCancelText: {
       color: colors.mutedText,
@@ -523,17 +551,27 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'space-between',
       marginBottom: spacing.sm,
     },
-    manageRow: {
+    manageRowAbsolute: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      height: 57,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
       borderRadius: 60,
-      paddingVertical: spacing.md,
       paddingHorizontal: spacing.xl,
-      marginBottom: 8,
       backgroundColor: colors.surfaceLight,
+    },
+    draggingItem: {
+      backgroundColor: colors.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      elevation: 8,
+      borderColor: colors.border,
+      borderWidth: 1,
     },
     manageLabelWrap: {
       flex: 1,

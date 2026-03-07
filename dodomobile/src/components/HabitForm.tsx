@@ -174,7 +174,6 @@ export function HabitForm({
     },
     {
       id: 'time',
-      icon: 'clock',
       valueDisplay: minuteToLabel(
         timeValue.getHours() * 60 + timeValue.getMinutes(),
         preferences.timeFormat,

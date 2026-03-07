@@ -57,7 +57,16 @@ export type AppIconName =
   | 'trash-2'
   | 'user'
   | 'x'
-  | 'zap';
+  | 'zap'
+  | 'star'
+  | 'coffee'
+  | 'shopping-cart'
+  | 'globe'
+  | 'camera'
+  | 'gift'
+  | 'key'
+  | 'map-pin'
+  | 'grip-vertical';
 
 type Props = {
   name: AppIconName;
@@ -121,6 +130,15 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   user: 'user',
   x: 'x',
   zap: 'zap',
+  star: 'star',
+  coffee: 'coffee',
+  'shopping-cart': 'shopping-cart',
+  globe: 'globe',
+  camera: 'camera',
+  gift: 'gift',
+  key: 'key',
+  'map-pin': 'map-pin',
+  'grip-vertical': 'grip-vertical',
 };
 
 export function AppIcon({

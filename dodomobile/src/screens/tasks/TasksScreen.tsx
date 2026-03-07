@@ -727,7 +727,7 @@ export function TasksScreen() {
               speed: 20,
             }).start()
           }>
-          <AppIcon name="inbox" size={20} color={colors.accent} />
+          <AppIcon name="package" size={20} color={colors.accent} />
         </Pressable>
       </Animated.View>
 

@@ -98,6 +98,7 @@ export function FormPopup({
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const prevTabRef = useRef(activeTab);
+  const inputRef = useRef<TextInput>(null);
 
   const handleTabChange = useCallback(
     (tabId: string) => {
@@ -123,7 +124,8 @@ export function FormPopup({
       transparent
       animationType="fade"
       visible={visible}
-      onRequestClose={onCancel}>
+      onRequestClose={onCancel}
+      onShow={() => setTimeout(() => inputRef.current?.focus(), 150)}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -140,12 +142,12 @@ export function FormPopup({
             {/* Inputs */}
             <View style={styles.inputsSection}>
               <TextInput
+                ref={inputRef}
                 style={styles.nameInput}
                 placeholder={namePlaceholder}
                 placeholderTextColor={colors.mutedText}
                 value={nameValue}
                 onChangeText={onNameChange}
-                autoFocus
                 returnKeyType={showNotes ? 'next' : 'done'}
                 multiline={false}
                 numberOfLines={1}
