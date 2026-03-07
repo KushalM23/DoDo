@@ -75,7 +75,7 @@ const lightColors: ThemeColors = {
   success: '#13795B',
   successLight: 'rgba(19, 121, 91, 0.10)',
   highPriority: '#D92D20',
-  mediumPriority: '#C97A1F',
+  mediumPriority: '#F5A623',
   lowPriority: '#13795B',
   habitBadge: '#6D4BD8',
   habitBadgeLight: 'rgba(109, 75, 216, 0.10)',

@@ -10,6 +10,7 @@ import {
 import {useAlert} from '../state/AlertContext';
 import {AppIcon, AppIconName} from './AppIcon';
 import {CustomTimePicker} from './CustomTimePicker';
+import {CustomDurationPicker} from './CustomDurationPicker';
 import {
   DEFAULT_HABIT_ICON,
   HABIT_ICON_OPTIONS,
@@ -73,16 +74,16 @@ export function HabitForm({
   const [intervalDays, setIntervalDays] = useState('2');
   const [customDays, setCustomDays] = useState<number[]>([]);
   const [timeValue, setTimeValue] = useState(new Date());
-  const [durationValue, setDurationValue] = useState('60');
-  const [durationUnit, setDurationUnit] = useState<'min' | 'hour'>('min');
+  const [durationMinutes, setDurationMinutes] = useState(60);
   const [busy, setBusy] = useState(false);
   const [activeTab, setActiveTab] = useState('');
 
-  function customToMinutes(raw: string, unit: 'min' | 'hour') {
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return 30;
-    const base = unit === 'hour' ? parsed * 60 : parsed;
-    return Math.max(1, Math.min(720, Math.trunc(base)));
+  function formatDurationSmart(mins: number): string {
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (m === 0) return `${h}h`;
+    return `${h}h${m}m`;
   }
 
   useEffect(() => {
@@ -105,8 +106,7 @@ export function HabitForm({
     setFrequencyType(initialValues?.frequencyType ?? 'daily');
     setIntervalDays(String(initialValues?.intervalDays ?? 2));
     setCustomDays(initialValues?.customDays ?? []);
-    setDurationValue(String(initialValues?.durationMinutes ?? 60));
-    setDurationUnit('min');
+    setDurationMinutes(initialValues?.durationMinutes ?? 60);
     setTimeValue(base);
     setActiveTab('');
   }, [visible, initialValues]);
@@ -127,7 +127,7 @@ export function HabitForm({
       2,
       Math.min(365, Number(intervalDays) || 2),
     );
-    const parsedDuration = customToMinutes(durationValue, durationUnit);
+    const parsedDuration = durationMinutes;
     if (frequencyType === 'custom_days' && customDays.length === 0) {
       showAlert('Missing days', 'Choose at least one day for custom frequency.');
       return;
@@ -158,9 +158,9 @@ export function HabitForm({
     }
   }
 
-  let freqLabel = 'Every day';
-  if (frequencyType === 'interval') freqLabel = `Every ${intervalDays} days`;
-  if (frequencyType === 'custom_days') freqLabel = `${customDays.length} days/week`;
+  let freqLabel = 'Daily';
+  if (frequencyType === 'interval') freqLabel = `${intervalDays} Days`;
+  if (frequencyType === 'custom_days') freqLabel = `${customDays.length}/wk`;
 
   const tabs: FormTab[] = [
     {
@@ -183,7 +183,7 @@ export function HabitForm({
     {
       id: 'duration',
       icon: 'hourglass',
-      valueDisplay: `${durationValue} ${durationUnit === 'hour' ? 'hr' : 'min'}`,
+      valueDisplay: formatDurationSmart(durationMinutes),
     },
   ];
 
@@ -331,67 +331,7 @@ export function HabitForm({
 
       {activeTab === 'duration' && (
         <View style={styles.tabContentContainer}>
-          <Text style={styles.contentLabel}>Duration</Text>
-          <View style={styles.customDurationRow}>
-            <TextInput
-              style={styles.customDurationInput}
-              keyboardType="number-pad"
-              value={durationValue}
-              onChangeText={raw =>
-                setDurationValue(raw.replace(/[^0-9]/g, '').slice(0, 3))
-              }
-              onBlur={() => {
-                const normalized = customToMinutes(durationValue, durationUnit);
-                const display =
-                  durationUnit === 'hour'
-                    ? Math.max(1, Math.round(normalized / 60))
-                    : normalized;
-                setDurationValue(String(display));
-              }}
-              placeholder="30"
-              placeholderTextColor={colors.mutedText}
-            />
-            <View style={styles.unitToggleTrack}>
-              <Pressable
-                style={[
-                  styles.unitToggleOption,
-                  durationUnit === 'min' && styles.unitToggleOptionActive,
-                ]}
-                onPress={() => {
-                  const currentMinutes = customToMinutes(durationValue, durationUnit);
-                  setDurationUnit('min');
-                  setDurationValue(String(currentMinutes));
-                }}>
-                <Text
-                  style={[
-                    styles.unitToggleText,
-                    durationUnit === 'min' && styles.unitToggleTextActive,
-                  ]}>
-                  min
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.unitToggleOption,
-                  durationUnit === 'hour' && styles.unitToggleOptionActive,
-                ]}
-                onPress={() => {
-                  const currentMinutes = customToMinutes(durationValue, durationUnit);
-                  setDurationUnit('hour');
-                  setDurationValue(
-                    String(Math.max(1, Math.round(currentMinutes / 60))),
-                  );
-                }}>
-                <Text
-                  style={[
-                    styles.unitToggleText,
-                    durationUnit === 'hour' && styles.unitToggleTextActive,
-                  ]}>
-                  hour
-                </Text>
-              </Pressable>
-            </View>
-          </View>
+          <CustomDurationPicker value={durationMinutes} onChange={setDurationMinutes} />
         </View>
       )}
     </FormPopup>
@@ -419,14 +359,11 @@ const createStyles = (colors: ThemeColors) =>
       width: 52,
       height: 52,
       borderRadius: 50,
-      borderWidth: 1,
-      borderColor: colors.border,
       backgroundColor: colors.surfaceLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
     iconChipActive: {
-      borderColor: colors.habitBadge,
       backgroundColor: colors.habitBadge,
     },
     wrapRow: {
@@ -437,8 +374,6 @@ const createStyles = (colors: ThemeColors) =>
     chip: {
       flex: 1,
       minWidth: '30%',
-      borderWidth: 1,
-      borderColor: colors.border,
       borderRadius: 50,
       backgroundColor: colors.surfaceLight,
       paddingHorizontal: spacing.sm,
@@ -447,30 +382,28 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
     },
     chipActive: {
-      borderColor: colors.accent,
-      backgroundColor: colors.accentLight,
+      backgroundColor: colors.accent,
     },
     chipText: {
-      color: colors.mutedText,
+      color: colors.text,
       fontSize: fontSize.sm,
       fontFamily: fonts.bodyMedium,
       textAlign: 'center',
     },
     chipTextActive: {
-      color: colors.accent,
+      color: colors.text,
       fontFamily: fonts.bodyBold,
     },
     intervalRow: {
       marginTop: spacing.md,
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: spacing.sm,
       backgroundColor: colors.surfaceLight,
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
       borderRadius: 50,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     intervalLabel: {
       color: colors.text,
@@ -480,8 +413,6 @@ const createStyles = (colors: ThemeColors) =>
     intervalInput: {
       width: 60,
       backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
       borderRadius: 30,
       color: colors.text,
       fontFamily: fonts.bodyBold,
@@ -500,14 +431,11 @@ const createStyles = (colors: ThemeColors) =>
       minHeight: 44,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
       borderRadius: 50,
       backgroundColor: colors.surfaceLight,
       paddingVertical: spacing.xs,
     },
     dayChipActive: {
-      borderColor: colors.habitBadge,
       backgroundColor: colors.habitBadgeLight,
     },
     dayChipText: {
@@ -517,48 +445,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     dayChipTextActive: {
       color: colors.habitBadge,
-      fontFamily: fonts.bodyBold,
-    },
-    customDurationRow: {
-      marginTop: spacing.xs,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    customDurationInput: {
-      flex: 1,
-      backgroundColor: colors.surfaceLight,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 50,
-      color: colors.text,
-      fontFamily: fonts.bodyBold,
-      fontSize: fontSize.md,
-      paddingHorizontal: spacing.xl,
-      paddingVertical: 12,
-    },
-    unitToggleTrack: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      borderRadius: 50,
-      flexDirection: 'row',
-      overflow: 'hidden',
-    },
-    unitToggleOption: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: 12,
-    },
-    unitToggleOptionActive: {
-      backgroundColor: colors.accentLight,
-    },
-    unitToggleText: {
-      color: colors.mutedText,
-      fontFamily: fonts.bodyMedium,
-      fontSize: fontSize.sm,
-    },
-    unitToggleTextActive: {
-      color: colors.accent,
       fontFamily: fonts.bodyBold,
     },
   });

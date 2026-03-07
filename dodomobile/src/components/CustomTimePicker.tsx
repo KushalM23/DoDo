@@ -177,8 +177,6 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       backgroundColor: colors.surface,
       borderRadius: 50,
-      borderWidth: 1,
-      borderColor: colors.border,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.xs,
     },
@@ -199,8 +197,6 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       backgroundColor: colors.surface,
       borderRadius: 50,
-      borderWidth: 1,
-      borderColor: colors.border,
       overflow: 'hidden',
     },
     ampmBtn: {
@@ -208,7 +204,7 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: spacing.sm,
     },
     ampmBtnActive: {
-      backgroundColor: colors.accentLight,
+      backgroundColor: colors.accent,
     },
     ampmText: {
       color: colors.mutedText,
@@ -216,6 +212,6 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: '700',
     },
     ampmTextActive: {
-      color: colors.accent,
+      color: colors.text,
     },
   });

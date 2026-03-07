@@ -1,4 +1,4 @@
-import React, {useMemo, useEffect, useRef} from 'react';
+import React, {useMemo, useEffect, useRef, useCallback} from 'react';
 import {
   Modal,
   Pressable,
@@ -9,17 +9,27 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
-  Animated,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import {AppIcon, AppIconName} from './AppIcon';
 import {spacing, radii, fontSize} from '../theme/colors';
 import {ThemeColors, useThemeColors} from '../theme/ThemeProvider';
 import {fonts} from '../theme/fonts';
 
+// Enable LayoutAnimation on Android
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 export type FormTab = {
   id: string;
   icon?: string;
   valueDisplay?: string;
+  color?: string;
 };
 
 type FormPopupProps = {
@@ -40,11 +50,28 @@ type FormPopupProps = {
   onNotesChange?: (text: string) => void;
   notesPlaceholder?: string;
 
-  tabs: FormTab[];
+  tabs: FormTab[] | FormTab[][];
   activeTab: string;
   onTabChange: (id: string) => void;
 
   children: React.ReactNode;
+
+  canSubmit?: boolean;
+};
+
+const ANIM_CONFIG = {
+  duration: 250,
+  create: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+    property: LayoutAnimation.Properties.opacity,
+  },
+  update: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+  },
+  delete: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+    property: LayoutAnimation.Properties.opacity,
+  },
 };
 
 export function FormPopup({
@@ -66,11 +93,30 @@ export function FormPopup({
   activeTab,
   onTabChange,
   children,
+  canSubmit,
 }: FormPopupProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const prevTabRef = useRef(activeTab);
+
+  const handleTabChange = useCallback(
+    (tabId: string) => {
+      LayoutAnimation.configureNext(ANIM_CONFIG);
+      onTabChange(tabId);
+    },
+    [onTabChange],
+  );
+
+  useEffect(() => {
+    if (prevTabRef.current !== activeTab) {
+      prevTabRef.current = activeTab;
+    }
+  }, [activeTab]);
 
   if (!visible) return null;
+
+  const isMultiRow = tabs.length > 0 && Array.isArray(tabs[0]);
+  const rows = isMultiRow ? (tabs as FormTab[][]) : ([tabs] as FormTab[][]);
 
   return (
     <Modal
@@ -102,6 +148,16 @@ export function FormPopup({
                 autoFocus
                 returnKeyType={showNotes ? 'next' : 'done'}
                 multiline={false}
+                numberOfLines={1}
+                textAlignVertical="center"
+                onSubmitEditing={() => {
+                  const submittable =
+                    canSubmit !== undefined ? canSubmit : !!nameValue.trim();
+                  if (submittable && !busy) {
+                    onSubmit();
+                  }
+                }}
+                blurOnSubmit={!showNotes}
               />
               {showNotes && (
                 <TextInput
@@ -118,58 +174,80 @@ export function FormPopup({
 
             {/* Tabs Row */}
             <View style={styles.tabsWrapper}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tabsScroll}>
-                {tabs.map(tab => {
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <Pressable
-                      key={tab.id}
-                      style={[styles.tabBtn, isActive && styles.tabBtnActive]}
-                      onPress={() => onTabChange(tab.id)}>
-                      {tab.icon && (
-                        <AppIcon
-                          name={tab.icon as AppIconName}
-                          size={16}
-                          color={isActive ? colors.text : colors.mutedText}
-                        />
-                      )}
-                      {tab.valueDisplay ? (
-                        <Text
-                          style={[
-                            styles.tabValue,
-                            isActive && styles.tabValueActive,
-                          ]}>
-                          {tab.valueDisplay}
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+              {rows.map((row, rowIndex) => (
+                <View key={`row-${rowIndex}`} style={styles.tabsRow}>
+                  {row.map(tab => {
+                    const isActive = activeTab === tab.id;
+                    const hasColor = !!tab.color;
+
+                    // When selected: use accent bg (like all other tabs).
+                    // When NOT selected but has color: use the custom color bg.
+                    // Otherwise: default surfaceLight.
+                    const tabBgStyle = isActive
+                      ? styles.tabBtnActive
+                      : hasColor
+                      ? {backgroundColor: tab.color}
+                      : undefined;
+
+                    // Icon color: white when active or has custom color, mutedText otherwise
+                    const iconColor =
+                      isActive || hasColor ? '#fff' : colors.mutedText;
+
+                    return (
+                      <Pressable
+                        key={tab.id}
+                        style={[styles.tabBtn, tabBgStyle]}
+                        onPress={() =>
+                          handleTabChange(isActive ? '' : tab.id)
+                        }>
+                        {tab.icon && (
+                          <AppIcon
+                            name={tab.icon as AppIconName}
+                            size={16}
+                            color={iconColor}
+                          />
+                        )}
+                        {tab.valueDisplay ? (
+                          <Text
+                            style={[
+                              styles.tabValue,
+                              (isActive || hasColor) && styles.tabValueLight,
+                            ]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail">
+                            {tab.valueDisplay}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
             </View>
 
-            <ScrollView
-              bounces={false}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled">
-              <View style={styles.contentArea}>
-                {children}
-              </View>
-            </ScrollView>
+            {activeTab !== '' && (
+              <ScrollView
+                bounces={false}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled">
+                <View style={styles.contentArea}>{children}</View>
+              </ScrollView>
+            )}
 
             <View style={styles.submitRow}>
               <Pressable
                 onPress={onSubmit}
-                style={[styles.submitBtn, (busy || !nameValue.trim()) && styles.disabled]}
+                style={[
+                  styles.submitBtn,
+                  (busy || !nameValue.trim()) && styles.disabled,
+                ]}
                 disabled={busy || !nameValue.trim()}>
                 <AppIcon name="plus" size={18} color="#fff" />
-                <Text style={styles.submitBtnText}>{busy ? 'Adding...' : submitLabel}</Text>
+                <Text style={styles.submitBtnText}>
+                  {busy ? 'Adding...' : submitLabel}
+                </Text>
               </Pressable>
             </View>
-
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
@@ -240,20 +318,20 @@ const createStyles = (colors: ThemeColors) =>
       opacity: 0.5,
     },
     inputsSection: {
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: spacing.xl,
       gap: spacing.sm,
       marginBottom: spacing.lg,
     },
     nameInput: {
       backgroundColor: colors.surfaceLight,
       borderRadius: 60,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+      height: 50,
       color: colors.text,
-      borderWidth: 1,
-      borderColor: colors.border,
-      fontSize: fontSize.md,
-      fontFamily: fonts.bodyMedium,
+      fontSize: fontSize.lg,
+      fontFamily: fonts.heading,
+      fontWeight: '400' as const,
+      textAlignVertical: 'center' as const,
     },
     notesInput: {
       backgroundColor: colors.surfaceLight,
@@ -261,28 +339,26 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
       color: colors.text,
-      borderWidth: 1,
-      borderColor: colors.border,
       fontSize: fontSize.sm,
       fontFamily: fonts.bodyMedium,
       height: 60,
     },
     tabsWrapper: {
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    tabsScroll: {
       paddingHorizontal: spacing.lg,
       paddingBottom: spacing.sm,
       gap: spacing.sm,
     },
+    tabsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
     tabBtn: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      minWidth: 44,
       height: 44,
-      borderRadius: 22,
+      borderRadius: 48,
       backgroundColor: colors.surfaceLight,
       paddingHorizontal: 12,
       gap: 6,
@@ -292,15 +368,16 @@ const createStyles = (colors: ThemeColors) =>
     },
     tabValue: {
       fontFamily: fonts.bodyMedium,
-      fontSize: fontSize.sm,
+      fontSize: 13,
       color: colors.mutedText,
+      flexShrink: 1,
     },
-    tabValueActive: {
-      color: colors.text,
+    tabValueLight: {
+      color: '#fff',
     },
     contentArea: {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.md,
-      minHeight: 440,
+      paddingBottom: spacing.sm,
     },
   });

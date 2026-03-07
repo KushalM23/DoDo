@@ -33,6 +33,7 @@ export type AppIconName =
   | 'flame'
   | 'flame-kindling'
   | 'heart'
+  | 'hourglass'
   | 'inbox'
   | 'log-out'
   | 'lock'
@@ -91,6 +92,7 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   flame: 'flame',
   'flame-kindling': 'flame-kindling',
   heart: 'heart',
+  hourglass: 'hourglass',
   inbox: 'inbox',
   'log-out': 'log-out',
   lock: 'lock',
