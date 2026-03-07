@@ -35,8 +35,8 @@ export const AXIS_HEIGHT = 28;
 export const MIN_ROW_HEIGHT = 34;
 export const MAX_ROW_HEIGHT = 64;
 export const MIN_DURATION_MINUTES = 15;
-export const BASE_PX_PER_MINUTE = 0.5;
-export const MIN_PX_PER_MINUTE = 0.4175;
+export const BASE_PX_PER_MINUTE = 0.7;
+export const MIN_PX_PER_MINUTE = 0.55;
 export const MAX_PX_PER_MINUTE = 3.5;
 
 export function localDateKey(value: Date): string {

@@ -111,6 +111,8 @@ export function Timeline({
   };
 
   const slotSize = isVertical ? MAX_ROW_HEIGHT * 1.5 : MAX_ROW_HEIGHT;
+  const EVENT_AXIS_GAP = 5;
+  const MIN_EVENT_AXIS_SIZE = 26;
 
   const timelineBodyDimension = isVertical
     ? ((rowLayout as any).columnCount || 1) * slotSize
@@ -303,11 +305,19 @@ export function Timeline({
                   {left: AXIS_HEIGHT + 16, width: timelineBodyDimension},
                 ]}>
                 {rowLayout.placed.map(event => {
-                  const top = event.startMinute * pxPerMinute;
-                  const evtHeight = Math.max(
-                    42,
-                    (event.endMinute - event.startMinute) * pxPerMinute,
+                  const startPx = event.startMinute * pxPerMinute;
+                  const endPx = event.endMinute * pxPerMinute;
+                  const rawSpan = Math.max(0, endPx - startPx);
+                  const appliedGap = Math.min(
+                    EVENT_AXIS_GAP,
+                    Math.max(0, rawSpan - MIN_EVENT_AXIS_SIZE),
                   );
+                  const top = startPx + appliedGap / 2;
+                  const evtHeight = Math.max(
+                    MIN_EVENT_AXIS_SIZE,
+                    rawSpan - appliedGap,
+                  );
+                  const compact = evtHeight < 44;
                   const left = event.row * slotSize + 6;
                   return (
                     <Pressable
@@ -315,9 +325,10 @@ export function Timeline({
                       onPress={() => handleTimelinePress(event)}
                       style={[
                         styles.eventCard,
+                        compact && styles.eventCardCompact,
                         {
                           top,
-                          height: evtHeight - 4,
+                          height: evtHeight,
                           left,
                           width: Math.max(48, slotSize - 12),
                         },
@@ -333,6 +344,7 @@ export function Timeline({
                         numberOfLines={1}
                         style={[
                           styles.eventTitle,
+                          compact && styles.eventTitleCompact,
                           !event.isHabit &&
                             !event.completed &&
                             styles.taskEventTitleOnAccent,
@@ -342,19 +354,21 @@ export function Timeline({
                         ]}>
                         {event.title}
                       </Text>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.eventMeta,
-                          !event.isHabit &&
-                            !event.completed &&
-                            styles.taskEventMetaOnAccent,
-                          event.isHabit &&
-                            !event.completed &&
-                            styles.habitEventMetaOnAccent,
-                        ]}>
-                        {formatEventTime(event.startMinute, event.endMinute)}
-                      </Text>
+                      {!compact && (
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.eventMeta,
+                            !event.isHabit &&
+                              !event.completed &&
+                              styles.taskEventMetaOnAccent,
+                            event.isHabit &&
+                              !event.completed &&
+                              styles.habitEventMetaOnAccent,
+                          ]}>
+                          {formatEventTime(event.startMinute, event.endMinute)}
+                        </Text>
+                      )}
                     </Pressable>
                   );
                 })}
@@ -396,11 +410,19 @@ export function Timeline({
                   {top: AXIS_HEIGHT, height: timelineBodyDimension},
                 ]}>
                 {rowLayout.placed.map(event => {
-                  const left = event.startMinute * pxPerMinute;
-                  const evtWidth = Math.max(
-                    42,
-                    (event.endMinute - event.startMinute) * pxPerMinute,
+                  const startPx = event.startMinute * pxPerMinute;
+                  const endPx = event.endMinute * pxPerMinute;
+                  const rawSpan = Math.max(0, endPx - startPx);
+                  const appliedGap = Math.min(
+                    EVENT_AXIS_GAP,
+                    Math.max(0, rawSpan - MIN_EVENT_AXIS_SIZE),
                   );
+                  const left = startPx + appliedGap / 2;
+                  const evtWidth = Math.max(
+                    MIN_EVENT_AXIS_SIZE,
+                    rawSpan - appliedGap,
+                  );
+                  const compact = evtWidth < 90;
                   const top = event.row * slotSize + 6;
                   return (
                     <Pressable
@@ -408,6 +430,7 @@ export function Timeline({
                       onPress={() => handleTimelinePress(event)}
                       style={[
                         styles.eventCard,
+                        compact && styles.eventCardCompact,
                         {
                           left,
                           width: evtWidth,
@@ -427,6 +450,7 @@ export function Timeline({
                         numberOfLines={1}
                         style={[
                           styles.eventTitle,
+                          compact && styles.eventTitleCompact,
                           !event.isHabit &&
                             !event.completed &&
                             styles.taskEventTitleOnAccent,
@@ -436,19 +460,21 @@ export function Timeline({
                         ]}>
                         {event.title}
                       </Text>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.eventMeta,
-                          !event.isHabit &&
-                            !event.completed &&
-                            styles.taskEventMetaOnAccent,
-                          event.isHabit &&
-                            !event.completed &&
-                            styles.habitEventMetaOnAccent,
-                        ]}>
-                        {formatEventTime(event.startMinute, event.endMinute)}
-                      </Text>
+                      {!compact && (
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.eventMeta,
+                            !event.isHabit &&
+                              !event.completed &&
+                              styles.taskEventMetaOnAccent,
+                            event.isHabit &&
+                              !event.completed &&
+                              styles.habitEventMetaOnAccent,
+                          ]}>
+                          {formatEventTime(event.startMinute, event.endMinute)}
+                        </Text>
+                      )}
                       </View>
                     </Pressable>
                   );
@@ -537,8 +563,12 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: 8,
       borderWidth: 1.5,
       paddingHorizontal: 8,
-      paddingVertical: 12,
+      paddingVertical: 8,
       justifyContent: 'center',
+    },
+    eventCardCompact: {
+      paddingHorizontal: 6,
+      paddingVertical: 4,
     },
     eventContent: {
       justifyContent: 'center',
@@ -567,6 +597,10 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: '800',
       fontFamily: fonts.bodyBold,
       lineHeight: 13,
+    },
+    eventTitleCompact: {
+      fontSize: 11,
+      lineHeight: 12,
     },
     eventMeta: {
       color: colors.mutedText,
