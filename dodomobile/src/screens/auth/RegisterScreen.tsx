@@ -212,8 +212,6 @@ const createStyles = (c: ThemeColors) =>
       width: 56,
       height: 56,
       borderRadius: 28,
-      borderWidth: 1,
-      borderColor: c.borderStrong,
       shadowColor: c.accent,
       shadowOffset: {width: 0, height: 10},
       shadowOpacity: 0.25,
@@ -291,8 +289,6 @@ const createStyles = (c: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      borderWidth: 1,
-      borderColor: c.border,
     },
     passwordInput: {
       flex: 1,

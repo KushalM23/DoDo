@@ -156,12 +156,9 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: spacing.xs - 2,
       borderRadius: radii.md,
       backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     dayItemActive: {
       backgroundColor: colors.accent,
-      borderColor: colors.accent,
       shadowColor: colors.accent,
       shadowOffset: {width: 0, height: 4},
       shadowOpacity: 0.35,
@@ -170,7 +167,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     dayItemToday: {
       backgroundColor: colors.accentLight,
-      borderColor: colors.accent,
     },
     dayName: {
       fontSize: 10,

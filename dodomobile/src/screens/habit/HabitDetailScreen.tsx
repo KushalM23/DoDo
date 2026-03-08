@@ -551,8 +551,7 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.accent,
     },
     dotToday: {
-      borderColor: colors.accent,
-      borderWidth: 1,
+      backgroundColor: colors.accentLight,
     },
     legendRow: {
       flexDirection: 'row',
@@ -621,8 +620,6 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
       backgroundColor: colors.surfaceElevated,
-      borderWidth: 1,
-      borderColor: colors.borderStrong,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',

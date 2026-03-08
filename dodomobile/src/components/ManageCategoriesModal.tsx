@@ -570,8 +570,6 @@ const createStyles = (colors: ThemeColors) =>
       shadowOpacity: 0.15,
       shadowRadius: 12,
       elevation: 8,
-      borderColor: colors.border,
-      borderWidth: 1,
     },
     manageLabelWrap: {
       flex: 1,

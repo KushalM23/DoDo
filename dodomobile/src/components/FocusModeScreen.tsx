@@ -70,7 +70,6 @@ export function FocusModeScreen({
                 style={[
                   styles.iconPill,
                   {
-                    borderColor: infoIconBorderColor ?? colors.border,
                     backgroundColor: infoIconBackgroundColor ?? colors.surface,
                   },
                 ]}>
@@ -175,7 +174,6 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: radii.md,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
       marginBottom: spacing.xs,
     },
     title: {

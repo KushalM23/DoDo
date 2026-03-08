@@ -352,8 +352,6 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       backgroundColor: colors.surface,
       borderRadius: radii.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
       paddingVertical: spacing.sm - 2,
       paddingHorizontal: spacing.sm,
       gap: spacing.xs,
@@ -367,7 +365,6 @@ const createStyles = (colors: ThemeColors) =>
       opacity: 0.45,
     },
     selectedCard: {
-      borderColor: colors.accent,
       backgroundColor: colors.accentLight,
       shadowColor: colors.accent,
     },
@@ -385,14 +382,12 @@ const createStyles = (colors: ThemeColors) =>
       width: 24,
       height: 24,
       borderRadius: 12,
-      borderWidth: 2,
-      borderColor: colors.borderStrong,
+      backgroundColor: colors.surfaceLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
     checkboxChecked: {
       backgroundColor: colors.accent,
-      borderColor: colors.accent,
     },
     content: {
       flex: 1,

@@ -210,7 +210,6 @@ const createStyles = (colors: ThemeColors) =>
       minHeight: 50,
       paddingHorizontal: spacing.md,
       borderRadius: 999,
-      borderWidth: 1,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -220,7 +219,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     defaultButton: {
       backgroundColor: colors.accent,
-      borderColor: colors.accent,
       shadowColor: colors.accent,
       shadowOffset: {width: 0, height: 4},
       shadowOpacity: 0.3,
@@ -229,11 +227,9 @@ const createStyles = (colors: ThemeColors) =>
     },
     cancelButton: {
       backgroundColor: colors.surfaceLight,
-      borderColor: colors.borderStrong,
     },
     destructiveButton: {
       backgroundColor: colors.dangerLight,
-      borderColor: colors.danger,
     },
     buttonPressed: {
       opacity: 0.92,

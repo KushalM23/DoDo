@@ -89,8 +89,6 @@ const createStyles = (colors: ThemeColors) =>
       borderTopRightRadius: radii.xl,
       paddingHorizontal: spacing.sm,
       paddingTop: spacing.xs,
-      borderTopWidth: 1,
-      borderColor: colors.borderStrong,
     },
     handle: {
       width: 40,

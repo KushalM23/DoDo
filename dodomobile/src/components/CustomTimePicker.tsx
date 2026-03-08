@@ -163,8 +163,6 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceLight,
       borderRadius: 40,
       padding: spacing.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
       marginTop: spacing.sm,
     },
     timeRow: {

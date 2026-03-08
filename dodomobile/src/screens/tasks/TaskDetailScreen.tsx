@@ -965,8 +965,6 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs,
       backgroundColor: colors.surfaceElevated,
-      borderWidth: 1,
-      borderColor: colors.borderStrong,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
