@@ -1,6 +1,7 @@
-import React, {useRef, useMemo, useEffect} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Animated, Modal, Pressable, StyleSheet, Text, View} from 'react-native';
 import {spacing, radii, fontSize} from '../theme/colors';
+import {fonts} from '../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
 
 export type AlertButton = {
@@ -28,9 +29,11 @@ export function CustomAlert({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const scaleAnim = useRef(new Animated.Value(0.88)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+  const [renderVisible, setRenderVisible] = useState(visible);
 
   useEffect(() => {
     if (visible) {
+      setRenderVisible(true);
       Animated.parallel([
         Animated.spring(scaleAnim, {
           toValue: 1,
@@ -57,12 +60,17 @@ export function CustomAlert({
           duration: 120,
           useNativeDriver: true,
         }),
-      ]).start();
+      ]).start(() => setRenderVisible(false));
     }
   }, [visible, scaleAnim, opacityAnim]);
 
+  if (!renderVisible && !visible) {
+    return null;
+  }
+
   const resolvedButtons: AlertButton[] =
     buttons && buttons.length > 0 ? buttons : [{text: 'OK', style: 'default'}];
+  const isSingleAction = resolvedButtons.length === 1;
 
   function handlePress(button: AlertButton) {
     onDismiss();
@@ -73,7 +81,7 @@ export function CustomAlert({
     <Modal
       transparent
       animationType="none"
-      visible={visible}
+      visible={renderVisible}
       onRequestClose={onDismiss}>
       <Animated.View style={[styles.overlay, {opacity: opacityAnim}]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
@@ -82,15 +90,17 @@ export function CustomAlert({
             styles.popup,
             {transform: [{scale: scaleAnim}], opacity: opacityAnim},
           ]}>
-          {/* Orange accent line at top */}
-          <View style={styles.accentBar} />
 
           <View style={styles.body}>
             <Text style={styles.title}>{title}</Text>
             {message ? <Text style={styles.message}>{message}</Text> : null}
           </View>
 
-          <View style={styles.buttonRow}>
+          <View
+            style={[
+              styles.buttonRow,
+              isSingleAction && styles.buttonRowSingle,
+            ]}>
             {resolvedButtons.map((btn, index) => {
               const isDestructive = btn.style === 'destructive';
               const isCancel = btn.style === 'cancel';
@@ -98,11 +108,13 @@ export function CustomAlert({
               return (
                 <Pressable
                   key={`${btn.text}_${index}`}
-                  style={[
+                  style={({pressed}) => [
                     styles.button,
+                    isSingleAction && styles.buttonSingle,
                     isDefault && styles.defaultButton,
                     isCancel && styles.cancelButton,
                     isDestructive && styles.destructiveButton,
+                    pressed && styles.buttonPressed,
                   ]}
                   onPress={() => handlePress(btn)}>
                   <Text
@@ -128,60 +140,83 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.7)',
+      backgroundColor: 'rgba(0,0,0,0.82)',
       justifyContent: 'center',
       alignItems: 'center',
-      paddingHorizontal: spacing.sm,
+      paddingHorizontal: spacing.lg,
     },
     popup: {
       width: '100%',
       maxWidth: 360,
       backgroundColor: colors.surface,
       borderRadius: radii.xl,
-      borderWidth: 1,
-      borderColor: colors.borderStrong,
-      overflow: 'hidden',
-      shadowColor: colors.shadow,
-      shadowOffset: {width: 0, height: 20},
-      shadowOpacity: 1,
-      shadowRadius: 40,
-      elevation: 20,
     },
-    accentBar: {
-      height: 4,
+    header: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.sm,
+    },
+    badge: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.surfaceLight,
+      borderRadius: 999,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    badgeDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
       backgroundColor: colors.accent,
     },
+    badgeText: {
+      color: colors.accent,
+      fontSize: fontSize.xs,
+      fontFamily: fonts.bodyBold,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+    },
     body: {
-      paddingHorizontal: spacing.sm,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.xs,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.md,
     },
     title: {
       color: colors.text,
       fontSize: fontSize.xl,
-      fontWeight: '800',
-      letterSpacing: -0.5,
+      fontFamily: fonts.heading,
+      letterSpacing: -0.6,
       marginBottom: 8,
     },
     message: {
       color: colors.mutedText,
       fontSize: fontSize.md,
       lineHeight: 22,
+      fontFamily: fonts.bodyMedium,
     },
     buttonRow: {
       flexDirection: 'row',
       gap: spacing.xs,
-      paddingHorizontal: spacing.sm,
-      paddingBottom: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.lg,
       paddingTop: spacing.xs,
     },
+    buttonRowSingle: {},
     button: {
       flex: 1,
-      paddingVertical: spacing.sm,
-      borderRadius: radii.lg,
-      borderWidth: 1.5,
+      minHeight: 50,
+      paddingHorizontal: spacing.md,
+      borderRadius: 999,
+      borderWidth: 1,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    buttonSingle: {
+      flex: 0,
+      width: '100%',
     },
     defaultButton: {
       backgroundColor: colors.accent,
@@ -194,16 +229,20 @@ const createStyles = (colors: ThemeColors) =>
     },
     cancelButton: {
       backgroundColor: colors.surfaceLight,
-      borderColor: colors.border,
+      borderColor: colors.borderStrong,
     },
     destructiveButton: {
       backgroundColor: colors.dangerLight,
       borderColor: colors.danger,
     },
+    buttonPressed: {
+      opacity: 0.92,
+      transform: [{scale: 0.985}],
+    },
     buttonText: {
       fontSize: fontSize.sm,
-      fontWeight: '800',
-      letterSpacing: -0.2,
+      fontFamily: fonts.bodyBold,
+      letterSpacing: 0.2,
     },
     defaultText: {
       color: '#fff',

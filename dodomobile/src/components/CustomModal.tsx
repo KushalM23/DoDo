@@ -123,8 +123,6 @@ const createStyles = (colors: ThemeColors) =>
       maxWidth: 360,
       backgroundColor: colors.surface,
       borderRadius: radii.xl,
-      borderWidth: 1,
-      borderColor: colors.borderStrong,
       overflow: 'hidden',
       shadowColor: colors.shadow,
       shadowOffset: {width: 0, height: 20},
@@ -140,8 +138,6 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.lg,
       paddingBottom: spacing.sm,
-      borderBottomWidth: 1,
-      borderColor: colors.surfaceLight,
     },
     title: {
       color: colors.text,
