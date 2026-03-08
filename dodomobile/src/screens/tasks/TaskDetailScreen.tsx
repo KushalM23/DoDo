@@ -19,13 +19,13 @@ import {useTasks} from '../../state/TasksContext';
 import {useCategories} from '../../state/CategoriesContext';
 import {usePreferences} from '../../state/PreferencesContext';
 import {AppIcon, type AppIconName} from '../../components/AppIcon';
-import {FocusModeScreen} from '../../components/FocusModeScreen';
-import {HoldToConfirmButton} from '../../components/HoldToConfirmButton';
-import {CustomDatePicker} from '../../components/CustomDatePicker';
-import {CustomTimePicker} from '../../components/CustomTimePicker';
-import {CustomDurationPicker} from '../../components/CustomDurationPicker';
-import {LoadingScreen} from '../../components/LoadingScreen';
-import {spacing, radii, fontSize} from '../../theme/colors';
+import {FocusModeScreen} from '../../components/focus/FocusModeScreen';
+import {HoldToConfirmButton} from '../../components/focus/HoldToConfirmButton';
+import {LoadingScreen} from '../../components/feedback/LoadingScreen';
+import {CustomDatePicker} from '../../components/forms/pickers/CustomDatePicker';
+import {CustomTimePicker} from '../../components/forms/pickers/CustomTimePicker';
+import {CustomDurationPicker} from '../../components/forms/pickers/CustomDurationPicker';
+import {spacing, fontSize} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {
   type ThemeColors,
@@ -35,22 +35,6 @@ import {
 import type {RootStackParamList} from '../../navigation/RootNavigator';
 import type {CreateTaskInput, Priority, Task} from '../../types/task';
 import {formatDate, formatDateTime, formatTime} from '../../utils/dateTime';
-
-type UndoState =
-  | {
-      kind: 'complete';
-      task: CreateTaskInput & {
-        id: string;
-        completed: boolean;
-        completedAt: string | null;
-        timerStartedAt: string | null;
-        actualDurationMinutes: number;
-        completionXp: number;
-        createdAt: string;
-      };
-      message: string;
-    }
-  | {kind: 'delete'; taskId: string; message: string};
 
 function priorityMeta(
   priority: Priority,
@@ -131,15 +115,10 @@ export function TaskDetailScreen() {
 
   const [busy, setBusy] = useState(false);
   const [savingDetails, setSavingDetails] = useState(false);
-  const [undoState, setUndoState] = useState<UndoState | null>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
-  const [undoProgress, setUndoProgress] = useState(0);
   const [lockInMode, setLockInMode] = useState(false);
   const [lockTime, setLockTime] = useState(() => new Date());
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutoSavedSignatureRef = useRef('');
   const autoSaveErrorShownRef = useRef(false);
@@ -170,9 +149,6 @@ export function TaskDetailScreen() {
     return () => {
       if (undoTimerRef.current) {
         clearTimeout(undoTimerRef.current);
-      }
-      if (undoProgressTimerRef.current) {
-        clearInterval(undoProgressTimerRef.current);
       }
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
@@ -263,59 +239,16 @@ export function TaskDetailScreen() {
       clearTimeout(undoTimerRef.current);
       undoTimerRef.current = null;
     }
-    if (undoProgressTimerRef.current) {
-      clearInterval(undoProgressTimerRef.current);
-      undoProgressTimerRef.current = null;
-    }
   }
 
-  function scheduleUndo(next: UndoState) {
+  function scheduleDelete(taskId: string) {
     clearUndoTimer();
-    setUndoState(next);
-    setUndoProgress(1);
-
-    const startTime = Date.now();
-    if (undoProgressTimerRef.current) {
-      clearInterval(undoProgressTimerRef.current);
-      undoProgressTimerRef.current = null;
-    }
-    undoProgressTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, 1 - elapsed / 3000);
-      setUndoProgress(remaining);
-      if (remaining <= 0 && undoProgressTimerRef.current) {
-        clearInterval(undoProgressTimerRef.current);
-        undoProgressTimerRef.current = null;
-      }
-    }, 50);
-
+    setPendingDelete(true);
     undoTimerRef.current = setTimeout(() => {
-      if (next.kind === 'delete') {
-        void removeTask(next.taskId).finally(() => navigation.goBack());
-      }
+      void removeTask(taskId).finally(() => navigation.goBack());
       setPendingDelete(false);
-      setUndoState(null);
-      setUndoProgress(0);
       undoTimerRef.current = null;
     }, 3000);
-  }
-
-  function handleUndo() {
-    if (!undoState) {
-      return;
-    }
-    clearUndoTimer();
-
-    if (undoState.kind === 'complete') {
-      void toggleTaskCompletion(undoState.task);
-    }
-
-    if (undoState.kind === 'delete') {
-      setPendingDelete(false);
-    }
-
-    setUndoState(null);
-    setUndoProgress(0);
   }
 
   async function handleComplete() {
@@ -333,20 +266,9 @@ export function TaskDetailScreen() {
       return;
     }
 
-    const completedSnapshot = {
-      ...task,
-      completed: true,
-      completedAt: new Date().toISOString(),
-    };
-
     setBusy(true);
     try {
       await toggleTaskCompletion(task);
-      scheduleUndo({
-        kind: 'complete',
-        task: completedSnapshot,
-        message: 'Task completed',
-      });
     } finally {
       setBusy(false);
     }
@@ -356,8 +278,7 @@ export function TaskDetailScreen() {
     if (!task || busy || savingDetails) {
       return;
     }
-    setPendingDelete(true);
-    scheduleUndo({kind: 'delete', taskId: task.id, message: 'Task deleted'});
+    scheduleDelete(task.id);
   }
 
   useEffect(() => {
@@ -687,9 +608,7 @@ export function TaskDetailScreen() {
           <View style={styles.deletedState}>
             <AppIcon name="trash-2" size={24} color={colors.danger} />
             <Text style={styles.deletedTitle}>Task deleted</Text>
-            <Text style={styles.deletedText}>
-              Undo within 3 seconds to restore it.
-            </Text>
+            <Text style={styles.deletedText}>Removing task...</Text>
           </View>
         )}
       </View>
@@ -763,18 +682,6 @@ const createStyles = (colors: ThemeColors) =>
       minWidth: 0,
       marginHorizontal: spacing.sm,
     },
-    savingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: spacing.md,
-      paddingBottom: spacing.xs,
-    },
-    savingText: {
-      color: colors.accent,
-      fontSize: fontSize.xs,
-      fontFamily: fonts.bodySemiBold,
-    },
     scroll: {
       flex: 1,
     },
@@ -812,25 +719,6 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: fontSize.sm,
       fontFamily: fonts.body,
       textAlign: 'center',
-    },
-    label: {
-      color: colors.mutedText,
-      fontFamily: fonts.headingRegular,
-      fontSize: fontSize.xs,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      marginTop: spacing.xs,
-    },
-    nameInput: {
-      backgroundColor: colors.surfaceLight,
-      borderRadius: 60,
-      paddingHorizontal: spacing.xl,
-      height: 54,
-      color: colors.text,
-      fontSize: fontSize.lg,
-      fontFamily: fonts.heading,
-      fontWeight: '400',
-      textAlignVertical: 'center',
     },
     tabsWrapper: {
       gap: 16,
@@ -955,46 +843,5 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.bodyBold,
       fontSize: fontSize.md,
       color: '#fff',
-    },
-    undoBar: {
-      position: 'absolute',
-      left: spacing.sm,
-      right: spacing.sm,
-      bottom: spacing.sm,
-      borderRadius: radii.lg,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-      backgroundColor: colors.surfaceElevated,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      overflow: 'hidden',
-      shadowColor: colors.shadow,
-      shadowOffset: {width: 0, height: 4},
-      shadowOpacity: 1,
-      shadowRadius: 12,
-      elevation: 6,
-    },
-    undoProgressTrack: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: 3,
-      backgroundColor: colors.border,
-    },
-    undoProgressFill: {
-      height: '100%',
-      backgroundColor: colors.accent,
-    },
-    undoText: {
-      color: colors.text,
-      fontSize: fontSize.sm,
-      fontFamily: fonts.bodySemiBold,
-    },
-    undoAction: {
-      color: colors.accent,
-      fontSize: fontSize.sm,
-      fontFamily: fonts.bodyBold,
     },
   });

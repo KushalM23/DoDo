@@ -17,7 +17,7 @@ import {AppIcon} from '../../components/AppIcon';
 import type {RootStackParamList} from '../../navigation/RootNavigator';
 import {useAlert} from '../../state/AlertContext';
 import {useAuth} from '../../state/AuthContext';
-import {fontSize, radii, spacing} from '../../theme/colors';
+import {fontSize, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 
@@ -32,7 +32,6 @@ export function LoginScreen({navigation}: Props) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [focused, setFocused] = useState<'email' | 'password' | null>(null);
   const btnScale = useRef(new Animated.Value(1)).current;
 
   async function onSubmit() {
@@ -69,9 +68,7 @@ export function LoginScreen({navigation}: Props) {
               </View>
             </View>
 
-            <View style={styles.headlineBlock}>
-              <Text style={styles.screenTitle}>Sign In</Text>
-            </View>
+            <Text style={styles.screenTitle}>Sign In</Text>
           </View>
 
           <View style={styles.panel}>
@@ -83,13 +80,10 @@ export function LoginScreen({navigation}: Props) {
                   autoCorrect={false}
                   keyboardType="email-address"
                   placeholder="you@example.com"
-                  placeholderTextColor={colors.mutedText}                  style={
-                    styles.fieldInput
-                  }
+                  placeholderTextColor={colors.mutedText}
+                  style={styles.fieldInput}
                   value={email}
                   onChangeText={setEmail}
-                  onFocus={() => setFocused('email')}
-                  onBlur={() => setFocused(null)}
                 />
               </View>
 
@@ -105,8 +99,6 @@ export function LoginScreen({navigation}: Props) {
                     style={styles.passwordInput}
                     value={password}
                     onChangeText={setPassword}
-                    onFocus={() => setFocused('password')}
-                    onBlur={() => setFocused(null)}
                   />
                   <Pressable
                     style={styles.passwordToggleButton}
@@ -205,13 +197,6 @@ const createStyles = (c: ThemeColors) =>
       fontFamily: fonts.bodyBold,
       letterSpacing: 1.2,
       textTransform: 'uppercase',
-    },
-    brandTagline: {
-      color: c.mutedText,
-      fontSize: fontSize.sm,
-      fontFamily: fonts.bodyMedium,
-    },
-    headlineBlock: {
     },
     screenTitle: {
       color: c.text,

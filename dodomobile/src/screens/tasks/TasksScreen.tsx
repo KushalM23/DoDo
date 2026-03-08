@@ -7,13 +7,11 @@
  * Swipe left/right to navigate between pages.
  * Page indicator dots at bottom.
  */
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Animated,
   Dimensions,
   FlatList,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -27,14 +25,12 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTasks} from '../../state/TasksContext';
 import {useHabits} from '../../state/HabitsContext';
 import {useCategories} from '../../state/CategoriesContext';
-import {useAlert} from '../../state/AlertContext';
-import {TaskForm} from '../../components/TaskForm';
-import {ManageCategoriesModal} from '../../components/ManageCategoriesModal';
-import {BottomGradient} from '../../components/BottomGradient';
 import {AppIcon, type AppIconName} from '../../components/AppIcon';
+import {BottomGradient} from '../../components/display/BottomGradient';
+import {TaskForm} from '../../components/forms/TaskForm';
+import {ManageCategoriesModal} from '../../components/overlays/ManageCategoriesModal';
 import {sortTasks} from '../../utils/taskSort';
 import {habitAppliesToDate, minuteToIso} from '../../utils/habits';
-import {spacing, fontSize} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import type {CreateTaskInput, Task} from '../../types/task';
@@ -584,7 +580,6 @@ function TaskPage({
 export function TasksScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const {showAlert} = useAlert();
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const {tasks, loading, refresh, addTask, toggleTaskCompletion} = useTasks();
@@ -593,15 +588,12 @@ export function TasksScreen() {
   const {categories} = useCategories();
   const [formVisible, setFormVisible] = useState(false);
   const [manageCategoriesVisible, setManageCategoriesVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(todayStr());
-  const [activePage, setActivePage] = useState(0);
+  const selectedDate = useMemo(() => todayStr(), []);
 
   // FAB animations
   const addBtnScale = useRef(new Animated.Value(1)).current;
   const pageScrollRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
-
-  const isTodaySelected = selectedDate === todayStr();
 
   useEffect(() => {
     void loadHistory({startDate: selectedDate, endDate: selectedDate}).catch(
@@ -613,27 +605,23 @@ export function TasksScreen() {
     const dateTasks = tasks.filter(
       t => !t.completed && isSameDay(t.scheduledAt, selectedDate),
     );
-    const habitTasks: DisplayTask[] = isTodaySelected
-      ? habits
-          .filter(h => habitAppliesToDate(h, selectedDate))
-          .filter(h => !isHabitCompletedOn(h.id, selectedDate))
-          .map(h => habitToTask(h, selectedDate, false))
-      : [];
+    const habitTasks: DisplayTask[] = habits
+      .filter(h => habitAppliesToDate(h, selectedDate))
+      .filter(h => !isHabitCompletedOn(h.id, selectedDate))
+      .map(h => habitToTask(h, selectedDate, false));
     return sortTasks([...dateTasks, ...habitTasks], 'time_asc');
-  }, [tasks, habits, selectedDate, isHabitCompletedOn, isTodaySelected]);
+  }, [tasks, habits, selectedDate, isHabitCompletedOn]);
 
   const completedTasks = useMemo(() => {
     const compTasks = tasks.filter(
       t => t.completed && isSameDay(t.scheduledAt, selectedDate),
     );
-    const compHabits: DisplayTask[] = isTodaySelected
-      ? habits
-          .filter(h => habitAppliesToDate(h, selectedDate))
-          .filter(h => isHabitCompletedOn(h.id, selectedDate))
-          .map(h => habitToTask(h, selectedDate, true))
-      : [];
+    const compHabits: DisplayTask[] = habits
+      .filter(h => habitAppliesToDate(h, selectedDate))
+      .filter(h => isHabitCompletedOn(h.id, selectedDate))
+      .map(h => habitToTask(h, selectedDate, true));
     return sortTasks([...compTasks, ...compHabits], 'time_asc');
-  }, [tasks, habits, selectedDate, isHabitCompletedOn, isTodaySelected]);
+  }, [tasks, habits, selectedDate, isHabitCompletedOn]);
 
   // Build pages: [overview, ...categories]
   const pages = useMemo(() => {
@@ -660,9 +648,6 @@ export function TasksScreen() {
 
   function handleToggle(task: DisplayTask) {
     if (task._isHabit) {
-      if (!isTodaySelected) {
-        return;
-      }
       void setHabitCompletedOn(
         task._habitId!,
         selectedDate,
@@ -681,14 +666,6 @@ export function TasksScreen() {
     }
   }
 
-  function handlePageScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const offset = e.nativeEvent.contentOffset.x;
-    const page = Math.round(offset / SCREEN_WIDTH);
-    if (page !== activePage) {
-      setActivePage(page);
-    }
-  }
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Horizontal page scroller */}
@@ -702,7 +679,6 @@ export function TasksScreen() {
           {useNativeDriver: false},
         )}
         scrollEventThrottle={16}
-        onMomentumScrollEnd={handlePageScroll}
         style={{flex: 1}}
         decelerationRate="fast">
         {pages.map((page, index) => (

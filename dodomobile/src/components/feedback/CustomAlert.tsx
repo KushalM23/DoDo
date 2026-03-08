@@ -1,8 +1,8 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Animated, Modal, Pressable, StyleSheet, Text, View} from 'react-native';
-import {spacing, radii, fontSize} from '../theme/colors';
-import {fonts} from '../theme/fonts';
-import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
+import {spacing, radii, fontSize} from '../../theme/colors';
+import {fonts} from '../../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 
 export type AlertButton = {
   text: string;
@@ -151,34 +151,6 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surface,
       borderRadius: radii.xl,
     },
-    header: {
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.sm,
-    },
-    badge: {
-      alignSelf: 'flex-start',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      backgroundColor: colors.surfaceLight,
-      borderRadius: 999,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-    },
-    badgeDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.accent,
-    },
-    badgeText: {
-      color: colors.accent,
-      fontSize: fontSize.xs,
-      fontFamily: fonts.bodyBold,
-      letterSpacing: 1.2,
-      textTransform: 'uppercase',
-    },
     body: {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.xs,
@@ -204,7 +176,9 @@ const createStyles = (colors: ThemeColors) =>
       paddingBottom: spacing.lg,
       paddingTop: spacing.xs,
     },
-    buttonRowSingle: {},
+    buttonRowSingle: {
+      justifyContent: 'center',
+    },
     button: {
       flex: 1,
       minHeight: 50,

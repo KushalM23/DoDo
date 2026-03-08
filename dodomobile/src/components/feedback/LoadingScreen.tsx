@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useRef} from 'react';
 import {Animated, StyleSheet, Text, View} from 'react-native';
-import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 
 type Props = {variant?: 'app' | 'screen'; title?: string};
 

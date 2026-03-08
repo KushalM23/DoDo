@@ -10,7 +10,7 @@ import {TaskDetailScreen} from '../screens/tasks/TaskDetailScreen';
 import {SettingsScreen} from '../screens/profile/SettingsScreen';
 import {HabitDetailScreen} from '../screens/habit/HabitDetailScreen';
 import {MainTabs} from './MainTabs';
-import {LoadingScreen} from '../components/LoadingScreen';
+import {LoadingScreen} from '../components/feedback/LoadingScreen';
 
 export type RootStackParamList = {
   Login: undefined;

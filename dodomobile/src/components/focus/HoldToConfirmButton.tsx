@@ -7,9 +7,9 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import {AppIcon, type AppIconName} from './AppIcon';
-import {radii} from '../theme/colors';
-import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
+import {AppIcon, type AppIconName} from '../AppIcon';
+import {radii} from '../../theme/colors';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 
 type HoldToConfirmButtonProps = {
   iconName: AppIconName;

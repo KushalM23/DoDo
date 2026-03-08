@@ -11,7 +11,6 @@ import {
 import {formatTime} from '../../utils/dateTime';
 import {usePreferences} from '../../state/PreferencesContext';
 import {useThemeColors, ThemeColors} from '../../theme/ThemeProvider';
-import {fontSize} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -90,12 +89,6 @@ export function Timeline({
     }
     return marks;
   }, [pxPerMinute]);
-
-  const bodyAvailableWidth = Math.max(
-    96,
-    timelineViewportWidth - AXIS_HEIGHT - 8,
-  );
-  const bodyAvailableHeight = Math.max(96, timelineHeight - AXIS_HEIGHT - 8);
 
   const formatEventTime = (startMin: number, endMin: number) => {
     const formatMod = (min: number) => {

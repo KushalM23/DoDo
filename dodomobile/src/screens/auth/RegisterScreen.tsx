@@ -17,7 +17,7 @@ import {AppIcon} from '../../components/AppIcon';
 import type {RootStackParamList} from '../../navigation/RootNavigator';
 import {useAlert} from '../../state/AlertContext';
 import {useAuth} from '../../state/AuthContext';
-import {fontSize, radii, spacing} from '../../theme/colors';
+import {fontSize, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 
@@ -78,9 +78,7 @@ export function RegisterScreen({navigation}: Props) {
               </View>
             </View>
 
-            <View style={styles.headlineBlock}>
-              <Text style={styles.screenTitle}>Create Account</Text>
-            </View>
+            <Text style={styles.screenTitle}>Create Account</Text>
           </View>
 
           <View style={styles.panel}>
@@ -228,12 +226,6 @@ const createStyles = (c: ThemeColors) =>
       letterSpacing: 1.2,
       textTransform: 'uppercase',
     },
-    brandTagline: {
-      color: c.mutedText,
-      fontSize: fontSize.sm,
-      fontFamily: fonts.bodyMedium,
-    },
-    headlineBlock: {},
     screenTitle: {
       color: c.text,
       fontSize: fontSize.xl,

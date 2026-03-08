@@ -7,10 +7,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {useAlert} from '../state/AlertContext';
-import {AppIcon, AppIconName} from './AppIcon';
-import {CustomTimePicker} from './CustomTimePicker';
-import {CustomDurationPicker} from './CustomDurationPicker';
+import {useAlert} from '../../state/AlertContext';
+import {AppIcon, AppIconName} from '../AppIcon';
+import {CustomTimePicker} from './pickers/CustomTimePicker';
+import {CustomDurationPicker} from './pickers/CustomDurationPicker';
 import {
   DEFAULT_HABIT_ICON,
   HABIT_ICON_OPTIONS,
@@ -18,17 +18,17 @@ import {
   type Habit,
   type HabitFrequencyType,
   type HabitIcon,
-} from '../types/habit';
-import {fontSize, radii, spacing} from '../theme/colors';
+} from '../../types/habit';
+import {fontSize, spacing} from '../../theme/colors';
 import {
   type ThemeColors,
   useThemeColors,
   useThemeMode,
-} from '../theme/ThemeProvider';
-import {usePreferences} from '../state/PreferencesContext';
-import {minuteToLabel} from '../utils/habits';
+} from '../../theme/ThemeProvider';
+import {usePreferences} from '../../state/PreferencesContext';
+import {minuteToLabel} from '../../utils/habits';
 import {FormPopup, FormTab} from './FormPopup';
-import {fonts} from '../theme/fonts';
+import {fonts} from '../../theme/fonts';
 
 type HabitFormProps = {
   visible: boolean;

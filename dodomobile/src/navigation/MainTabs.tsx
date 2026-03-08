@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState, useCallback} from 'react';
+import React, {useEffect, useRef, useCallback} from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import {CalendarScreen} from '../screens/calendar/CalendarScreen';
 import {ProfileScreen} from '../screens/profile/ProfileScreen';
 import {fontSize} from '../theme/colors';
 import {fonts} from '../theme/fonts';
-import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
+import {useThemeColors} from '../theme/ThemeProvider';
 import {AppIcon, type AppIconName} from '../components/AppIcon';
 
 // Enable LayoutAnimation on Android

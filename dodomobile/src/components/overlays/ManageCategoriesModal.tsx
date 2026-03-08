@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useMemo, useState, useRef, useEffect} from 'react';
 import {
   Modal,
   Pressable,
@@ -7,11 +7,22 @@ import {
   Text,
   TextInput,
   View,
+  Animated,
+  PanResponder,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
-import {useAlert} from '../state/AlertContext';
-import {useCategories} from '../state/CategoriesContext';
-import {spacing, radii, fontSize} from '../theme/colors';
-import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+import {useAlert} from '../../state/AlertContext';
+import {useCategories} from '../../state/CategoriesContext';
+import {spacing, radii, fontSize} from '../../theme/colors';
+import {fonts} from '../../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import {
   CATEGORY_COLOR_OPTIONS,
   CATEGORY_ICON_OPTIONS,
@@ -19,15 +30,15 @@ import {
   DEFAULT_CATEGORY_ICON,
   type Category,
   type CategoryIcon,
-} from '../types/category';
-import {AppIcon} from './AppIcon';
+} from '../../types/category';
+import {AppIcon} from '../AppIcon';
 
 type Props = {
-  selected: string | null;
-  onSelect: (categoryId: string | null) => void;
+  visible: boolean;
+  onClose: () => void;
 };
 
-export function CategoryBar({selected, onSelect}: Props) {
+export function ManageCategoriesModal({visible, onClose}: Props) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const {showAlert} = useAlert();
@@ -38,22 +49,38 @@ export function CategoryBar({selected, onSelect}: Props) {
     removeCategory,
     setCategoryOrder,
   } = useCategories();
+  
   const [addModalVisible, setAddModalVisible] = useState(false);
-  const [manageModalVisible, setManageModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  
+  // Add State
   const [addInputValue, setAddInputValue] = useState('');
   const [addColor, setAddColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
   const [addIcon, setAddIcon] = useState<CategoryIcon>(DEFAULT_CATEGORY_ICON);
+  
+  // Edit State
   const [editInputValue, setEditInputValue] = useState('');
   const [editColor, setEditColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
   const [editIcon, setEditIcon] = useState<CategoryIcon>(DEFAULT_CATEGORY_ICON);
+  
   const [busy, setBusy] = useState(false);
 
-  const orderedIds = useMemo(
-    () => categories.map(category => category.id),
-    [categories],
-  );
+  const ITEM_HEIGHT = 65; // row height 57 + 8 gap
+  const [data, setData] = useState<Category[]>(categories);
+  const draggingIdRef = useRef<string | null>(null);
+  const initialIndexRef = useRef<number>(0);
+  const pan = useRef(new Animated.ValueXY()).current;
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!draggingIdRef.current) {
+      setData(categories);
+    }
+  }, [categories]);
 
   function handleAdd() {
     setAddInputValue('');
@@ -64,9 +91,7 @@ export function CategoryBar({selected, onSelect}: Props) {
 
   async function handleAddSubmit() {
     const name = addInputValue.trim();
-    if (!name || busy) {
-      return;
-    }
+    if (!name || busy) return;
     setBusy(true);
     try {
       await addCategory({name, color: addColor, icon: addIcon});
@@ -82,7 +107,6 @@ export function CategoryBar({selected, onSelect}: Props) {
   }
 
   function openEditModal(category: Category) {
-    setManageModalVisible(false);
     setEditingCategory(category);
     setEditInputValue(category.name);
     setEditColor(category.color);
@@ -91,13 +115,9 @@ export function CategoryBar({selected, onSelect}: Props) {
   }
 
   async function handleEditSubmit() {
-    if (!editingCategory || busy) {
-      return;
-    }
+    if (!editingCategory || busy) return;
     const name = editInputValue.trim();
-    if (!name) {
-      return;
-    }
+    if (!name) return;
 
     setBusy(true);
     try {
@@ -128,9 +148,6 @@ export function CategoryBar({selected, onSelect}: Props) {
           void (async () => {
             try {
               await removeCategory(category.id);
-              if (selected === category.id) {
-                onSelect(null);
-              }
             } catch (err) {
               showAlert(
                 'Error',
@@ -145,86 +162,137 @@ export function CategoryBar({selected, onSelect}: Props) {
     ]);
   }
 
-  async function moveCategory(categoryId: string, direction: -1 | 1) {
-    const fromIndex = orderedIds.findIndex(id => id === categoryId);
-    if (fromIndex < 0) {
-      return;
-    }
-    const toIndex = fromIndex + direction;
-    if (toIndex < 0 || toIndex >= orderedIds.length) {
-      return;
-    }
+  const handleLongPress = (id: string, index: number) => {
+    draggingIdRef.current = id;
+    initialIndexRef.current = index;
+    setDraggingId(id);
+    pan.setValue({ x: 0, y: 0 });
+  };
 
-    const nextOrder = [...orderedIds];
-    [nextOrder[fromIndex], nextOrder[toIndex]] = [
-      nextOrder[toIndex],
-      nextOrder[fromIndex],
-    ];
+  const endDrag = () => {
+    if (!draggingIdRef.current) return;
+    draggingIdRef.current = null;
+    setDraggingId(null);
+    pan.setValue({ x: 0, y: 0 });
+    
+    const nextOrder = dataRef.current.map(c => c.id);
+    setCategoryOrder(nextOrder).catch(err => {
+      showAlert('Error', err instanceof Error ? err.message : 'Failed to reorder');
+    });
+  };
 
-    try {
-      await setCategoryOrder(nextOrder);
-    } catch (err) {
-      showAlert(
-        'Error',
-        err instanceof Error ? err.message : 'Failed to reorder categories',
-      );
-    }
-  }
-
-  const isOverview = selected === null;
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: () => draggingIdRef.current !== null,
+      onPanResponderMove: (event, gestureState) => {
+        void event;
+        if (!draggingIdRef.current) return;
+        pan.setValue({ x: 0, y: gestureState.dy });
+        
+        const dragId = draggingIdRef.current;
+        const newIndex = Math.max(
+          0,
+          Math.min(
+            dataRef.current.length - 1,
+            initialIndexRef.current + Math.round(gestureState.dy / ITEM_HEIGHT)
+          )
+        );
+        
+        const currentIndex = dataRef.current.findIndex(c => c.id === dragId);
+        if (newIndex !== currentIndex && currentIndex !== -1) {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setData(prev => {
+            const next = [...prev];
+            const [item] = next.splice(currentIndex, 1);
+            next.splice(newIndex, 0, item);
+            return next;
+          });
+        }
+      },
+      onPanResponderRelease: endDrag,
+      onPanResponderTerminate: endDrag,
+    })
+  ).current;
 
   return (
-    <View>
-      <View style={styles.outerRow}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          style={styles.scrollView}>
-          <Pressable
-            style={[styles.chip, isOverview && styles.chipActive]}
-            onPress={() => onSelect(null)}>
-            <Text
-              style={[styles.chipText, isOverview && styles.chipTextActive]}>
-              Overview
-            </Text>
-          </Pressable>
-
-          {categories.map(cat => {
-            const active = selected === cat.id;
-            return (
-              <Pressable
-                key={cat.id}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => onSelect(cat.id)}>
-                <View style={styles.chipInner}>
-                  <AppIcon
-                    name={cat.icon}
-                    size={12}
-                    color={active ? colors.accent : cat.color}
-                  />
-                  <Text
-                    style={[styles.chipText, active && styles.chipTextActive]}>
-                    {cat.name}
-                  </Text>
-                </View>
+    <>
+      {/* Manage Categories Base Modal */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={visible && !addModalVisible && !editModalVisible}
+        onRequestClose={onClose}>
+        <View style={styles.overlay}>
+          <View style={styles.modal}>
+            <View style={styles.manageHeader}>
+              <Text style={styles.modalTitle}>Categories</Text>
+              <Pressable onPress={onClose} hitSlop={8}>
+                <AppIcon name="x" size={22} color={colors.mutedText} />
               </Pressable>
-            );
-          })}
-        </ScrollView>
+            </View>
 
-        <View style={styles.stickyButtons}>
-          <Pressable style={styles.iconButton} onPress={handleAdd}>
-            <AppIcon name="plus" size={16} color={colors.accent} />
-          </Pressable>
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => setManageModalVisible(true)}>
-            <AppIcon name="edit" size={16} color={colors.accent} />
-          </Pressable>
+            <ScrollView style={{maxHeight: 400}} showsVerticalScrollIndicator={false}>
+              {data.length === 0 ? (
+                <Text style={styles.emptyText}>No categories yet.</Text>
+              ) : (
+                <View {...panResponder.panHandlers} style={{ height: data.length * ITEM_HEIGHT, position: 'relative' }}>
+                  {data.map((category, index) => {
+                    const isDragging = draggingId === category.id;
+                    const top = (isDragging ? initialIndexRef.current : index) * ITEM_HEIGHT;
+
+                    return (
+                      <Animated.View
+                        key={category.id}
+                        style={[
+                          styles.manageRowAbsolute,
+                          { top },
+                          isDragging && {
+                            zIndex: 10,
+                            transform: [{ translateY: pan.y }],
+                            ...styles.draggingItem,
+                          }
+                        ]}>
+                        <Pressable
+                          style={styles.manageLabelWrap}
+                          delayLongPress={200}
+                          onLongPress={() => handleLongPress(category.id, index)}>
+                          <AppIcon
+                            name={category.icon as any}
+                            size={14}
+                            color={category.color}
+                          />
+                          <Text style={styles.manageName} numberOfLines={1}>
+                            {category.name}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.iconBtn}
+                          onPress={() => openEditModal(category)}>
+                          <AppIcon name="edit" size={14} color={colors.mutedText} />
+                        </Pressable>
+                        <Pressable
+                          style={styles.iconBtn}
+                          onPress={() => handleDelete(category)}>
+                          <AppIcon name="trash-2" size={14} color={colors.danger} />
+                        </Pressable>
+                      </Animated.View>
+                    );
+                  })}
+                </View>
+              )}
+            </ScrollView>
+            
+            <Pressable
+              style={styles.addButton}
+              onPress={handleAdd}>
+              <AppIcon name="plus" size={16} color="#fff" />
+              <Text style={styles.addButtonText}>Add Category</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
+      </Modal>
 
+      {/* Add New Category Modal */}
       <Modal
         transparent
         animationType="fade"
@@ -253,11 +321,10 @@ export function CategoryBar({selected, onSelect}: Props) {
                     style={[
                       styles.colorOption,
                       {backgroundColor: option},
-                      active && styles.optionActive,
                     ]}
                     onPress={() => setAddColor(option)}>
                     {active ? (
-                      <AppIcon name="check" size={13} color="#fff" />
+                      <AppIcon name="check" size={16} color="#fff" />
                     ) : null}
                   </Pressable>
                 );
@@ -271,11 +338,11 @@ export function CategoryBar({selected, onSelect}: Props) {
                 return (
                   <Pressable
                     key={option}
-                    style={[styles.iconOption, active && styles.optionActive]}
+                    style={[styles.iconOption]}
                     onPress={() => setAddIcon(option)}>
                     <AppIcon
-                      name={option}
-                      size={16}
+                      name={option as any}
+                      size={20}
                       color={active ? colors.accent : colors.text}
                     />
                   </Pressable>
@@ -302,90 +369,7 @@ export function CategoryBar({selected, onSelect}: Props) {
         </View>
       </Modal>
 
-      <Modal
-        transparent
-        animationType="fade"
-        visible={manageModalVisible}
-        onRequestClose={() => setManageModalVisible(false)}>
-        <View style={styles.overlay}>
-          <View style={styles.modal}>
-            <View style={styles.manageHeader}>
-              <Text style={styles.modalTitle}>Edit Categories</Text>
-              <Pressable
-                onPress={() => setManageModalVisible(false)}
-                hitSlop={8}>
-                <AppIcon name="x" size={18} color={colors.mutedText} />
-              </Pressable>
-            </View>
-
-            {categories.length === 0 ? (
-              <Text style={styles.emptyText}>No categories yet.</Text>
-            ) : (
-              categories.map((category, index) => (
-                <View key={category.id} style={styles.manageRow}>
-                  <View style={styles.manageLabelWrap}>
-                    <View
-                      style={[
-                        styles.manageColorDot,
-                        {backgroundColor: category.color},
-                      ]}
-                    />
-                    <AppIcon
-                      name={category.icon}
-                      size={14}
-                      color={category.color}
-                    />
-                    <Text style={styles.manageName} numberOfLines={1}>
-                      {category.name}
-                    </Text>
-                  </View>
-                  <Pressable
-                    style={[
-                      styles.iconBtn,
-                      index === 0 && styles.iconBtnDisabled,
-                    ]}
-                    disabled={index === 0}
-                    onPress={() => void moveCategory(category.id, -1)}>
-                    <AppIcon
-                      name="arrow-up"
-                      size={14}
-                      color={index === 0 ? colors.border : colors.text}
-                    />
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.iconBtn,
-                      index === categories.length - 1 && styles.iconBtnDisabled,
-                    ]}
-                    disabled={index === categories.length - 1}
-                    onPress={() => void moveCategory(category.id, 1)}>
-                    <AppIcon
-                      name="arrow-down"
-                      size={14}
-                      color={
-                        index === categories.length - 1
-                          ? colors.border
-                          : colors.text
-                      }
-                    />
-                  </Pressable>
-                  <Pressable
-                    style={styles.iconBtn}
-                    onPress={() => openEditModal(category)}>
-                    <AppIcon name="edit" size={14} color={colors.mutedText} />
-                  </Pressable>
-                  <Pressable
-                    style={styles.iconBtn}
-                    onPress={() => handleDelete(category)}>
-                    <AppIcon name="trash-2" size={14} color={colors.danger} />
-                  </Pressable>
-                </View>
-              ))
-            )}
-          </View>
-        </View>
-      </Modal>
-
+      {/* Edit Category Modal */}
       <Modal
         transparent
         animationType="fade"
@@ -413,12 +397,11 @@ export function CategoryBar({selected, onSelect}: Props) {
                     key={option}
                     style={[
                       styles.colorOption,
-                      {backgroundColor: option},
-                      active && styles.optionActive,
+                      {backgroundColor: option}
                     ]}
                     onPress={() => setEditColor(option)}>
                     {active ? (
-                      <AppIcon name="check" size={13} color="#fff" />
+                      <AppIcon name="check" size={16} color="#fff" />
                     ) : null}
                   </Pressable>
                 );
@@ -432,11 +415,11 @@ export function CategoryBar({selected, onSelect}: Props) {
                 return (
                   <Pressable
                     key={option}
-                    style={[styles.iconOption, active && styles.optionActive]}
+                    style={[styles.iconOption]}
                     onPress={() => setEditIcon(option)}>
                     <AppIcon
-                      name={option}
-                      size={16}
+                      name={option as any}
+                      size={20}
                       color={active ? colors.accent : colors.text}
                     />
                   </Pressable>
@@ -462,62 +445,12 @@ export function CategoryBar({selected, onSelect}: Props) {
           </View>
         </View>
       </Modal>
-    </View>
+    </>
   );
 }
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    outerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingVertical: 8,
-      paddingLeft: spacing.sm,
-      paddingRight: spacing.sm,
-    },
-    stickyButtons: {
-      flexDirection: 'row',
-      gap: 6,
-      paddingRight: spacing.sm,
-      paddingLeft: 4,
-    },
-    iconButton: {
-      width: 34,
-      height: 34,
-      borderRadius: radii.md,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    chip: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 7,
-      borderRadius: radii.lg,
-      backgroundColor: colors.surface,
-    },
-    chipActive: {
-      backgroundColor: colors.accentLight,
-    },
-    chipInner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    chipText: {
-      color: colors.mutedText,
-      fontSize: fontSize.sm,
-    },
-    chipTextActive: {
-      color: colors.accent,
-    },
     overlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.7)',
@@ -528,26 +461,24 @@ const createStyles = (colors: ThemeColors) =>
     modal: {
       backgroundColor: colors.surface,
       borderRadius: radii.xl,
-      padding: spacing.sm,
+      paddingVertical: spacing.xl,
+      paddingHorizontal: 36,
       width: '100%',
-      maxWidth: 360,
-      shadowColor: colors.shadow,
-      shadowOffset: {width: 0, height: 16},
-      shadowOpacity: 1,
-      shadowRadius: 32,
-      elevation: 16,
+      maxWidth: 380,
     },
     modalTitle: {
       color: colors.text,
+      fontFamily: fonts.heading,
       fontSize: fontSize.xl,
       letterSpacing: -0.5,
-      marginBottom: 12,
+      marginBottom: 16,
+      fontWeight: '700',
     },
     modalInput: {
       backgroundColor: colors.surfaceLight,
-      borderRadius: radii.lg,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
+      borderRadius: 50,
+      paddingHorizontal: spacing.xxl,
+      paddingVertical: spacing.md,
       color: colors.text,
       marginBottom: spacing.sm,
       fontSize: fontSize.md,
@@ -558,50 +489,49 @@ const createStyles = (colors: ThemeColors) =>
       textTransform: 'uppercase',
       letterSpacing: 1,
       marginBottom: 8,
+      marginTop: 8,
     },
     optionGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8,
-      marginBottom: spacing.sm,
+      gap: 10,
+      marginBottom: spacing.md,
     },
     colorOption: {
-      width: 34,
-      height: 34,
-      borderRadius: radii.md,
+      width: 40,
+      height: 40,
+      borderRadius: 50,
       alignItems: 'center',
       justifyContent: 'center',
     },
     iconOption: {
-      width: 34,
-      height: 34,
-      borderRadius: radii.md,
-      backgroundColor: colors.surfaceLight,
+      width: 40,
+      height: 40,
+      borderRadius: 50,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    optionActive: {
-      backgroundColor: colors.accentLight,
+      backgroundColor: colors.surfaceLight,
     },
     modalActions: {
       flexDirection: 'row',
-      gap: 8,
+      gap: 12,
       justifyContent: 'flex-end',
-      marginTop: spacing.xs,
+      marginTop: spacing.md,
     },
     modalCancel: {
-      paddingVertical: spacing.xs,
-      paddingHorizontal: spacing.sm,
-      borderRadius: radii.lg,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 60,
       backgroundColor: colors.surfaceLight,
     },
     modalCancelText: {
       color: colors.mutedText,
+      fontWeight: '600',
     },
     modalSubmit: {
-      paddingVertical: spacing.xs,
-      paddingHorizontal: spacing.sm,
-      borderRadius: radii.lg,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 60,
       backgroundColor: colors.accent,
       shadowColor: colors.accent,
       shadowOffset: {width: 0, height: 4},
@@ -611,6 +541,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     modalSubmitText: {
       color: '#fff',
+      fontWeight: '700',
     },
     disabled: {
       opacity: 0.6,
@@ -621,47 +552,64 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'space-between',
       marginBottom: spacing.sm,
     },
-    manageRow: {
+    manageRowAbsolute: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      height: 57,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      borderRadius: radii.lg,
-      paddingVertical: 10,
-      paddingHorizontal: spacing.xs,
-      marginBottom: 6,
+      gap: 8,
+      borderRadius: 60,
+      paddingHorizontal: spacing.xl,
       backgroundColor: colors.surfaceLight,
+    },
+    draggingItem: {
+      backgroundColor: colors.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      elevation: 8,
     },
     manageLabelWrap: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-    },
-    manageColorDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
+      gap: 8,
     },
     manageName: {
       flex: 1,
       color: colors.text,
-      fontSize: fontSize.sm,
+      fontSize: fontSize.md,
+      fontWeight: '500',
     },
     iconBtn: {
-      width: 30,
-      height: 30,
-      borderRadius: radii.md,
-      backgroundColor: colors.surface,
+      width: 36,
+      height: 36,
+      borderRadius: 50,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    iconBtnDisabled: {
-      opacity: 0.35,
-    },
     emptyText: {
       color: colors.mutedText,
-      fontSize: fontSize.sm,
+      fontSize: fontSize.md,
       textAlign: 'center',
-      paddingVertical: spacing.xs,
+      paddingVertical: spacing.xl,
+    },
+    addButton: {
+      marginTop: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: colors.accent,
+      paddingVertical: 14,
+      borderRadius: 50,
+    },
+    addButtonText: {
+      color: '#fff',
+      fontWeight: '700',
+      fontSize: fontSize.md,
     },
   });

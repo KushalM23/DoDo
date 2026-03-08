@@ -1,6 +1,6 @@
 import React from 'react';
 import LinearGradient from 'react-native-linear-gradient';
-import {ThemeColors} from '../theme/ThemeProvider';
+import {ThemeColors} from '../../theme/ThemeProvider';
 
 export function BottomGradient({colors}: {colors: ThemeColors}) {
   return (

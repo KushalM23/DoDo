@@ -26,7 +26,7 @@ import {
 } from './utils';
 import {CalendarGrid} from './CalendarGrid';
 import {Timeline} from './Timeline';
-import {BottomGradient} from '../../components/BottomGradient';
+import {BottomGradient} from '../../components/display/BottomGradient';
 
 export function CalendarScreen() {
   const colors = useThemeColors();
@@ -44,7 +44,6 @@ export function CalendarScreen() {
   );
 
   const [monthTasks, setMonthTasks] = useState<Task[]>([]);
-  const [monthLoading, setMonthLoading] = useState(true);
 
   // To cover the whole period (month tasks for status dots, etc)
   // Let's grab the window based on the currentDate's month
@@ -66,21 +65,15 @@ export function CalendarScreen() {
         }
       } catch (err) {
         // ignore
-      } finally {
-        if (!canceled) {
-          setMonthLoading(false);
-        }
       }
     };
 
     // Load cache eagerly (no deferral) so data appears immediately
     (async () => {
-      setMonthLoading(true);
       try {
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached && !canceled) {
           setMonthTasks(JSON.parse(cached));
-          setMonthLoading(false);
         }
       } catch (err) {
         // ignore

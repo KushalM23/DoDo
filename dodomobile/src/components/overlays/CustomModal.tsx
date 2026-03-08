@@ -9,10 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import {spacing, radii, fontSize} from '../theme/colors';
-import {fonts} from '../theme/fonts';
-import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
-import {AppIcon} from './AppIcon';
+import {spacing, radii, fontSize} from '../../theme/colors';
+import {fonts} from '../../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
+import {AppIcon} from '../AppIcon';
 
 type CustomModalProps = {
   visible: boolean;

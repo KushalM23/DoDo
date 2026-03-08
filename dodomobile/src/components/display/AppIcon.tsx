@@ -1,0 +1,159 @@
+import React from 'react';
+import Lucide from '@react-native-vector-icons/lucide';
+
+export type AppIconName =
+  | 'alert-circle'
+  | 'arrow-down'
+  | 'arrow-down-circle'
+  | 'arrow-up'
+  | 'arrow-up-circle'
+  | 'arrow-up-down'
+  | 'briefcase'
+  | 'brain'
+  | 'book-open'
+  | 'bed'
+  | 'calendar'
+  | 'cup-soda'
+  | 'droplets'
+  | 'dumbbell'
+  | 'leaf'
+  | 'music'
+  | 'target'
+  | 'utensils'
+  | 'check'
+  | 'check-circle'
+  | 'check-square'
+  | 'chevron-down'
+  | 'chevron-left'
+  | 'chevron-right'
+  | 'chevron-up'
+  | 'clock'
+  | 'edit'
+  | 'eye'
+  | 'eye-off'
+  | 'file-text'
+  | 'flame'
+  | 'flame-kindling'
+  | 'heart'
+  | 'hourglass'
+  | 'inbox'
+  | 'log-out'
+  | 'lock'
+  | 'lock-open'
+  | 'key-round'
+  | 'minus-circle'
+  | 'package'
+  | 'play'
+  | 'plus'
+  | 'percent'
+  | 'rotate-ccw'
+  | 'repeat'
+  | 'save'
+  | 'settings'
+  | 'sliders'
+  | 'sun'
+  | 'moon'
+  | 'sunrise'
+  | 'sunset'
+  | 'square'
+  | 'trash-2'
+  | 'user'
+  | 'x'
+  | 'zap'
+  | 'star'
+  | 'coffee'
+  | 'shopping-cart'
+  | 'globe'
+  | 'camera'
+  | 'gift'
+  | 'key'
+  | 'map-pin'
+  | 'grip-vertical';
+
+type Props = {
+  name: AppIconName;
+  strokeWidth?: number;
+} & Omit<React.ComponentProps<typeof Lucide>, 'name'>;
+
+const ICON_NAME_MAP: Record<AppIconName, string> = {
+  'alert-circle': 'circle-alert',
+  'arrow-down': 'arrow-down',
+  'arrow-down-circle': 'circle-arrow-down',
+  'arrow-up-circle': 'circle-arrow-up',
+  'arrow-up': 'arrow-up',
+  'arrow-up-down': 'arrow-up-down',
+  brain: 'brain',
+  'book-open': 'book-open',
+  bed: 'bed',
+  briefcase: 'briefcase',
+  calendar: 'calendar',
+  'cup-soda': 'cup-soda',
+  droplets: 'droplets',
+  dumbbell: 'dumbbell',
+  check: 'check',
+  'check-circle': 'circle-check',
+  'check-square': 'square-check',
+  'chevron-down': 'chevron-down',
+  'chevron-left': 'chevron-left',
+  'chevron-right': 'chevron-right',
+  'chevron-up': 'chevron-up',
+  clock: 'clock',
+  edit: 'pencil',
+  eye: 'eye',
+  'eye-off': 'eye-off',
+  'file-text': 'file-text',
+  flame: 'flame',
+  'flame-kindling': 'flame-kindling',
+  heart: 'heart',
+  hourglass: 'hourglass',
+  inbox: 'inbox',
+  'log-out': 'log-out',
+  lock: 'lock',
+  'lock-open': 'lock-open',
+  'key-round': 'key-round',
+  leaf: 'leaf',
+  'minus-circle': 'circle-minus',
+  package: 'package',
+  play: 'play',
+  plus: 'plus',
+  percent: 'percent',
+  'rotate-ccw': 'rotate-ccw',
+  repeat: 'repeat',
+  save: 'save',
+  settings: 'settings',
+  sliders: 'sliders-horizontal',
+  sun: 'sun',
+  moon: 'moon',
+  music: 'music',
+  sunrise: 'sunrise',
+  sunset: 'sunset',
+  square: 'square',
+  target: 'target',
+  'trash-2': 'trash-2',
+  utensils: 'utensils',
+  user: 'user',
+  x: 'x',
+  zap: 'zap',
+  star: 'star',
+  coffee: 'coffee',
+  'shopping-cart': 'shopping-cart',
+  globe: 'globe',
+  camera: 'camera',
+  gift: 'gift',
+  key: 'key',
+  'map-pin': 'map-pin',
+  'grip-vertical': 'grip-vertical',
+};
+
+export function AppIcon({
+  name,
+  size = 16,
+  color = '#000',
+  strokeWidth = 2,
+  ...rest
+}: Props) {
+  const resolvedName = ICON_NAME_MAP[name] as React.ComponentProps<
+    typeof Lucide
+  >['name'];
+  return <Lucide name={resolvedName} size={size} color={color} {...rest} />;
+}

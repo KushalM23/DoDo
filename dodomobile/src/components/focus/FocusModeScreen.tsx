@@ -1,11 +1,11 @@
 import React, {useMemo} from 'react';
 import {Pressable, StatusBar, StyleSheet, Text, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {AppIcon, type AppIconName} from './AppIcon';
+import {AppIcon, type AppIconName} from '../AppIcon';
 import {HoldToConfirmButton} from './HoldToConfirmButton';
-import {fontSize, radii, spacing} from '../theme/colors';
-import {fonts} from '../theme/fonts';
-import {darkColors, type ThemeColors} from '../theme/ThemeProvider';
+import {fontSize, radii, spacing} from '../../theme/colors';
+import {fonts} from '../../theme/fonts';
+import {darkColors, type ThemeColors} from '../../theme/ThemeProvider';
 
 type FocusModeScreenProps = {
   now: Date;
@@ -22,7 +22,6 @@ type FocusModeScreenProps = {
   actionIconColor?: string;
   infoIconName?: AppIconName;
   infoIconColor?: string;
-  infoIconBorderColor?: string;
   infoIconBackgroundColor?: string;
 };
 
@@ -45,7 +44,6 @@ export function FocusModeScreen({
   actionIconColor,
   infoIconName,
   infoIconColor,
-  infoIconBorderColor,
   infoIconBackgroundColor,
 }: FocusModeScreenProps) {
   const colors = darkColors;

@@ -7,9 +7,9 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
-import {spacing, fontSize} from '../theme/colors';
-import {ThemeColors, useThemeColors} from '../theme/ThemeProvider';
-import {fonts} from '../theme/fonts';
+import {spacing, fontSize} from '../../../theme/colors';
+import {ThemeColors, useThemeColors} from '../../../theme/ThemeProvider';
+import {fonts} from '../../../theme/fonts';
 
 const DURATION_OPTIONS = [
   {label: '15m', value: 15},

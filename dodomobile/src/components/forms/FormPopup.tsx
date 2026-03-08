@@ -1,4 +1,4 @@
-import React, {useMemo, useEffect, useRef, useCallback} from 'react';
+import React, {useMemo, useRef, useCallback} from 'react';
 import {
   Modal,
   Pressable,
@@ -12,10 +12,10 @@ import {
   LayoutAnimation,
   UIManager,
 } from 'react-native';
-import {AppIcon, AppIconName} from './AppIcon';
-import {spacing, radii, fontSize} from '../theme/colors';
-import {ThemeColors, useThemeColors} from '../theme/ThemeProvider';
-import {fonts} from '../theme/fonts';
+import {AppIcon, AppIconName} from '../AppIcon';
+import {spacing, fontSize} from '../../theme/colors';
+import {ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
+import {fonts} from '../../theme/fonts';
 
 // Enable LayoutAnimation on Android
 if (
@@ -39,8 +39,6 @@ type FormPopupProps = {
   onSubmit: () => void;
   busy: boolean;
   submitLabel: string;
-  submitIcon?: string;
-
   nameValue: string;
   onNameChange: (text: string) => void;
   namePlaceholder: string;
@@ -81,7 +79,6 @@ export function FormPopup({
   onSubmit,
   busy,
   submitLabel,
-  submitIcon = 'plus',
   nameValue,
   onNameChange,
   namePlaceholder,
@@ -97,7 +94,6 @@ export function FormPopup({
 }: FormPopupProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const prevTabRef = useRef(activeTab);
   const inputRef = useRef<TextInput>(null);
 
   const handleTabChange = useCallback(
@@ -107,12 +103,6 @@ export function FormPopup({
     },
     [onTabChange],
   );
-
-  useEffect(() => {
-    if (prevTabRef.current !== activeTab) {
-      prevTabRef.current = activeTab;
-    }
-  }, [activeTab]);
 
   if (!visible) return null;
 

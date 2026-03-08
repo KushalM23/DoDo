@@ -1,29 +1,27 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import {useAlert} from '../state/AlertContext';
-import {CustomDatePicker} from './CustomDatePicker';
-import {CustomTimePicker} from './CustomTimePicker';
-import {CustomDurationPicker} from './CustomDurationPicker';
-import {AppIcon} from './AppIcon';
-import type {CreateTaskInput, Priority} from '../types/task';
-import type {Category} from '../types/category';
-import {spacing, radii, fontSize} from '../theme/colors';
+import {useAlert} from '../../state/AlertContext';
+import {CustomDatePicker} from './pickers/CustomDatePicker';
+import {CustomTimePicker} from './pickers/CustomTimePicker';
+import {CustomDurationPicker} from './pickers/CustomDurationPicker';
+import {AppIcon} from '../AppIcon';
+import type {CreateTaskInput, Priority} from '../../types/task';
+import type {Category} from '../../types/category';
+import {spacing, fontSize} from '../../theme/colors';
 import {
   type ThemeColors,
   useThemeColors,
   useThemeMode,
-} from '../theme/ThemeProvider';
-import {usePreferences} from '../state/PreferencesContext';
-import {formatDate, formatTime} from '../utils/dateTime';
+} from '../../theme/ThemeProvider';
+import {usePreferences} from '../../state/PreferencesContext';
+import {formatDate, formatTime} from '../../utils/dateTime';
 import {FormPopup, FormTab} from './FormPopup';
-import {fonts} from '../theme/fonts';
+import {fonts} from '../../theme/fonts';
 
 type TaskFormProps = {
   visible: boolean;

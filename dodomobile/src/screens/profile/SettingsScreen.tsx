@@ -17,10 +17,10 @@ import {useAuth} from '../../state/AuthContext';
 import {usePreferences} from '../../state/PreferencesContext';
 import {changePassword, deleteAccount} from '../../services/api';
 import type {RootStackParamList} from '../../navigation/RootNavigator';
-import {spacing, radii, fontSize} from '../../theme/colors';
+import {spacing, fontSize} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
-import {CustomModal} from '../../components/CustomModal';
+import {CustomModal} from '../../components/overlays/CustomModal';
 
 /* ─── Pill Toggle (matches floating navbar style) ─────────── */
 

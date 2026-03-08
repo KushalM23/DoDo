@@ -1,11 +1,11 @@
 import React, {useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
-import {AppIcon} from './AppIcon';
-import {spacing, fontSize} from '../theme/colors';
-import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
-import type {WeekStartPreference} from '../state/PreferencesContext';
-import {getCalendarOffset, getWeekdayInitials} from '../utils/dateTime';
-import {fonts} from '../theme/fonts';
+import {AppIcon} from '../../AppIcon';
+import {spacing, fontSize} from '../../../theme/colors';
+import {type ThemeColors, useThemeColors} from '../../../theme/ThemeProvider';
+import type {WeekStartPreference} from '../../../state/PreferencesContext';
+import {getCalendarOffset, getWeekdayInitials} from '../../../utils/dateTime';
+import {fonts} from '../../../theme/fonts';
 
 type Props = {
   value: Date;

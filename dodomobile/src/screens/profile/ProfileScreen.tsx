@@ -9,7 +9,6 @@ import React, {useEffect, useMemo, useRef} from 'react';
 import {
   Animated,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -22,8 +21,8 @@ import {useTasks} from '../../state/TasksContext';
 import {useHabits} from '../../state/HabitsContext';
 import {useCategories} from '../../state/CategoriesContext';
 import {AppIcon, type AppIconName} from '../../components/AppIcon';
-import {LoadingScreen} from '../../components/LoadingScreen';
-import {BottomGradient} from '../../components/BottomGradient';
+import {BottomGradient} from '../../components/display/BottomGradient';
+import {LoadingScreen} from '../../components/feedback/LoadingScreen';
 import type {RootStackParamList} from '../../navigation/RootNavigator';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import {fonts} from '../../theme/fonts';
@@ -90,12 +89,10 @@ function StatRow({
   label,
   value,
   icon,
-  meta,
 }: {
   label: string;
   value: string | number;
   icon: AppIconName;
-  meta?: string;
 }) {
   const colors = useThemeColors();
   return (
@@ -304,7 +301,6 @@ export function ProfileScreen() {
   }).length;
   const avgCompletedPerDay = (last7DaysCompleted / 7).toFixed(1);
 
-  const xp = user?.experience_points ?? 0;
   const level = user?.current_level ?? 1;
   const xpIntoLevel = user?.xp_into_level ?? 0;
   const xpForNextLevel = user?.xp_for_next_level ?? 200;
@@ -424,62 +420,52 @@ export function ProfileScreen() {
             label="Tasks completed"
             value={totalCompleted}
             icon="check-square"
-            meta="Total tasks marked done"
           />
           <StatRow
             label="Completion rate"
             value={`${completionPct}%`}
             icon="percent"
-            meta={`${totalCompleted} of ${totalTasks} total`}
           />
           <StatRow
             label="Best streak"
             value={`${bestStreak}d`}
             icon="flame-kindling"
-            meta="Longest consecutive days"
           />
           <StatRow
             label="Active tasks"
             value={activeTasks}
             icon="square"
-            meta="Open and not yet completed"
           />
           <StatRow
             label="Avg done/day (7d)"
             value={avgCompletedPerDay}
             icon="calendar"
-            meta="Last 7-day rolling average"
           />
           <StatRow
             label="On-time rate"
             value={`${onTimeRate}%`}
             icon="clock"
-            meta={`${onTimeCompletions} completed before deadline`}
           />
           <StatRow
             label="Overdue tasks"
             value={overdueTasks}
             icon="alert-circle"
-            meta="Open tasks past deadline"
           />
           <StatRow
             label="Top category"
             value={categoryProductivity.count}
             icon="briefcase"
-            meta={`Most productive: ${categoryProductivity.categoryName}`}
           />
           <StatRow
             label="Peak window"
             value={peakWindow.label}
             icon="sun"
-            meta={`${peakWindow.count} completions`}
           />
           <StatRow label="Habits" value={habits.length} icon="repeat" />
           <StatRow
             label="Habit rate (30d)"
             value={`${habitAdherence.rate}%`}
             icon="percent"
-            meta={`${habitAdherence.completed}/${habitAdherence.applicable} check-ins`}
           />
         </Animated.View>
       </Animated.ScrollView>

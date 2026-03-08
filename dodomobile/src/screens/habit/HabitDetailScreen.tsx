@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {useAlert} from '../../state/AlertContext';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -6,14 +6,14 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import {AppIcon} from '../../components/AppIcon';
-import {FocusModeScreen} from '../../components/FocusModeScreen';
-import {HoldToConfirmButton} from '../../components/HoldToConfirmButton';
-import {HabitForm} from '../../components/HabitForm';
-import {LoadingScreen} from '../../components/LoadingScreen';
+import {FocusModeScreen} from '../../components/focus/FocusModeScreen';
+import {HoldToConfirmButton} from '../../components/focus/HoldToConfirmButton';
+import {HabitForm} from '../../components/forms/HabitForm';
+import {LoadingScreen} from '../../components/feedback/LoadingScreen';
 import {useHabits} from '../../state/HabitsContext';
 import {usePreferences} from '../../state/PreferencesContext';
 import type {RootStackParamList} from '../../navigation/RootNavigator';
-import {fontSize, radii, spacing} from '../../theme/colors';
+import {fontSize, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import {
@@ -52,14 +52,8 @@ export function HabitDetailScreen() {
 
   const [busy, setBusy] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
-  const [undoVisible, setUndoVisible] = useState(false);
-  const [undoProgress, setUndoProgress] = useState(0);
   const [lockInMode, setLockInMode] = useState(false);
   const [lockTime, setLockTime] = useState(() => new Date());
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
 
   const habit = habits.find(h => h.id === route.params.habitId);
 
@@ -106,14 +100,6 @@ export function HabitDetailScreen() {
     void loadHistory({habitId: habit.id, startDate: start, endDate: end});
   }, [habit?.id, loadHistory, todayKey, trackerDates]);
 
-  const undoActionRef = useRef<(() => Promise<void>) | null>(null);
-
-  useEffect(() => {
-    return () => {
-      clearUndoTimers();
-    };
-  }, []);
-
   useEffect(() => {
     if (!lockInMode) {
       return;
@@ -159,7 +145,6 @@ export function HabitDetailScreen() {
         ]}
         infoIconName={currentHabit.icon}
         infoIconColor={colors.habitBadge}
-        infoIconBorderColor={colors.habitBadge}
         infoIconBackgroundColor={colors.habitBadgeLight}
         onExitFocus={() => setLockInMode(false)}
         actionLabel={canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
@@ -171,68 +156,10 @@ export function HabitDetailScreen() {
     );
   }
 
-  function clearUndoTimers() {
-    if (undoTimerRef.current) {
-      clearTimeout(undoTimerRef.current);
-      undoTimerRef.current = null;
-    }
-    if (undoProgressTimerRef.current) {
-      clearInterval(undoProgressTimerRef.current);
-      undoProgressTimerRef.current = null;
-    }
-  }
-
-  function showUndoPopup(habitId: string, date: string) {
-    clearUndoTimers();
-    setUndoVisible(true);
-    setUndoProgress(1);
-
-    const startedAt = Date.now();
-    undoProgressTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, 1 - elapsed / 3000);
-      setUndoProgress(remaining);
-      if (remaining <= 0 && undoProgressTimerRef.current) {
-        clearInterval(undoProgressTimerRef.current);
-        undoProgressTimerRef.current = null;
-      }
-    }, 50);
-
-    undoTimerRef.current = setTimeout(() => {
-      setUndoVisible(false);
-      setUndoProgress(0);
-      undoTimerRef.current = null;
-    }, 3000);
-
-    const undo = async () => {
-      clearUndoTimers();
-      setUndoVisible(false);
-      setUndoProgress(0);
-      try {
-        await setHabitCompletedOn(habitId, date, false);
-      } catch (err) {
-        showAlert(
-          'Failed to undo habit',
-          err instanceof Error ? err.message : 'Unknown error',
-        );
-      }
-    };
-
-    return undo;
-  }
-
   async function toggleTodayCompletion() {
     setBusy(true);
     try {
-      const nextCompleted = !completedToday;
-      await setHabitCompletedOn(currentHabit.id, todayKey, nextCompleted);
-      if (nextCompleted) {
-        undoActionRef.current = showUndoPopup(currentHabit.id, todayKey);
-      } else {
-        clearUndoTimers();
-        setUndoVisible(false);
-        setUndoProgress(0);
-      }
+      await setHabitCompletedOn(currentHabit.id, todayKey, !completedToday);
     } catch (err) {
       showAlert(
         'Failed',
@@ -331,8 +258,6 @@ export function HabitDetailScreen() {
         </View>
 
         <View style={styles.progressCard}>
-          <View style={styles.progressHeaderRow}>
-          </View>
           <View style={styles.dotGrid}>
             {trackerDates.map(day => {
               const key = dateKey(day);
@@ -429,13 +354,6 @@ const createStyles = (colors: ThemeColors) =>
       paddingBottom: spacing.md,
       minHeight: 100,
     },
-    headerTitleWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginHorizontal: spacing.sm,
-      minWidth: 0,
-    },
     headerTitleWrapRow: {
       flex: 1,
       flexDirection: 'row',
@@ -478,12 +396,6 @@ const createStyles = (colors: ThemeColors) =>
       includeFontPadding: false,
       textAlignVertical: 'center',
     },
-    sectionTitle: {
-      color: colors.text,
-      fontSize: fontSize.xxl,
-      fontFamily: fonts.bodyBold,
-      marginTop: spacing.xs,
-    },
     quickInfoRow: {
       flexDirection: 'row',
       gap: spacing.sm,
@@ -518,17 +430,6 @@ const createStyles = (colors: ThemeColors) =>
     progressCard: {
       borderRadius: 20,
       padding: spacing.md,
-      gap: spacing.md,
-    },
-    progressHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    progressCount: {
-      color: colors.accent,
-      fontSize: fontSize.sm,
-      fontFamily: fonts.bodyBold,
     },
     dotGrid: {
       flexDirection: 'row',
@@ -552,16 +453,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     dotToday: {
       backgroundColor: colors.accentLight,
-    },
-    legendRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    legendText: {
-      color: colors.mutedText,
-      fontSize: fontSize.xs,
-      fontFamily: fonts.body,
     },
     actionBtn: {
       flex: 1,
@@ -597,11 +488,6 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: 20,
       alignSelf: 'center',
     },
-    actionText: {
-      color: colors.accent,
-      fontSize: fontSize.sm,
-      fontFamily: fonts.bodyBold,
-    },
     emptyWrap: {
       flex: 1,
       alignItems: 'center',
@@ -614,43 +500,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     disabled: {
       opacity: 0.5,
-    },
-    undoBar: {
-      borderRadius: radii.lg,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      overflow: 'hidden',
-      shadowColor: colors.shadow,
-      shadowOffset: {width: 0, height: 4},
-      shadowOpacity: 1,
-      shadowRadius: 12,
-      elevation: 6,
-    },
-    undoProgressTrack: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      top: 0,
-      height: 4,
-      backgroundColor: colors.border,
-    },
-    undoProgressFill: {
-      height: '100%',
-      backgroundColor: colors.accent,
-    },
-    undoText: {
-      color: colors.text,
-      fontSize: fontSize.sm,
-      fontFamily: fonts.bodySemiBold,
-    },
-    undoAction: {
-      color: colors.accent,
-      fontSize: fontSize.sm,
-      fontFamily: fonts.bodyBold,
     },
     actionBtnText: {
       fontFamily: fonts.bodyBold,

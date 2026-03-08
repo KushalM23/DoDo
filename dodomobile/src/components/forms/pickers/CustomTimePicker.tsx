@@ -1,9 +1,8 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
-import {spacing, fontSize} from '../theme/colors';
-import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
-import type {TimeFormatPreference} from '../state/PreferencesContext';
-import {fonts} from '../theme/fonts';
+import {spacing, fontSize} from '../../../theme/colors';
+import {type ThemeColors, useThemeColors} from '../../../theme/ThemeProvider';
+import type {TimeFormatPreference} from '../../../state/PreferencesContext';
 
 type Props = {
   value: Date;
