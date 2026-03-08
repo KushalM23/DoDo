@@ -1,6 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,10 +18,11 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTasks} from '../../state/TasksContext';
 import {useCategories} from '../../state/CategoriesContext';
 import {usePreferences} from '../../state/PreferencesContext';
-import {AppIcon} from '../../components/AppIcon';
+import {AppIcon, type AppIconName} from '../../components/AppIcon';
 import {HoldToConfirmButton} from '../../components/HoldToConfirmButton';
-import {TaskForm} from '../../components/TaskForm';
-import {CustomDateTimePicker} from '../../components/CustomDateTimePicker';
+import {CustomDatePicker} from '../../components/CustomDatePicker';
+import {CustomTimePicker} from '../../components/CustomTimePicker';
+import {CustomDurationPicker} from '../../components/CustomDurationPicker';
 import {LoadingScreen} from '../../components/LoadingScreen';
 import {spacing, radii, fontSize} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
@@ -32,8 +32,8 @@ import {
   useThemeMode,
 } from '../../theme/ThemeProvider';
 import type {RootStackParamList} from '../../navigation/RootNavigator';
-import type {CreateTaskInput, Priority} from '../../types/task';
-import {formatDateTime, toLocalDateKey} from '../../utils/dateTime';
+import type {CreateTaskInput, Priority, Task} from '../../types/task';
+import {formatDate, formatDateTime, formatTime} from '../../utils/dateTime';
 
 type UndoState =
   | {
@@ -50,10 +50,6 @@ type UndoState =
       message: string;
     }
   | {kind: 'delete'; taskId: string; message: string};
-
-function localDateOnly(iso: string): string {
-  return toLocalDateKey(iso);
-}
 
 function priorityMeta(
   priority: Priority,
@@ -74,6 +70,29 @@ function priorityMeta(
     };
   }
   return {label: 'Low', color: colors.lowPriority, icon: 'arrow-down-circle'};
+}
+
+function getTaskDurationMinutes(task: Task): number {
+  if (task.durationMinutes != null && Number.isFinite(task.durationMinutes)) {
+    return Math.max(1, task.durationMinutes);
+  }
+  const inferred = Math.round(
+    (new Date(task.deadline).getTime() - new Date(task.scheduledAt).getTime()) /
+      60000,
+  );
+  return Math.max(1, inferred || 60);
+}
+
+function formatDurationSmart(mins: number): string {
+  if (mins < 60) {
+    return `${mins}m`;
+  }
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (m === 0) {
+    return `${h}h`;
+  }
+  return `${h}h${m}m`;
 }
 
 export function TaskDetailScreen() {
@@ -102,15 +121,15 @@ export function TaskDetailScreen() {
   const taskId = route.params.taskId;
   const task = tasks.find(t => t.id === taskId);
 
-  const [editVisible, setEditVisible] = useState(false);
-  const [postponeVisible, setPostponeVisible] = useState(false);
-  const [postponeMode, setPostponeMode] = useState<'options' | 'custom'>(
-    'options',
-  );
-  const [postponeDate, setPostponeDate] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('');
+  const [titleDraft, setTitleDraft] = useState('');
+  const [priorityDraft, setPriorityDraft] = useState<Priority>(2);
+  const [scheduledAtDraft, setScheduledAtDraft] = useState(() => new Date());
+  const [durationMinutesDraft, setDurationMinutesDraft] = useState(60);
+  const [categoryIdDraft, setCategoryIdDraft] = useState<string | null>(null);
+
   const [busy, setBusy] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(task?.description ?? '');
-  const [savingNote, setSavingNote] = useState(false);
+  const [savingDetails, setSavingDetails] = useState(false);
   const [undoState, setUndoState] = useState<UndoState | null>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
   const [undoProgress, setUndoProgress] = useState(0);
@@ -120,10 +139,23 @@ export function TaskDetailScreen() {
   const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAutoSavedSignatureRef = useRef('');
+  const autoSaveErrorShownRef = useRef(false);
 
   useEffect(() => {
-    setNoteDraft(task?.description ?? '');
-  }, [task?.id, task?.description]);
+    if (!task) {
+      return;
+    }
+    setTitleDraft(task.title);
+    setPriorityDraft(task.priority);
+    setScheduledAtDraft(new Date(task.scheduledAt));
+    setDurationMinutesDraft(getTaskDurationMinutes(task));
+    setCategoryIdDraft(task.categoryId);
+    setActiveTab('');
+    lastAutoSavedSignatureRef.current = '';
+    autoSaveErrorShownRef.current = false;
+  }, [task?.id]);
 
   useEffect(() => {
     if (!lockInMode) {
@@ -141,6 +173,9 @@ export function TaskDetailScreen() {
       if (undoProgressTimerRef.current) {
         clearInterval(undoProgressTimerRef.current);
       }
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
     };
   }, []);
 
@@ -148,11 +183,79 @@ export function TaskDetailScreen() {
     ? categories.find(c => c.id === task.categoryId) ?? null
     : null;
   const categoryName = category?.name ?? 'None';
+  const selectedCategory = categoryIdDraft
+    ? categories.find(c => c.id === categoryIdDraft) ?? null
+    : null;
 
   const priorityInfo = useMemo(
     () => (task ? priorityMeta(task.priority, colors) : null),
     [task, colors],
   );
+
+  const draftPriorityInfo = useMemo(
+    () => priorityMeta(priorityDraft, colors),
+    [priorityDraft, colors],
+  );
+
+  const durationLabel = formatDurationSmart(durationMinutesDraft);
+  const tabsTop = [
+    {
+      id: 'date',
+      icon: 'calendar' as AppIconName,
+      valueDisplay: formatDate(scheduledAtDraft, preferences.dateFormat),
+    },
+    {
+      id: 'time',
+      icon: 'clock' as AppIconName,
+      valueDisplay: formatTime(scheduledAtDraft, preferences.timeFormat),
+    },
+  ];
+
+  const tabsBottom = [
+    {
+      id: 'priority',
+      icon: draftPriorityInfo.icon,
+      color: draftPriorityInfo.color,
+      valueDisplay:
+        priorityDraft === 3 ? 'High' : priorityDraft === 2 ? 'Med' : 'Low',
+    },
+    {
+      id: 'duration',
+      icon: 'hourglass' as AppIconName,
+      valueDisplay: durationLabel,
+    },
+    ...(categories.length > 0
+      ? [
+          {
+            id: 'category',
+            icon: (selectedCategory?.icon ?? 'package') as AppIconName,
+            color: selectedCategory?.color,
+            valueDisplay: selectedCategory?.name ?? 'Category',
+          },
+        ]
+      : []),
+  ];
+
+  const hasChanges = useMemo(() => {
+    if (!task) {
+      return false;
+    }
+    const originalDuration = getTaskDurationMinutes(task);
+    return (
+      titleDraft.trim() !== task.title ||
+      priorityDraft !== task.priority ||
+      categoryIdDraft !== task.categoryId ||
+      durationMinutesDraft !== originalDuration ||
+      scheduledAtDraft.toISOString() !== new Date(task.scheduledAt).toISOString()
+    );
+  }, [
+    task,
+    titleDraft,
+    priorityDraft,
+    categoryIdDraft,
+    durationMinutesDraft,
+    scheduledAtDraft,
+  ]);
 
   function clearUndoTimer() {
     if (undoTimerRef.current) {
@@ -215,7 +318,7 @@ export function TaskDetailScreen() {
   }
 
   async function handleComplete() {
-    if (!task || busy || pendingDelete) {
+    if (!task || busy || pendingDelete || savingDetails) {
       return;
     }
 
@@ -249,82 +352,101 @@ export function TaskDetailScreen() {
   }
 
   function handleDelete() {
-    if (!task) {
+    if (!task || busy || savingDetails) {
       return;
     }
     setPendingDelete(true);
     scheduleUndo({kind: 'delete', taskId: task.id, message: 'Task deleted'});
   }
 
-  async function postponeTo(nextScheduledAt: Date) {
-    if (!task || busy || pendingDelete) {
+  useEffect(() => {
+    if (!task || busy || pendingDelete || savingDetails) {
       return;
     }
 
-    const durationMs =
-      task.durationMinutes != null
-        ? task.durationMinutes * 60 * 1000
-        : Math.max(
-            0,
-            new Date(task.deadline).getTime() -
-              new Date(task.scheduledAt).getTime(),
-          );
-    const nextDeadline = new Date(nextScheduledAt.getTime() + durationMs);
+    const trimmedTitle = titleDraft.trim();
+    if (!trimmedTitle) {
+      return;
+    }
+    if (!Number.isFinite(durationMinutesDraft) || durationMinutesDraft < 1) {
+      return;
+    }
+    if (!hasChanges) {
+      return;
+    }
 
-    setBusy(true);
-    try {
-      await updateTaskDetails(task.id, {
-        scheduledAt: nextScheduledAt.toISOString(),
-        deadline: nextDeadline.toISOString(),
-      });
-    } catch (err) {
-      showAlert(
-        'Failed to postpone',
-        err instanceof Error ? err.message : 'Unknown error',
+    const signature = [
+      trimmedTitle,
+      priorityDraft,
+      categoryIdDraft ?? 'none',
+      durationMinutesDraft,
+      scheduledAtDraft.toISOString(),
+    ].join('|');
+
+    if (signature === lastAutoSavedSignatureRef.current) {
+      return;
+    }
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      const deadline = new Date(
+        scheduledAtDraft.getTime() + durationMinutesDraft * 60 * 1000,
       );
-    } finally {
-      setBusy(false);
-    }
-  }
 
-  function handlePostpone() {
-    if (!task) {
-      return;
-    }
-    setPostponeDate(new Date(task.scheduledAt));
-    setPostponeMode('options');
-    setPostponeVisible(true);
-  }
+      const input: CreateTaskInput = {
+        title: trimmedTitle,
+        description: task.description ?? '',
+        categoryId: categoryIdDraft,
+        scheduledAt: scheduledAtDraft.toISOString(),
+        deadline: deadline.toISOString(),
+        durationMinutes: durationMinutesDraft,
+        priority: priorityDraft,
+      };
 
-  async function handleEditSubmit(input: CreateTaskInput) {
-    if (!task) {
-      return;
-    }
-    await updateTaskDetails(task.id, input);
-    setEditVisible(false);
-  }
+      setSavingDetails(true);
+      void updateTaskDetails(task.id, input)
+        .then(() => {
+          lastAutoSavedSignatureRef.current = signature;
+          autoSaveErrorShownRef.current = false;
+        })
+        .catch(err => {
+          if (!autoSaveErrorShownRef.current) {
+            showAlert(
+              'Failed to update task',
+              err instanceof Error ? err.message : 'Unknown error',
+            );
+            autoSaveErrorShownRef.current = true;
+          }
+        })
+        .finally(() => {
+          setSavingDetails(false);
+        });
+    }, 450);
 
-  async function handleSaveNote() {
-    if (!task || savingNote) {
-      return;
-    }
-    const trimmed = noteDraft.trim();
-    const current = (task.description ?? '').trim();
-    if (trimmed === current) {
-      return;
-    }
-    setSavingNote(true);
-    try {
-      await updateTaskDetails(task.id, {description: trimmed});
-    } catch (err) {
-      showAlert(
-        'Failed to save notes',
-        err instanceof Error ? err.message : 'Unknown error',
-      );
-    } finally {
-      setSavingNote(false);
-    }
-  }
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [
+    task,
+    hasChanges,
+    titleDraft,
+    priorityDraft,
+    categoryIdDraft,
+    durationMinutesDraft,
+    scheduledAtDraft,
+    busy,
+    pendingDelete,
+    savingDetails,
+    updateTaskDetails,
+    showAlert,
+  ]);
 
   if (
     !tasksInitialized ||
@@ -384,26 +506,6 @@ export function TaskDetailScreen() {
             </Text>
           </View>
 
-          <View style={styles.lockActionsRow}>
-            <Pressable
-              style={[styles.lockActionBtn, styles.lockCompleteBtn]}
-              onPress={handleComplete}
-              disabled={busy}>
-              <AppIcon
-                name="check"
-                size={16}
-                color={task.completed ? colors.mutedText : colors.accent}
-              />
-              <Text
-                style={[
-                  styles.lockActionText,
-                  {color: task.completed ? colors.mutedText : colors.accent},
-                ]}>
-                {task.completed ? 'Undo' : 'Complete'}
-              </Text>
-            </Pressable>
-          </View>
-
           <HoldToConfirmButton
             iconName="lock-open"
             onHoldComplete={() => setLockInMode(false)}
@@ -415,6 +517,32 @@ export function TaskDetailScreen() {
             style={styles.lockExitBtn}
             fillColor={colors.danger}
           />
+          
+
+          <View style={styles.lockActionsRow}>
+            <Pressable
+              style={[
+                styles.lockActionBtn,
+                task.completed
+                  ? styles.lockActionBtnDone
+                  : styles.lockActionBtnPrimary,
+              ]}
+              onPress={handleComplete}
+              disabled={busy || savingDetails}>
+              <AppIcon
+                name="check"
+                size={16}
+                color={task.completed ? colors.accent : '#fff'}
+              />
+              <Text
+                style={[
+                  styles.lockActionText,
+                  {color: task.completed ? colors.accent : '#fff'},
+                ]}>
+                {task.completed ? 'Undo' : 'Complete'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -426,7 +554,9 @@ export function TaskDetailScreen() {
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <AppIcon name="chevron-left" size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>{task.title}</Text>
+        <View style={styles.headerTitleInputWrap}>
+          <TextInput value={titleDraft} style={styles.headerTitle} onChangeText={setTitleDraft} />
+        </View>
         <View style={{width: 24}} />
       </View>
 
@@ -435,76 +565,172 @@ export function TaskDetailScreen() {
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled">
-            <Text style={styles.label}>Details</Text>
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <AppIcon name="calendar" size={14} color={colors.mutedText} />
-                <Text style={styles.infoLabel}>Scheduled</Text>
-                <Text style={styles.infoValue}>
-                  {formatDateTime(task.scheduledAt, {
-                    dateFormat: preferences.dateFormat,
-                    timeFormat: preferences.timeFormat,
-                    weekStart: preferences.weekStart,
-                  })}
-                </Text>
+            keyboardShouldPersistTaps="handled"
+            bounces={false}>
+
+            <View style={styles.tabsWrapper}>
+              <View style={styles.tabsRow}>
+                {tabsTop.map(tab => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <Pressable
+                      key={tab.id}
+                      style={[styles.tabBtn, isActive && styles.tabBtnActive]}
+                      onPress={() => setActiveTab(isActive ? '' : tab.id)}>
+                      <AppIcon
+                        name={tab.icon}
+                        size={16}
+                        color={isActive ? '#fff' : colors.mutedText}
+                      />
+                      <Text
+                        style={[
+                          styles.tabValue,
+                          isActive && styles.tabValueLight,
+                        ]}
+                        numberOfLines={1}>
+                        {tab.valueDisplay}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-              <View style={styles.infoSep} />
-              <View style={styles.infoRow}>
-                <AppIcon name="clock" size={14} color={colors.mutedText} />
-                <Text style={styles.infoLabel}>Duration</Text>
-                <Text style={styles.infoValue}>
-                  {task.durationMinutes ? `${task.durationMinutes} min` : '-'}
-                </Text>
-              </View>
-              <View style={styles.infoSep} />
-              <View style={styles.infoRow}>
-                <AppIcon
-                  name={category?.icon ?? 'inbox'}
-                  size={14}
-                  color={category?.color ?? colors.mutedText}
-                />
-                <Text style={styles.infoLabel}>Category</Text>
-                <Text style={styles.infoValue}>{categoryName}</Text>
-              </View>
-              <View style={styles.infoSep} />
-              <View style={styles.infoRow}>
-                <AppIcon
-                  name={priorityInfo?.icon ?? 'minus-circle'}
-                  size={14}
-                  color={priorityInfo?.color ?? colors.mutedText}
-                />
-                <Text style={styles.infoLabel}>Priority</Text>
-                <Text style={styles.infoValue}>
-                  {priorityInfo?.label ?? '-'}
-                </Text>
+
+              <View style={styles.tabsRow}>
+                {tabsBottom.map(tab => {
+                  const isActive = activeTab === tab.id;
+                  const hasColor = !!tab.color;
+                  return (
+                    <Pressable
+                      key={tab.id}
+                      style={[
+                        styles.tabBtn,
+                        isActive
+                          ? styles.tabBtnActive
+                          : hasColor
+                          ? {backgroundColor: tab.color}
+                          : undefined,
+                      ]}
+                      onPress={() => setActiveTab(isActive ? '' : tab.id)}>
+                      <AppIcon
+                        name={tab.icon}
+                        size={16}
+                        color={isActive || hasColor ? '#fff' : colors.mutedText}
+                      />
+                      <Text
+                        style={[
+                          styles.tabValue,
+                          (isActive || hasColor) && styles.tabValueLight,
+                        ]}
+                        numberOfLines={1}>
+                        {tab.valueDisplay}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
 
-            <View style={styles.notesHeader}>
-              <Text style={styles.label}>Notes</Text>
-              <Pressable
-                style={styles.noteSaveBtn}
-                onPress={handleSaveNote}
-                disabled={savingNote}>
-                <AppIcon
-                  name="save"
-                  size={14}
-                  color={savingNote ? colors.mutedText : colors.accent}
+            {activeTab === 'priority' && (
+              <View style={styles.sectionCard}>
+                <Text style={styles.contentLabel}>Priority Level</Text>
+                <View style={styles.wrapRow}>
+                  {([1, 2, 3] as Priority[]).map(p => {
+                    const active = priorityDraft === p;
+                    const col =
+                      p === 3
+                        ? colors.highPriority
+                        : p === 2
+                        ? colors.mediumPriority
+                        : colors.lowPriority;
+                    return (
+                      <Pressable
+                        key={p}
+                        style={[styles.chipBtn, active && {backgroundColor: col}]}
+                        onPress={() => setPriorityDraft(p)}>
+                        <AppIcon
+                          name={
+                            p === 3
+                              ? 'arrow-up-circle'
+                              : p === 2
+                              ? 'minus-circle'
+                              : 'arrow-down-circle'
+                          }
+                          size={18}
+                          color={active ? '#fff' : colors.mutedText}
+                        />
+                        <Text
+                          style={[styles.chipBtnText, active && {color: '#fff'}]}>
+                          {p === 1 ? 'Low' : p === 2 ? 'Medium' : 'High'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {activeTab === 'date' && (
+              <View style={styles.sectionCard}>
+                <View style={styles.compactDateWrap}>
+                  <CustomDatePicker
+                    key={`task-detail-picker-date-${themeMode}`}
+                    value={scheduledAtDraft}
+                    onChange={setScheduledAtDraft}
+                    weekStart={preferences.weekStart}
+                  />
+                </View>
+              </View>
+            )}
+
+            {activeTab === 'time' && (
+              <View style={styles.sectionCard}>
+                <CustomTimePicker
+                  key={`task-detail-picker-time-${themeMode}`}
+                  value={scheduledAtDraft}
+                  onChange={setScheduledAtDraft}
+                  timeFormat={preferences.timeFormat}
                 />
-              </Pressable>
-            </View>
-            <View style={styles.notesCard}>
-              <TextInput
-                style={styles.notesInput}
-                value={noteDraft}
-                onChangeText={setNoteDraft}
-                placeholder="Add notes..."
-                placeholderTextColor={colors.mutedText}
-                multiline
-                textAlignVertical="top"
-              />
-            </View>
+              </View>
+            )}
+
+            {activeTab === 'duration' && (
+              <View style={styles.sectionCard}>
+                <CustomDurationPicker
+                  value={durationMinutesDraft}
+                  onChange={setDurationMinutesDraft}
+                />
+              </View>
+            )}
+
+            {activeTab === 'category' && (
+              <View style={styles.sectionCard}>
+                <Text style={styles.contentLabel}>Select Category</Text>
+                <View style={styles.wrapRow}>
+                  {categories.map(cat => {
+                    const active = categoryIdDraft === cat.id;
+                    return (
+                      <Pressable
+                        key={cat.id}
+                        style={[styles.catChip, active && {backgroundColor: cat.color}]}
+                        onPress={() => setCategoryIdDraft(active ? null : cat.id)}>
+                        <AppIcon
+                          name={cat.icon as AppIconName}
+                          size={16}
+                          color={active ? '#fff' : colors.mutedText}
+                        />
+                        <Text
+                          style={[
+                            styles.catChipText,
+                            active && {color: '#fff', fontFamily: fonts.bodyBold},
+                          ]}>
+                          {cat.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
           </ScrollView>
         ) : (
           <View style={styles.deletedState}>
@@ -532,161 +758,34 @@ export function TaskDetailScreen() {
 
         <View style={styles.primaryActionsRow}>
           <Pressable
-            style={[styles.actionBtn, styles.completeBtn]}
+            style={[
+              styles.actionBtn,
+              task.completed ? {backgroundColor: colors.surface} : styles.completeBtn,
+            ]}
             onPress={handleComplete}
-            disabled={busy}>
+            disabled={busy || savingDetails}>
             <AppIcon
               name="check"
               size={18}
-              color={task.completed ? colors.mutedText : colors.accent}
+              color={task.completed ? colors.accent : '#fff'}
             />
             <Text
               style={[
                 styles.actionBtnText,
-                {color: task.completed ? colors.mutedText : colors.accent},
+                {color: task.completed ? colors.accent : '#fff'},
               ]}>
               {task.completed ? 'Undo' : 'Complete'}
             </Text>
           </Pressable>
-        </View>
-
-        <View style={styles.secondaryActionsRow}>
-          <Pressable
-            style={[styles.actionBtn, styles.editBtn]}
-            onPress={() => setEditVisible(true)}
-            disabled={busy}>
-            <AppIcon name="edit" size={18} color={colors.text} />
-            <Text style={[styles.actionBtnText, {color: colors.text}]}>
-              Edit
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.actionBtn, styles.postponeBtn]}
-            onPress={handlePostpone}
-            disabled={busy}>
-            <AppIcon name="calendar" size={18} color={colors.text} />
-            <Text style={[styles.actionBtnText, {color: colors.text}]}>
-              Postpone
-            </Text>
-          </Pressable>
-
           <Pressable
             style={[styles.actionBtn, styles.deleteBtn]}
             onPress={handleDelete}
-            disabled={busy}>
-            <AppIcon name="trash-2" size={18} color={colors.danger} />
-            <Text style={[styles.actionBtnText, {color: colors.danger}]}>
-              Delete
-            </Text>
+            disabled={busy || savingDetails}>
+            <AppIcon name="trash-2" size={18} color="#fff" />
+            <Text style={[styles.actionBtnText, {color: '#fff'}]}>Delete</Text>
           </Pressable>
         </View>
       </View>
-
-      {undoState && (
-        <View style={styles.undoBar}>
-          <View style={styles.undoProgressTrack}>
-            <View
-              style={[
-                styles.undoProgressFill,
-                {width: `${Math.max(0, Math.min(1, undoProgress)) * 100}%`},
-              ]}
-            />
-          </View>
-          <Text style={styles.undoText}>{undoState.message}</Text>
-          <Pressable onPress={handleUndo} hitSlop={10}>
-            <Text style={styles.undoAction}>Undo</Text>
-          </Pressable>
-        </View>
-      )}
-
-      <TaskForm
-        visible={editVisible}
-        mode="edit"
-        submitLabel="Save Changes"
-        initialValues={{
-          title: task.title,
-          description: task.description,
-          categoryId: task.categoryId,
-          scheduledAt: task.scheduledAt,
-          deadline: task.deadline,
-          durationMinutes: task.durationMinutes,
-          priority: task.priority,
-        }}
-        categories={categories}
-        defaultDate={localDateOnly(task.scheduledAt)}
-        defaultCategoryId={task.categoryId}
-        onCancel={() => setEditVisible(false)}
-        onSubmit={handleEditSubmit}
-      />
-
-      <Modal
-        transparent
-        animationType="fade"
-        visible={postponeVisible}
-        onRequestClose={() => setPostponeVisible(false)}>
-        <Pressable
-          style={styles.overlay}
-          onPress={() => setPostponeVisible(false)}>
-          <Pressable style={styles.postponePopup} onPress={() => {}}>
-            <Text style={styles.postponeTitle}>Postpone task</Text>
-
-            {postponeMode === 'options' ? (
-              <View style={styles.postponeOptionList}>
-                <Pressable
-                  style={styles.postponeOptionBtn}
-                  onPress={() => {
-                    const next = new Date(task.scheduledAt);
-                    next.setDate(next.getDate() + 1);
-                    setPostponeVisible(false);
-                    void postponeTo(next);
-                  }}>
-                  <AppIcon name="calendar" size={16} color={colors.text} />
-                  <Text style={styles.postponeOptionText}>Tomorrow</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.postponeOptionBtn}
-                  onPress={() => setPostponeMode('custom')}>
-                  <AppIcon name="edit" size={16} color={colors.text} />
-                  <Text style={styles.postponeOptionText}>
-                    Custom date & time
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={styles.postponeCancelBtn}
-                  onPress={() => setPostponeVisible(false)}>
-                  <Text style={styles.postponeCancelText}>Cancel</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <>
-                <CustomDateTimePicker
-                  key={`task-detail-postpone-picker-${themeMode}`}
-                  value={postponeDate}
-                  onChange={setPostponeDate}
-                  timeFormat={preferences.timeFormat}
-                  weekStart={preferences.weekStart}
-                />
-                <View style={styles.postponeActions}>
-                  <Pressable
-                    style={styles.postponeCancelBtn}
-                    onPress={() => setPostponeMode('options')}>
-                    <Text style={styles.postponeCancelText}>Back</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.postponeSaveBtn}
-                    onPress={() => {
-                      setPostponeVisible(false);
-                      void postponeTo(postponeDate);
-                    }}>
-                    <Text style={styles.postponeSaveText}>Save</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -695,81 +794,78 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     lockContainer: {
       flex: 1,
-      backgroundColor: '#000',
+      backgroundColor: colors.background,
     },
     lockContent: {
       flex: 1,
       justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: spacing.sm,
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.md,
-      gap: spacing.xs,
+      alignItems: 'stretch',
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.md,
+      paddingBottom: 40,
+      gap: spacing.sm,
     },
     lockClockWrap: {
       alignItems: 'center',
-      marginTop: spacing.xs,
+      justifyContent: 'center',
+      minHeight: 240,
+      paddingVertical: spacing.md,
     },
     lockClockLine: {
-      color: '#fff',
-      fontSize: 96,
+      color: colors.text,
+      fontSize: 120,
       fontFamily: fonts.heading,
-      lineHeight: 112,
-      letterSpacing: -4,
+      lineHeight: 150,
+      letterSpacing: -2,
       includeFontPadding: false,
     },
     lockInfoBlock: {
       alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: spacing.sm,
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
     },
     lockTitle: {
-      color: '#F5F5F5',
+      color: colors.text,
       fontSize: fontSize.xl,
-      fontFamily: fonts.headingMedium,
+      fontFamily: fonts.headingSemiBold,
       textAlign: 'center',
       letterSpacing: -0.3,
     },
     lockMeta: {
-      color: '#666',
+      color: colors.mutedText,
       fontSize: fontSize.sm,
       textAlign: 'center',
       fontFamily: fonts.body,
     },
     lockActionsRow: {
       flexDirection: 'row',
-      gap: spacing.xs,
+      gap: spacing.sm,
       width: '100%',
     },
     lockActionBtn: {
       flex: 1,
-      borderRadius: radii.lg,
-      borderWidth: 1,
-      borderColor: '#1E1E1E',
-      minHeight: 58,
+      borderRadius: 999,
+      minHeight: 56,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      backgroundColor: '#111',
+    },
+    lockActionBtnPrimary: {
+      backgroundColor: colors.accent,
+    },
+    lockActionBtnDone: {
+      backgroundColor: colors.surface,
     },
     lockActionText: {
-      fontSize: fontSize.sm,
+      fontSize: fontSize.md,
       fontFamily: fonts.bodyBold,
-    },
-    lockStartBtn: {
-      borderColor: colors.success,
-    },
-    lockPauseBtn: {
-      borderColor: colors.accent,
-    },
-    lockCompleteBtn: {
-      borderColor: '#1E1E1E',
     },
     lockExitBtn: {
       alignSelf: 'center',
-      backgroundColor: '#111',
-      borderColor: '#1E1E1E',
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
     },
     container: {
       flex: 1,
@@ -780,21 +876,41 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
+      paddingVertical: spacing.sm,
     },
     headerTitle: {
-      fontSize: fontSize.lg,
+      fontSize: fontSize.xxl,
       fontFamily: fonts.headingSemiBold,
       color: colors.text,
-      letterSpacing: -0.3,
+      textAlign: 'center',
+      paddingHorizontal: spacing.sm,
+      marginBottom: 0,
+    },
+    headerTitleInputWrap: {
+      flex: 1,
+      minWidth: 0,
+      marginHorizontal: spacing.sm,
+    },
+    savingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.xs,
+    },
+    savingText: {
+      color: colors.accent,
+      fontSize: fontSize.xs,
+      fontFamily: fonts.bodySemiBold,
     },
     scroll: {
       flex: 1,
     },
     scrollContent: {
-      paddingHorizontal: spacing.sm,
-      paddingBottom: 200,
-      paddingTop: 4,
+      paddingHorizontal: spacing.md,
+      paddingBottom: 190,
+      paddingTop: spacing.xs,
+      gap: spacing.md,
     },
     emptyState: {
       flex: 1,
@@ -825,129 +941,126 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.body,
       textAlign: 'center',
     },
-    title: {
-      fontSize: fontSize.lg,
-      fontFamily: fonts.headingSemiBold,
-      color: colors.text,
-      flex: 1,
-      letterSpacing: -0.3,
-    },
-    statusRow: {
-      flexDirection: 'row',
-      marginBottom: spacing.xs,
-    },
-    statusBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: spacing.xs,
-      paddingVertical: 4,
-      borderRadius: radii.sm,
-    },
-    statusText: {
-      fontSize: fontSize.xs,
-      letterSpacing: 0.5,
-      textTransform: 'uppercase',
-    },
     label: {
       color: colors.mutedText,
       fontFamily: fonts.headingRegular,
       fontSize: fontSize.xs,
-      marginBottom: 8,
-      marginTop: spacing.sm,
       textTransform: 'uppercase',
       letterSpacing: 1,
+      marginTop: spacing.xs,
     },
-    infoCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingVertical: 4,
-      paddingHorizontal: spacing.sm,
-      shadowColor: colors.shadow,
-      shadowOffset: {width: 0, height: 2},
-      shadowOpacity: 0.6,
-      shadowRadius: 8,
-      elevation: 2,
+    nameInput: {
+      backgroundColor: colors.surfaceLight,
+      borderRadius: 60,
+      paddingHorizontal: spacing.xl,
+      height: 54,
+      color: colors.text,
+      fontSize: fontSize.lg,
+      fontFamily: fonts.heading,
+      fontWeight: '400',
+      textAlignVertical: 'center',
     },
-    infoRow: {
+    tabsWrapper: {
+      gap: 16,
+      marginBottom: 10,
+    },
+    tabsRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    tabBtn: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: 999,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.xs,
-      paddingVertical: 12,
+      justifyContent: 'center',
+      gap: 8,
+      paddingHorizontal: spacing.sm,
+      backgroundColor: colors.surfaceLight,
     },
-    infoLabel: {
+    tabBtnActive: {
+      backgroundColor: colors.accent,
+    },
+    tabValue: {
+      fontSize: fontSize.xs,
+      color: colors.mutedText,
+      fontFamily: fonts.bodyBold,
+    },
+    tabValueLight: {
+      color: '#fff',
+    },
+    sectionCard: {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      padding: 0,
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+    },
+    compactDateWrap: {
+      alignSelf: 'center',
+      width: '100%',
+      transform: [{scale: 0.9}],
+      marginVertical: -14,
+    },
+    contentLabel: {
+      fontFamily: fonts.bodyBold,
+      fontSize: fontSize.sm,
+      color: colors.mutedText,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: spacing.md,
+    },
+    wrapRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    chipBtn: {
+      flex: 1,
+      minWidth: '30%',
+      borderRadius: 50,
+      paddingVertical: 14,
+      alignItems: 'center',
+      backgroundColor: colors.surfaceLight,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    chipBtnText: {
+      fontFamily: fonts.bodyBold,
       color: colors.mutedText,
       fontSize: fontSize.sm,
-      fontFamily: fonts.bodySemiBold,
-      width: 90,
     },
-    infoValue: {
-      color: colors.text,
+    catChip: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 50,
+      backgroundColor: colors.surfaceLight,
+      alignItems: 'center',
+      gap: 8,
+    },
+    catChipText: {
+      fontFamily: fonts.bodyMedium,
+      color: colors.mutedText,
       fontSize: fontSize.sm,
-      fontFamily: fonts.bodySemiBold,
-      flex: 1,
-    },
-    infoSep: {
-      height: 1,
-      backgroundColor: colors.border,
-      marginHorizontal: 0,
-    },
-    notesCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: spacing.sm,
-      shadowColor: colors.shadow,
-      shadowOffset: {width: 0, height: 2},
-      shadowOpacity: 0.6,
-      shadowRadius: 8,
-      elevation: 2,
-    },
-    notesHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    notesInput: {
-      color: colors.text,
-      fontSize: fontSize.md,
-      fontFamily: fonts.body,
-      lineHeight: 24,
-      minHeight: 120,
-    },
-    noteSaveBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      borderRadius: radii.md,
-      paddingHorizontal: spacing.xs,
-      paddingVertical: 6,
-      backgroundColor: colors.accentLight,
-    },
-    noteSaveText: {
-      color: colors.accent,
-      fontSize: fontSize.xs,
     },
     floatingActions: {
       position: 'absolute',
-      left: spacing.sm,
-      right: spacing.sm,
-      bottom: 78,
-      gap: 8,
+      left: spacing.lg,
+      right: spacing.lg,
+      bottom: 40,
+      gap: spacing.lg,
     },
     primaryActionsRow: {
       flexDirection: 'row',
-      gap: 8,
-    },
-    secondaryActionsRow: {
-      flexDirection: 'row',
-      gap: 8,
+      gap: spacing.sm,
     },
     lockInBtn: {
-      marginBottom: 4,
+      marginBottom: 56,
       alignSelf: 'center',
     },
     actionBtn: {
@@ -955,119 +1068,21 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: 8,
+      minHeight: 56,
       paddingVertical: spacing.sm,
-      borderRadius: radii.lg,
-      borderWidth: 1,
-    },
-    startBtn: {
-      borderColor: colors.success,
-      backgroundColor: colors.successLight,
-    },
-    pauseBtn: {
-      borderColor: colors.accent,
-      backgroundColor: colors.accentLight,
-    },
-    postponeBtn: {
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    editBtn: {
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
+      borderRadius: 999,
     },
     completeBtn: {
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.accent,
     },
     deleteBtn: {
-      borderColor: colors.danger,
-      backgroundColor: colors.dangerLight,
+      backgroundColor: colors.danger,
     },
     actionBtnText: {
       fontFamily: fonts.bodyBold,
-      fontSize: fontSize.sm,
-      letterSpacing: -0.1,
-    },
-    overlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.7)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.lg,
-    },
-    postponePopup: {
-      width: '100%',
-      maxWidth: 420,
-      backgroundColor: colors.surface,
-      borderRadius: radii.xl,
-      borderWidth: 1,
-      borderColor: colors.borderStrong,
-      padding: spacing.sm,
-      shadowColor: colors.shadow,
-      shadowOffset: {width: 0, height: 16},
-      shadowOpacity: 1,
-      shadowRadius: 32,
-      elevation: 16,
-    },
-    postponeTitle: {
-      color: colors.text,
-      fontSize: fontSize.xl,
-      fontFamily: fonts.headingSemiBold,
-      letterSpacing: -0.5,
-      marginBottom: spacing.xs,
-    },
-    postponeOptionList: {
-      gap: 8,
-      marginTop: 8,
-    },
-    postponeOptionBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radii.lg,
-      backgroundColor: colors.surfaceLight,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 16,
-    },
-    postponeOptionText: {
-      color: colors.text,
       fontSize: fontSize.md,
-      fontFamily: fonts.bodySemiBold,
-    },
-    postponeActions: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: spacing.xs,
-      marginTop: spacing.sm,
-    },
-    postponeCancelBtn: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceLight,
-      borderRadius: radii.lg,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-    },
-    postponeCancelText: {
-      color: colors.mutedText,
-      fontFamily: fonts.bodyBold,
-      fontSize: fontSize.sm,
-    },
-    postponeSaveBtn: {
-      borderWidth: 1,
-      borderColor: colors.accent,
-      backgroundColor: colors.accent,
-      borderRadius: radii.lg,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-    },
-    postponeSaveText: {
       color: '#fff',
-      fontFamily: fonts.bodyBold,
-      fontSize: fontSize.sm,
     },
     undoBar: {
       position: 'absolute',
