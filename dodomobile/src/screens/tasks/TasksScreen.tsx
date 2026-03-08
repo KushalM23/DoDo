@@ -258,7 +258,7 @@ function TaskSlab({
     <Animated.View
       style={{
         transform: [{scale: scaleAnim}],
-        marginBottom: 4,
+        marginBottom: 12,
         paddingVertical: 18,
         paddingHorizontal: 4,
         opacity: task.completed ? 0.5 : 1,

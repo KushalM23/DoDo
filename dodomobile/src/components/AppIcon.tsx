@@ -29,6 +29,8 @@ export type AppIconName =
   | 'chevron-up'
   | 'clock'
   | 'edit'
+  | 'eye'
+  | 'eye-off'
   | 'file-text'
   | 'flame'
   | 'flame-kindling'
@@ -97,6 +99,8 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   'chevron-up': 'chevron-up',
   clock: 'clock',
   edit: 'pencil',
+  eye: 'eye',
+  'eye-off': 'eye-off',
   'file-text': 'file-text',
   flame: 'flame',
   'flame-kindling': 'flame-kindling',

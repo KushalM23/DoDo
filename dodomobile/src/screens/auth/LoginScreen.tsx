@@ -1,12 +1,7 @@
-/**
- * LoginScreen — Object-based, physical, minimal.
- * One hero object (the brand mark + big title),
- * One primary action (sign in slab),
- * Inputs are objects embedded into the space.
- */
 import React, {useMemo, useRef, useState} from 'react';
 import {
   Animated,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,12 +11,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {useAlert} from '../../state/AlertContext';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {useAuth} from '../../state/AuthContext';
+import {AppIcon} from '../../components/AppIcon';
 import type {RootStackParamList} from '../../navigation/RootNavigator';
-import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
+import {useAlert} from '../../state/AlertContext';
+import {useAuth} from '../../state/AuthContext';
+import {fontSize, radii, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -32,33 +30,10 @@ export function LoginScreen({navigation}: Props) {
   const {signIn} = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState<'email' | 'password' | null>(null);
-
   const btnScale = useRef(new Animated.Value(1)).current;
-  const brandScale = useRef(new Animated.Value(1)).current;
-
-  // Brand pulse on mount
-  React.useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.spring(brandScale, {
-          toValue: 1.04,
-          useNativeDriver: true,
-          speed: 1,
-          bounciness: 0,
-        }),
-        Animated.spring(brandScale, {
-          toValue: 1,
-          useNativeDriver: true,
-          speed: 1,
-          bounciness: 0,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [brandScale]);
 
   async function onSubmit() {
     setBusy(true);
@@ -76,204 +51,266 @@ export function LoginScreen({navigation}: Props) {
 
   return (
     <KeyboardAvoidingView
-      style={{flex: 1}}
+      style={styles.keyboardAvoidingView}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        {/* Brand hero object */}
-        <View style={styles.heroSection}>
-          <Animated.View
-            style={[styles.brandMark, {transform: [{scale: brandScale}]}]}>
-            <View style={styles.brandDot} />
-          </Animated.View>
-          <Text style={styles.brandName}>dodo</Text>
-          <Text style={styles.brandTagline}>get things done.</Text>
-        </View>
+      <SafeAreaView style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.heroSection}>
+            <View style={styles.brandRow}>
+              <Image
+                source={require('../../../assets/icon.jpg')}
+                style={styles.logo}
+              />
+              <View style={styles.brandCopy}>
+                <Text style={styles.eyebrow}>DODO</Text>
+              </View>
+            </View>
 
-        {/* Input objects */}
-        <View style={styles.fields}>
-          <View
-            style={[styles.field, focused === 'email' && styles.fieldFocused]}>
-            <Text style={styles.fieldLabel}>Email</Text>
-            <TextInput
-              autoCapitalize="none"
-              keyboardType="email-address"
-              placeholder="you@example.com"
-              placeholderTextColor={colors.mutedText}
-              style={styles.fieldInput}
-              value={email}
-              onChangeText={setEmail}
-              onFocus={() => setFocused('email')}
-              onBlur={() => setFocused(null)}
-            />
+            <View style={styles.headlineBlock}>
+              <Text style={styles.screenTitle}>Sign In</Text>
+            </View>
           </View>
 
-          <View
-            style={[
-              styles.field,
-              focused === 'password' && styles.fieldFocused,
-            ]}>
-            <Text style={styles.fieldLabel}>Password</Text>
-            <TextInput
-              secureTextEntry
-              placeholder="••••••••"
-              placeholderTextColor={colors.mutedText}
-              style={styles.fieldInput}
-              value={password}
-              onChangeText={setPassword}
-              onFocus={() => setFocused('password')}
-              onBlur={() => setFocused(null)}
-            />
-          </View>
-        </View>
+          <View style={styles.panel}>
+            <View style={styles.fields}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Email</Text>
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  placeholder="you@example.com"
+                  placeholderTextColor={colors.mutedText}                  style={
+                    styles.fieldInput
+                  }
+                  value={email}
+                  onChangeText={setEmail}
+                  onFocus={() => setFocused('email')}
+                  onBlur={() => setFocused(null)}
+                />
+              </View>
 
-        {/* CTA slab */}
-        <Animated.View style={{transform: [{scale: btnScale}]}}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Password</Text>
+                <View style={styles.passwordField}>
+                  <TextInput
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="Enter your password"
+                    placeholderTextColor={colors.mutedText}
+                    style={styles.passwordInput}
+                    value={password}
+                    onChangeText={setPassword}
+                    onFocus={() => setFocused('password')}
+                    onBlur={() => setFocused(null)}
+                  />
+                  <Pressable
+                    style={styles.passwordToggleButton}
+                    hitSlop={8}
+                    onPress={() => setShowPassword(prev => !prev)}>
+                    <AppIcon
+                      name={showPassword ? 'eye-off' : 'eye'}
+                      size={18}
+                      color={colors.accent}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+
+            <Animated.View
+              style={[
+                styles.primaryActionWrap,
+                {transform: [{scale: btnScale}]},
+              ]}>
+              <Pressable
+                style={[styles.primaryButton, busy && styles.buttonDisabled]}
+                onPress={onSubmit}
+                disabled={busy}
+                onPressIn={() =>
+                  Animated.spring(btnScale, {
+                    toValue: 0.98,
+                    useNativeDriver: true,
+                    speed: 40,
+                    bounciness: 0,
+                  }).start()
+                }
+                onPressOut={() =>
+                  Animated.spring(btnScale, {
+                    toValue: 1,
+                    useNativeDriver: true,
+                    speed: 24,
+                    bounciness: 6,
+                  }).start()
+                }>
+                <Text style={styles.primaryButtonText}>
+                  {busy ? 'Signing in...' : 'Sign In'}
+                </Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+
           <Pressable
-            style={[styles.signInBtn, busy && {opacity: 0.7}]}
-            onPress={onSubmit}
-            disabled={busy}
-            onPressIn={() =>
-              Animated.spring(btnScale, {
-                toValue: 0.96,
-                useNativeDriver: true,
-                speed: 40,
-              }).start()
-            }
-            onPressOut={() =>
-              Animated.spring(btnScale, {
-                toValue: 1,
-                useNativeDriver: true,
-                speed: 20,
-                bounciness: 8,
-              }).start()
-            }>
-            <Text style={styles.signInText}>
-              {busy ? 'Signing in…' : 'Sign In'}
-            </Text>
+            style={styles.secondaryButton}
+            onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.secondaryButtonText}>Create account</Text>
+            <AppIcon name="chevron-right" size={18} color={colors.text} />
           </Pressable>
-        </Animated.View>
-
-        <Pressable
-          style={styles.register}
-          onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.registerText}>No account? </Text>
-          <Text style={styles.registerLink}>Create one →</Text>
-        </Pressable>
-      </ScrollView>
+        </ScrollView>
+      </SafeAreaView>
     </KeyboardAvoidingView>
   );
 }
 
 const createStyles = (c: ThemeColors) =>
   StyleSheet.create({
+    keyboardAvoidingView: {flex: 1},
     container: {flex: 1, backgroundColor: c.background},
     content: {
       flexGrow: 1,
-      paddingHorizontal: 28,
-      paddingTop: 80,
-      paddingBottom: 48,
-      justifyContent: 'space-between',
-    },
-    heroSection: {alignItems: 'flex-start', gap: 10},
-    brandMark: {
-      width: 64,
-      height: 64,
-      borderRadius: 22,
-      backgroundColor: c.accent,
-      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xl,
       justifyContent: 'center',
+      gap: spacing.xl,
+    },
+    heroSection: {
+      gap: spacing.xl,
+    },
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    logo: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
       shadowColor: c.accent,
-      shadowOffset: {width: 0, height: 12},
-      shadowOpacity: 0.5,
-      shadowRadius: 24,
-      elevation: 12,
-      marginBottom: 8,
+      shadowOffset: {width: 0, height: 10},
+      shadowOpacity: 0.25,
+      shadowRadius: 18,
+      elevation: 8,
     },
-    brandDot: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      backgroundColor: '#fff',
+    brandCopy: {
+      gap: spacing.xs,
     },
-    brandName: {
-      fontSize: 72,
-      fontWeight: '900',
-      fontFamily: fonts.heading,
-      color: c.text,
-      letterSpacing: -4,
-      lineHeight: 76,
+    eyebrow: {
+      color: c.accent,
+      fontSize: fontSize.xxl,
+      fontFamily: fonts.bodyBold,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
     },
     brandTagline: {
-      fontSize: 18,
-      fontWeight: '600',
       color: c.mutedText,
-      fontFamily: fonts.bodySemiBold,
-      letterSpacing: -0.3,
-      marginTop: -4,
+      fontSize: fontSize.sm,
+      fontFamily: fonts.bodyMedium,
     },
-    fields: {gap: 12, marginTop: 40},
-    field: {
-      backgroundColor: c.surface,
-      borderWidth: 1.5,
-      borderColor: c.border,
-      borderRadius: 20,
-      paddingHorizontal: 20,
-      paddingTop: 14,
-      paddingBottom: 14,
+    headlineBlock: {
     },
-    fieldFocused: {
-      borderColor: c.accent,
-      shadowColor: c.accent,
-      shadowOffset: {width: 0, height: 0},
-      shadowOpacity: 0.2,
-      shadowRadius: 12,
-      elevation: 3,
+    screenTitle: {
+      color: c.text,
+      fontSize: fontSize.xl,
+      lineHeight: 36,
+      fontFamily: fonts.heading,
+      letterSpacing: -0.6,
+    },
+    panel: {
+      padding: spacing.lg,
+      gap: spacing.lg,
+      shadowColor: c.shadow,
+      shadowOffset: {width: 0, height: 12},
+      shadowOpacity: 0.35,
+      shadowRadius: 24,
+      elevation: 10,
+    },
+    fields: {gap: spacing.md},
+    fieldGroup: {
+      gap: spacing.xs,
     },
     fieldLabel: {
-      fontSize: 11,
-      fontWeight: '700',
+      marginLeft: spacing.sm,
+      fontSize: fontSize.xs,
       color: c.mutedText,
       textTransform: 'uppercase',
       fontFamily: fonts.bodyBold,
       letterSpacing: 1.2,
-      marginBottom: 6,
     },
     fieldInput: {
-      fontSize: 18,
-      fontWeight: '600',
+      backgroundColor: c.surfaceLight,
+      borderRadius: 60,
+      paddingHorizontal: spacing.xl,
+      height: 50,
       color: c.text,
-      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSize.md,
+      fontFamily: fonts.bodyBold,
+      textAlignVertical: 'center',
     },
-    signInBtn: {
-      backgroundColor: c.accent,
-      borderRadius: 22,
-      paddingVertical: 20,
+    passwordField: {
+      backgroundColor: c.surfaceLight,
+      borderRadius: 60,
+      paddingLeft: spacing.xl,
+      paddingRight: spacing.md,
+      height: 50,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    passwordInput: {
+      flex: 1,
+      color: c.text,
+      fontSize: fontSize.md,
+      fontFamily: fonts.bodyBold,
+      textAlignVertical: 'center',
+      paddingVertical: 0,
+    },
+    passwordToggleButton: {
+      width: 32,
+      height: 32,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 32,
+    },
+    primaryActionWrap: {
+      marginTop: spacing.xs,
+    },
+    primaryButton: {
+      backgroundColor: c.accent,
+      borderRadius: 99,
+      minHeight: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
       shadowColor: c.accent,
       shadowOffset: {width: 0, height: 10},
-      shadowOpacity: 0.45,
-      shadowRadius: 24,
-      elevation: 10,
+      shadowOpacity: 0.3,
+      shadowRadius: 18,
+      elevation: 8,
     },
-    signInText: {
+    primaryButtonText: {
       color: '#fff',
-      fontSize: 20,
-      fontWeight: '800',
+      fontSize: fontSize.md,
       fontFamily: fonts.bodyBold,
-      letterSpacing: -0.3,
     },
-    register: {flexDirection: 'row', justifyContent: 'center', marginTop: 24},
-    registerText: {color: c.mutedText, fontSize: 15, fontFamily: fonts.body},
-    registerLink: {
-      color: c.accent,
-      fontSize: 15,
-      fontWeight: '700',
-      fontFamily: fonts.bodyBold,
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    secondaryButton: {
+      minHeight: 52,
+      paddingHorizontal: spacing.lg,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+    },
+    secondaryButtonText: {
+      color: c.text,
+      fontSize: fontSize.md,
+      fontFamily: fonts.bodySemiBold,
     },
   });

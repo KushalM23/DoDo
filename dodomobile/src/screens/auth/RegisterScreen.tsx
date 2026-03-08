@@ -1,6 +1,7 @@
 import React, {useMemo, useRef, useState} from 'react';
 import {
   Animated,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,12 +11,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {useAlert} from '../../state/AlertContext';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {useAuth} from '../../state/AuthContext';
+import {AppIcon} from '../../components/AppIcon';
 import type {RootStackParamList} from '../../navigation/RootNavigator';
-import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
+import {useAlert} from '../../state/AlertContext';
+import {useAuth} from '../../state/AuthContext';
+import {fontSize, radii, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
@@ -27,6 +31,7 @@ export function RegisterScreen({navigation}: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState<'name' | 'email' | 'password' | null>(
     null,
@@ -55,188 +60,286 @@ export function RegisterScreen({navigation}: Props) {
 
   return (
     <KeyboardAvoidingView
-      style={{flex: 1}}
+      style={styles.keyboardAvoidingView}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.heroSection}>
-          <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backText}>← back</Text>
-          </Pressable>
-          <Text style={styles.headline}>new here?</Text>
-          <Text style={styles.tagline}>let's set you up.</Text>
-        </View>
-
-        <View style={styles.fields}>
-          {(['name', 'email', 'password'] as const).map(f => (
-            <View
-              key={f}
-              style={[styles.field, focused === f && styles.fieldFocused]}>
-              <Text style={styles.fieldLabel}>
-                {f === 'name'
-                  ? 'Your Name'
-                  : f === 'email'
-                  ? 'Email'
-                  : 'Password'}
-              </Text>
-              <TextInput
-                secureTextEntry={f === 'password'}
-                autoCapitalize={f === 'name' ? 'words' : 'none'}
-                keyboardType={f === 'email' ? 'email-address' : 'default'}
-                placeholder={
-                  f === 'name'
-                    ? 'Alex'
-                    : f === 'email'
-                    ? 'you@example.com'
-                    : '••••••••'
-                }
-                placeholderTextColor={colors.mutedText}
-                style={styles.fieldInput}
-                value={f === 'name' ? name : f === 'email' ? email : password}
-                onChangeText={
-                  f === 'name'
-                    ? setName
-                    : f === 'email'
-                    ? setEmail
-                    : setPassword
-                }
-                onFocus={() => setFocused(f)}
-                onBlur={() => setFocused(null)}
+      <SafeAreaView style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.heroSection}>
+            <View style={styles.brandRow}>
+              <Image
+                source={require('../../../assets/icon.jpg')}
+                style={styles.logo}
               />
+              <View style={styles.brandCopy}>
+                <Text style={styles.eyebrow}>DODO</Text>
+              </View>
             </View>
-          ))}
-        </View>
 
-        <Animated.View style={{transform: [{scale: btnScale}]}}>
+            <View style={styles.headlineBlock}>
+              <Text style={styles.screenTitle}>Create Account</Text>
+            </View>
+          </View>
+
+          <View style={styles.panel}>
+            <View style={styles.fields}>
+              {(['name', 'email', 'password'] as const).map(field => (
+                <View key={field} style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>
+                    {field === 'name'
+                      ? 'Your Name'
+                      : field === 'email'
+                        ? 'Email'
+                        : 'Password'}
+                  </Text>
+                  {field === 'password' ? (
+                    <View style={styles.passwordField}>
+                      <TextInput
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="default"
+                        placeholder="Create a password"
+                        placeholderTextColor={colors.mutedText}
+                        style={styles.passwordInput}
+                        value={password}
+                        onChangeText={setPassword}
+                        onFocus={() => setFocused(field)}
+                        onBlur={() => setFocused(null)}
+                      />
+                      <Pressable
+                        style={styles.passwordToggleButton}
+                        hitSlop={8}
+                        onPress={() => setShowPassword(prev => !prev)}>
+                        <AppIcon
+                          name={showPassword ? 'eye-off' : 'eye'}
+                          size={18}
+                          color={colors.accent}
+                        />
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <TextInput
+                      secureTextEntry={false}
+                      autoCapitalize={field === 'name' ? 'words' : 'none'}
+                      autoCorrect={false}
+                      keyboardType={
+                        field === 'email' ? 'email-address' : 'default'
+                      }
+                      placeholder={field === 'name' ? 'Alex' : 'you@example.com'}
+                      placeholderTextColor={colors.mutedText}
+                      style={[
+                        styles.fieldInput,
+                        focused === field && styles.fieldInputFocused,
+                      ]}
+                      value={field === 'name' ? name : email}
+                      onChangeText={field === 'name' ? setName : setEmail}
+                      onFocus={() => setFocused(field)}
+                      onBlur={() => setFocused(null)}
+                    />
+                  )}
+                </View>
+              ))}
+            </View>
+
+            <Animated.View
+              style={[
+                styles.primaryActionWrap,
+                {transform: [{scale: btnScale}]},
+              ]}>
+              <Pressable
+                style={[styles.createBtn, busy && styles.buttonDisabled]}
+                onPress={onSubmit}
+                disabled={busy}
+                onPressIn={() =>
+                  Animated.spring(btnScale, {
+                    toValue: 0.98,
+                    useNativeDriver: true,
+                    speed: 40,
+                    bounciness: 0,
+                  }).start()
+                }
+                onPressOut={() =>
+                  Animated.spring(btnScale, {
+                    toValue: 1,
+                    useNativeDriver: true,
+                    speed: 24,
+                    bounciness: 6,
+                  }).start()
+                }>
+                <Text style={styles.createText}>
+                  {busy ? 'Creating...' : 'Create Account'}
+                </Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+
           <Pressable
-            style={[styles.createBtn, busy && {opacity: 0.7}]}
-            onPress={onSubmit}
-            disabled={busy}
-            onPressIn={() =>
-              Animated.spring(btnScale, {
-                toValue: 0.96,
-                useNativeDriver: true,
-                speed: 40,
-              }).start()
-            }
-            onPressOut={() =>
-              Animated.spring(btnScale, {
-                toValue: 1,
-                useNativeDriver: true,
-                speed: 20,
-                bounciness: 8,
-              }).start()
-            }>
-            <Text style={styles.createText}>
-              {busy ? 'Creating…' : 'Create Account'}
-            </Text>
+            style={styles.secondaryButton}
+            onPress={() => navigation.goBack()}>
+            <Text style={styles.secondaryButtonText}>Already have an account</Text>
+            <AppIcon name="chevron-left" size={18} color={colors.text} />
           </Pressable>
-        </Animated.View>
-
-        <Pressable style={styles.login} onPress={() => navigation.goBack()}>
-          <Text style={styles.loginText}>Already have one? </Text>
-          <Text style={styles.loginLink}>Sign in →</Text>
-        </Pressable>
-      </ScrollView>
+        </ScrollView>
+      </SafeAreaView>
     </KeyboardAvoidingView>
   );
 }
 
 const createStyles = (c: ThemeColors) =>
   StyleSheet.create({
+    keyboardAvoidingView: {flex: 1},
     container: {flex: 1, backgroundColor: c.background},
     content: {
       flexGrow: 1,
-      paddingHorizontal: 28,
-      paddingTop: 60,
-      paddingBottom: 48,
-      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xl,
+      justifyContent: 'center',
+      gap: spacing.xl,
     },
-    heroSection: {gap: 6, marginBottom: 8},
-    backBtn: {marginBottom: 16},
-    backText: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: c.mutedText,
-      fontFamily: fonts.bodySemiBold,
+    heroSection: {
+      gap: spacing.xl,
     },
-    headline: {
-      fontSize: 64,
-      fontWeight: '900',
-      fontFamily: fonts.heading,
-      color: c.text,
-      letterSpacing: -3.5,
-      lineHeight: 68,
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
     },
-    tagline: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: c.mutedText,
-      fontFamily: fonts.bodySemiBold,
-      letterSpacing: -0.3,
-    },
-    fields: {gap: 12, marginTop: 32},
-    field: {
-      backgroundColor: c.surface,
-      borderWidth: 1.5,
-      borderColor: c.border,
-      borderRadius: 20,
-      paddingHorizontal: 20,
-      paddingTop: 14,
-      paddingBottom: 14,
-    },
-    fieldFocused: {
-      borderColor: c.accent,
+    logo: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
       shadowColor: c.accent,
-      shadowOffset: {width: 0, height: 0},
-      shadowOpacity: 0.2,
-      shadowRadius: 12,
-      elevation: 3,
+      shadowOffset: {width: 0, height: 10},
+      shadowOpacity: 0.25,
+      shadowRadius: 18,
+      elevation: 8,
+    },
+    brandCopy: {
+      gap: spacing.xs,
+    },
+    eyebrow: {
+      color: c.accent,
+      fontSize: fontSize.xxl,
+      fontFamily: fonts.bodyBold,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+    },
+    brandTagline: {
+      color: c.mutedText,
+      fontSize: fontSize.sm,
+      fontFamily: fonts.bodyMedium,
+    },
+    headlineBlock: {},
+    screenTitle: {
+      color: c.text,
+      fontSize: fontSize.xl,
+      fontFamily: fonts.heading,
+      letterSpacing: -0.6,
+      lineHeight: 36,
+    },
+    panel: {
+      padding: spacing.lg,
+      gap: spacing.lg,
+      shadowColor: c.shadow,
+      shadowOffset: {width: 0, height: 12},
+      shadowOpacity: 0.35,
+      shadowRadius: 24,
+      elevation: 10,
+    },
+    fields: {gap: spacing.md},
+    fieldGroup: {
+      gap: spacing.xs,
     },
     fieldLabel: {
-      fontSize: 11,
-      fontWeight: '700',
+      marginLeft: spacing.sm,
+      fontSize: fontSize.xs,
       color: c.mutedText,
       fontFamily: fonts.bodyBold,
       textTransform: 'uppercase',
       letterSpacing: 1.2,
-      marginBottom: 6,
     },
     fieldInput: {
-      fontSize: 18,
-      fontWeight: '600',
+      backgroundColor: c.surfaceLight,
+      borderRadius: 60,
+      paddingHorizontal: spacing.xl,
+      height: 50,
       color: c.text,
-      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSize.md,
+      fontFamily: fonts.bodyBold,
+      textAlignVertical: 'center',
     },
-    createBtn: {
-      backgroundColor: c.accent,
-      borderRadius: 22,
-      paddingVertical: 20,
+    fieldInputFocused: {
+      borderColor: c.accent,
+      shadowColor: c.accent,
+      shadowOffset: {width: 0, height: 0},
+      shadowOpacity: 0.16,
+      shadowRadius: 10,
+      elevation: 3,
+    },
+    passwordField: {
+      backgroundColor: c.surfaceLight,
+      borderRadius: 60,
+      paddingLeft: spacing.xl,
+      paddingRight: spacing.md,
+      height: 50,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    passwordInput: {
+      flex: 1,
+      color: c.text,
+      fontSize: fontSize.md,
+      fontFamily: fonts.bodyBold,
+      textAlignVertical: 'center',
+      paddingVertical: 0,
+    },
+    passwordToggleButton: {
+      width: 32,
+      height: 32,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 32,
+    },
+    primaryActionWrap: {marginTop: spacing.xs},
+    createBtn: {
+      backgroundColor: c.accent,
+      borderRadius: 99,
+      minHeight: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
       shadowColor: c.accent,
       shadowOffset: {width: 0, height: 10},
-      shadowOpacity: 0.45,
-      shadowRadius: 24,
-      elevation: 10,
+      shadowOpacity: 0.3,
+      shadowRadius: 18,
+      elevation: 8,
     },
     createText: {
       color: '#fff',
-      fontSize: 20,
-      fontWeight: '800',
+      fontSize: fontSize.md,
       fontFamily: fonts.bodyBold,
-      letterSpacing: -0.3,
     },
-    login: {flexDirection: 'row', justifyContent: 'center', marginTop: 24},
-    loginText: {color: c.mutedText, fontSize: 15, fontFamily: fonts.body},
-    loginLink: {
-      color: c.accent,
-      fontSize: 15,
-      fontWeight: '700',
-      fontFamily: fonts.bodyBold,
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    secondaryButton: {
+      minHeight: 52,
+      paddingHorizontal: spacing.lg,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+    },
+    secondaryButtonText: {
+      color: c.text,
+      fontSize: fontSize.md,
+      fontFamily: fonts.bodySemiBold,
     },
   });

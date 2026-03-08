@@ -244,7 +244,7 @@ export function MainTabs() {
 const styles = StyleSheet.create({
   tabBarOuter: {
     position: 'absolute',
-    bottom: 6,
+    bottom: 4,
     left: 0,
     right: 0,
     alignItems: 'center',
