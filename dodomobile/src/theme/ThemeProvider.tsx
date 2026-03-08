@@ -30,7 +30,7 @@ export type ThemeColors = {
 };
 
 // Dark theme: 85% deep black, 10% text, 5% orange
-const darkColors: ThemeColors = {
+export const darkColors: ThemeColors = {
   background: '#000000',
   surface: '#111111',
   surfaceLight: '#1A1A1A',
@@ -57,7 +57,7 @@ const darkColors: ThemeColors = {
 };
 
 // Light theme: 85% white, 10% text, 5% orange
-const lightColors: ThemeColors = {
+export const lightColors: ThemeColors = {
   background: '#FFFFFF',
   surface: '#F7F7F7',
   surfaceLight: '#F0F0F0',

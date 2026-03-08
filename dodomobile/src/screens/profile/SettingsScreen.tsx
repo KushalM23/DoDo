@@ -349,7 +349,7 @@ export function SettingsScreen() {
           <Pressable
             style={[
               styles.actionBtn,
-              styles.passwordBtn,
+              styles.passwordModalBtn,
               {marginTop: 8},
               changingPassword && styles.disabled,
             ]}
@@ -458,6 +458,9 @@ const createStyles = (colors: ThemeColors) =>
     },
     passwordBtn: {
       backgroundColor: colors.surface,
+    },
+    passwordModalBtn: {
+      backgroundColor: colors.accent,
     },
     logoutBtn: {
       backgroundColor: colors.surface,

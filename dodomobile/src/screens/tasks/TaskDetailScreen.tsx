@@ -932,7 +932,7 @@ const createStyles = (colors: ThemeColors) =>
       gap: spacing.sm,
     },
     lockInBtn: {
-      marginBottom: 56,
+      marginBottom: 20,
       alignSelf: 'center',
     },
     actionBtn: {

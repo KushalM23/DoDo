@@ -5,7 +5,7 @@ import {AppIcon, type AppIconName} from './AppIcon';
 import {HoldToConfirmButton} from './HoldToConfirmButton';
 import {fontSize, radii, spacing} from '../theme/colors';
 import {fonts} from '../theme/fonts';
-import {type ThemeColors, useThemeColors} from '../theme/ThemeProvider';
+import {darkColors, type ThemeColors} from '../theme/ThemeProvider';
 
 type FocusModeScreenProps = {
   now: Date;
@@ -48,8 +48,8 @@ export function FocusModeScreen({
   infoIconBorderColor,
   infoIconBackgroundColor,
 }: FocusModeScreenProps) {
-  const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const colors = darkColors;
+  const styles = useMemo(() => createStyles(colors), []);
 
   const hour24 = now.getHours();
   const hour = timeFormat === '24h' ? hour24 : ((hour24 + 11) % 12) + 1;
@@ -96,6 +96,10 @@ export function FocusModeScreen({
             onHoldComplete={onExitFocus}
             holdDurationMs={3000}
             size={84}
+            backgroundColor={colors.surface}
+            progressColor={colors.accent}
+            iconColor={colors.text}
+            disabledIconColor={colors.mutedText}
             style={styles.exitBtn}
           />
 
@@ -188,7 +192,7 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.body,
     },
     exitBtn: {
-      marginBottom: 56,
+      marginBottom: 20,
       alignSelf: 'center',
     },
     floatingActions: {

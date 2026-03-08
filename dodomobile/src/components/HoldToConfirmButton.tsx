@@ -18,6 +18,10 @@ type HoldToConfirmButtonProps = {
   holdDurationMs?: number;
   size?: number;
   style?: StyleProp<ViewStyle>;
+  backgroundColor?: string;
+  progressColor?: string;
+  iconColor?: string;
+  disabledIconColor?: string;
 };
 
 export function HoldToConfirmButton({
@@ -27,6 +31,10 @@ export function HoldToConfirmButton({
   holdDurationMs = 3000,
   size = 56,
   style,
+  backgroundColor,
+  progressColor,
+  iconColor,
+  disabledIconColor,
 }: HoldToConfirmButtonProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -110,6 +118,7 @@ export function HoldToConfirmButton({
       disabled={disabled}
       style={[
         styles.button,
+        backgroundColor != null && {backgroundColor},
         {
           borderRadius: Math.round(size / 2),
           width: size,
@@ -128,7 +137,7 @@ export function HoldToConfirmButton({
           style={[
             styles.radialFill,
             {
-              backgroundColor: colors.accent,
+              backgroundColor: progressColor ?? colors.accent,
               transform: [{scale: Math.max(0, progress)}],
             },
           ]}
@@ -137,7 +146,7 @@ export function HoldToConfirmButton({
           style={[
             styles.splashFill,
             {
-              backgroundColor: colors.accent,
+              backgroundColor: progressColor ?? colors.accent,
               opacity: splashOpacity,
               transform: [{scale: splashScale}],
             },
@@ -147,8 +156,12 @@ export function HoldToConfirmButton({
 
       <AppIcon
         name={iconName}
-        size={22}
-        color={disabled ? colors.mutedText : colors.text}
+        size={24}
+        color={
+          disabled
+            ? disabledIconColor ?? colors.mutedText
+            : iconColor ?? colors.text
+        }
       />
     </Pressable>
   );
@@ -158,7 +171,7 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     button: {
       borderRadius: radii.lg,
-      backgroundColor: 'transparent',
+      backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',

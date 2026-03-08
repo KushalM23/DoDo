@@ -595,7 +595,7 @@ const createStyles = (colors: ThemeColors) =>
       gap: spacing.sm,
     },
     lockInFloatingBtn: {
-      marginBottom: 56,
+      marginBottom: 20,
       alignSelf: 'center',
     },
     actionText: {
