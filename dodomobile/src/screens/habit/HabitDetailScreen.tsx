@@ -15,7 +15,11 @@ import type {RootStackParamList} from '../../navigation/RootNavigator';
 import {fontSize, radii, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
-import {formatHabitFrequency, minuteToLabel} from '../../utils/habits';
+import {
+  formatHabitFrequency,
+  habitAppliesToDate,
+  minuteToLabel,
+} from '../../utils/habits';
 
 type HabitDetailRoute = RouteProp<RootStackParamList, 'HabitDetail'>;
 
@@ -43,7 +47,6 @@ export function HabitDetailScreen() {
     loadHistory,
     isHabitCompletedOn,
     setHabitCompletedOn,
-    completionMap,
   } = useHabits();
 
   const [busy, setBusy] = useState(false);
@@ -62,29 +65,45 @@ export function HabitDetailScreen() {
   const today = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => dateKey(today), [today]);
 
-  const weekDays = useMemo(() => {
-    const out: Date[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      out.push(d);
+  const trackerDates = useMemo(() => {
+    if (!habit) {
+      return [] as Date[];
     }
-    return out;
-  }, [today]);
 
-  const todayWeekKey = useMemo(
-    () => dateKey(weekDays[weekDays.length - 1]),
-    [weekDays],
-  );
+    const startKey = habit.anchorDate ?? habit.createdAt.slice(0, 10);
+    const startDate = new Date(`${startKey}T00:00:00`);
+    const recentStart = new Date(today);
+    recentStart.setDate(today.getDate() - 48);
+
+    const cursor = startDate > recentStart ? new Date(startDate) : recentStart;
+    const out: Date[] = [];
+    let guard = 0;
+
+    while (out.length < 49 && guard < 1200) {
+      const key = dateKey(cursor);
+      if (habitAppliesToDate(habit, key)) {
+        out.push(new Date(cursor));
+      }
+      cursor.setDate(cursor.getDate() + 1);
+      guard += 1;
+    }
+
+    return out;
+  }, [habit, today]);
 
   useEffect(() => {
     if (!habit) {
       return;
     }
-    const start = dateKey(weekDays[0]);
-    const end = dateKey(weekDays[weekDays.length - 1]);
+    const historyStartDate = trackerDates[0];
+    if (!historyStartDate) {
+      return;
+    }
+
+    const start = dateKey(historyStartDate);
+    const end = todayKey;
     void loadHistory({habitId: habit.id, startDate: start, endDate: end});
-  }, [habit?.id, loadHistory, weekDays]);
+  }, [habit?.id, loadHistory, todayKey, trackerDates]);
 
   const undoActionRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -114,7 +133,7 @@ export function HabitDetailScreen() {
             <AppIcon name="chevron-left" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Habit</Text>
-          <View style={styles.placeholder} />
+          <View style={styles.placeholderHeader} />
         </View>
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyText}>Habit not found.</Text>
@@ -126,7 +145,7 @@ export function HabitDetailScreen() {
   const currentHabit = habit;
 
   const completedToday = isHabitCompletedOn(currentHabit.id, todayKey);
-
+  const canCompleteToday = habitAppliesToDate(currentHabit, todayKey);
   if (lockInMode) {
     const hour24 = lockTime.getHours();
     const lockHour = String(
@@ -159,20 +178,6 @@ export function HabitDetailScreen() {
             </Text>
           </View>
 
-          <Pressable
-            style={[styles.lockCompleteBtn, busy && styles.disabled]}
-            disabled={busy}
-            onPress={toggleTodayCompletion}>
-            <AppIcon
-              name={completedToday ? 'rotate-ccw' : 'check'}
-              size={16}
-              color="#fff"
-            />
-            <Text style={styles.lockCompleteText}>
-              {completedToday ? 'Undo Today' : 'Mark Complete'}
-            </Text>
-          </Pressable>
-
           <HoldToConfirmButton
             iconName="lock-open"
             onHoldComplete={() => setLockInMode(false)}
@@ -184,6 +189,39 @@ export function HabitDetailScreen() {
             style={styles.lockExitBtn}
             fillColor={colors.danger}
           />
+
+          <View style={styles.lockActionsRow}>
+            <Pressable
+              style={[
+                styles.lockActionBtn,
+                canCompleteToday && completedToday
+                  ? styles.lockActionBtnDone
+                  : styles.lockActionBtnPrimary,
+                busy && styles.disabled,
+              ]}
+              disabled={busy && canCompleteToday}
+              onPress={
+                canCompleteToday
+                  ? toggleTodayCompletion
+                  : () => setEditVisible(true)
+              }>
+              <AppIcon
+                name={canCompleteToday ? (completedToday ? 'rotate-ccw' : 'check') : 'edit'}
+                size={16}
+                color={canCompleteToday && completedToday ? colors.accent : '#fff'}
+              />
+              <Text
+                style={[
+                  styles.lockActionText,
+                  {
+                    color:
+                      canCompleteToday && completedToday ? colors.accent : '#fff',
+                  },
+                ]}>
+                {canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -287,151 +325,143 @@ export function HabitDetailScreen() {
       <View style={styles.header}>
         <Pressable
           onPress={() => navigation.goBack()}
-          hitSlop={12}
-          style={styles.headerSide}>
-          <AppIcon name="chevron-left" size={20} color={colors.text} />
+          hitSlop={12}>
+          <AppIcon name="chevron-left" size={24} color={colors.text} />
         </Pressable>
-        <View style={styles.headerTitleWrap}>
-          <View style={styles.headerIconPill}>
-            <AppIcon
-              name={currentHabit.icon}
-              size={14}
-              color={colors.habitBadge}
-            />
+        <View style={styles.headerTitleWrapRow}>
+          <View style={styles.headerIconInline}>
+            <AppIcon name={currentHabit.icon} size={28} color={colors.habitBadge} />
           </View>
           <Text style={styles.name} numberOfLines={1}>
             {currentHabit.title}
           </Text>
         </View>
-        <View style={styles.headerSide} />
+        {canCompleteToday ? (
+          <Pressable onPress={() => setEditVisible(true)} hitSlop={12}>
+            <AppIcon name="edit" size={20} color={colors.text} />
+          </Pressable>
+        ) : (
+          <View style={styles.placeholderHeader} />
+        )}
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <View style={styles.streakRow}>
-          <View style={styles.streakCard}>
-            <Text style={styles.streakValue}>{currentHabit.currentStreak}</Text>
-            <Text style={styles.streakLabel}>Current streak</Text>
-          </View>
-          <View style={styles.streakCard}>
-            <Text style={styles.streakValue}>{currentHabit.bestStreak}</Text>
-            <Text style={styles.streakLabel}>Best streak</Text>
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Last 7 Days</Text>
-        <View style={styles.weekRow}>
-          {weekDays.map(day => {
-            const key = dateKey(day);
-            const completed = isHabitCompletedOn(currentHabit.id, key);
-            const dayLabel = day
-              .toLocaleDateString('en-US', {weekday: 'short'})
-              .slice(0, 3);
-            return (
-              <View key={key} style={styles.weekDay}>
-                <View style={[styles.weekDot, completed && styles.weekDotDone]}>
-                  {completed ? (
-                    <AppIcon name="check" size={10} color="#fff" />
-                  ) : null}
-                </View>
-                <Text
-                  style={[
-                    styles.weekLabel,
-                    key === todayWeekKey && styles.weekLabelToday,
-                  ]}>
-                  {dayLabel}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Frequency</Text>
-            <Text style={styles.infoValue}>
-              {formatHabitFrequency(currentHabit)}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        bounces={false}>
+        <View style={styles.quickInfoRow}>
+          <View style={styles.infoPill}>
+            <AppIcon name="flame" size={14} color={colors.mutedText} />
+            <Text style={styles.infoPillText}>
+             {currentHabit.currentStreak}   Current
             </Text>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Time</Text>
-            <Text style={styles.infoValue}>
+          <View style={styles.infoPill}>
+            <AppIcon name="flame" size={14} color={colors.mutedText} />
+            <Text style={styles.infoPillText}>{currentHabit.bestStreak}  Best</Text>
+          </View>
+        </View>
+
+        <View style={styles.quickInfoRow}>
+          <View style={styles.infoPill}>
+            <AppIcon name="clock" size={14} color={colors.mutedText} />
+            <Text style={styles.infoPillText}>
               {minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}
             </Text>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Duration</Text>
-            <Text style={styles.infoValue}>
+          <View style={styles.infoPill}>
+            <AppIcon name="hourglass" size={14} color={colors.mutedText} />
+            <Text style={styles.infoPillText}>
               {currentHabit.durationMinutes
-                ? `${currentHabit.durationMinutes} min`
-                : '-'}
+                ? `${currentHabit.durationMinutes}m`
+                : 'No duration'}
             </Text>
           </View>
         </View>
 
-        <Pressable
-          style={[styles.completeBtn, busy && styles.disabled]}
-          disabled={busy}
-          onPress={toggleTodayCompletion}>
-          <AppIcon
-            name={completedToday ? 'rotate-ccw' : 'check'}
-            size={16}
-            color="#fff"
-          />
-          <Text style={styles.completeBtnText}>
-            {completedToday ? 'Undo Today' : 'Mark Today Complete'}
-          </Text>
-        </Pressable>
-
-        {undoVisible && (
-          <View style={styles.undoBar}>
-            <View style={styles.undoProgressTrack}>
-              <View
-                style={[
-                  styles.undoProgressFill,
-                  {width: `${Math.max(0, Math.min(1, undoProgress)) * 100}%`},
-                ]}
-              />
-            </View>
-            <Text style={styles.undoText}>Habit completed</Text>
-            <Pressable
-              onPress={() => {
-                void undoActionRef.current?.();
-              }}
-              hitSlop={10}>
-              <Text style={styles.undoAction}>Undo</Text>
-            </Pressable>
+        <View style={styles.quickInfoRow}>
+          <View style={styles.infoPillFull}>
+            <AppIcon name="repeat" size={14} color={colors.mutedText} />
+            <Text style={styles.infoPillText}>{formatHabitFrequency(currentHabit)}</Text>
           </View>
-        )}
+        </View>
 
-        <View style={styles.actionsRow}>
-          <Pressable
-            style={styles.actionBtn}
-            onPress={() => setEditVisible(true)}>
-            <AppIcon name="edit" size={14} color={colors.accent} />
-            <Text style={styles.actionText}>Edit Habit</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.actionBtn, styles.deleteBtn]}
-            onPress={onDelete}>
-            <AppIcon name="trash-2" size={14} color={colors.danger} />
-            <Text style={[styles.actionText, {color: colors.danger}]}>
-              Delete
-            </Text>
-          </Pressable>
+        <View style={styles.progressCard}>
+          <View style={styles.progressHeaderRow}>
+          </View>
+          <View style={styles.dotGrid}>
+            {trackerDates.map(day => {
+              const key = dateKey(day);
+              const completed = isHabitCompletedOn(currentHabit.id, key);
+              const isFuture = key > todayKey;
+              const isToday = key === todayKey;
+              return (
+                <View key={key} style={styles.dotCell}>
+                  <View
+                    style={[
+                      styles.dot,
+                      completed && !isFuture && styles.dotDone,
+                      isToday && styles.dotToday,
+                    ]}
+                  />
+                </View>
+              );
+            })}
+          </View>
         </View>
       </ScrollView>
 
-      <HoldToConfirmButton
-        iconName="lock"
-        onHoldComplete={() => setLockInMode(true)}
-        holdDurationMs={1500}
-        square
-        size={80}
-        progressStyle="fill"
-        showHint={false}
-        style={styles.lockInFloatingBtn}
-        fillColor={colors.accent}
-      />
+      <View style={styles.floatingActions}>
+        <HoldToConfirmButton
+          iconName="lock"
+          onHoldComplete={() => setLockInMode(true)}
+          holdDurationMs={1500}
+          square
+          size={80}
+          progressStyle="fill"
+          showHint={false}
+          style={styles.lockInFloatingBtn}
+          fillColor={colors.accent}
+        />
+
+        <View style={styles.primaryActionsRow}>
+          <Pressable
+            style={[
+              styles.actionBtn,
+              canCompleteToday
+                ? completedToday
+                  ? styles.actionBtnDone
+                  : styles.completeBtn
+                : styles.completeBtn,
+              busy && styles.disabled,
+            ]}
+            disabled={busy && canCompleteToday}
+            onPress={canCompleteToday ? toggleTodayCompletion : () => setEditVisible(true)}>
+            <AppIcon
+              name={canCompleteToday ? (completedToday ? 'rotate-ccw' : 'edit') : 'edit'}
+              size={18}
+              color={canCompleteToday && completedToday ? colors.accent : '#fff'}
+            />
+            <Text
+              style={[
+                styles.actionBtnText,
+                {
+                  color:
+                    canCompleteToday && completedToday ? colors.accent : '#fff',
+                },
+              ]}>
+              {canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.actionBtn, styles.deleteBtn]}
+            onPress={onDelete}>
+            <AppIcon name="trash-2" size={18} color="#fff" />
+            <Text style={[styles.actionBtnText, {color: '#fff'}]}>Delete</Text>
+          </Pressable>
+        </View>
+      </View>
 
       <HabitForm
         visible={editVisible}
@@ -448,33 +478,36 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     lockContainer: {
       flex: 1,
-      backgroundColor: '#000',
+      backgroundColor: colors.background,
     },
     lockContent: {
       flex: 1,
       justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: spacing.xl,
-      paddingTop: spacing.xxl,
-      paddingBottom: spacing.xl,
-      gap: spacing.md,
+      alignItems: 'stretch',
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.md,
+      paddingBottom: 40,
+      gap: spacing.sm,
     },
     lockClockWrap: {
       alignItems: 'center',
-      marginTop: spacing.lg,
-      paddingTop: spacing.xs,
+      justifyContent: 'center',
+      minHeight: 240,
+      paddingVertical: spacing.md,
     },
     lockClockLine: {
-      color: '#fff',
-      fontSize: 88,
+      color: colors.text,
+      fontSize: 120,
       fontFamily: fonts.heading,
-      lineHeight: 110,
-      letterSpacing: 0.5,
-      includeFontPadding: true,
+      lineHeight: 150,
+      letterSpacing: -2,
+      includeFontPadding: false,
     },
     lockInfoBlock: {
       alignItems: 'center',
       gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
     },
     lockIconPill: {
       width: 36,
@@ -490,8 +523,9 @@ const createStyles = (colors: ThemeColors) =>
     lockTitle: {
       color: colors.text,
       fontSize: fontSize.xl,
-      fontFamily: fonts.headingMedium,
+      fontFamily: fonts.headingSemiBold,
       textAlign: 'center',
+      letterSpacing: -0.3,
     },
     lockMeta: {
       color: colors.mutedText,
@@ -499,37 +533,29 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.body,
       textAlign: 'center',
     },
-    lockCompleteBtn: {
+    lockActionsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
       width: '100%',
-      borderRadius: radii.lg,
-      borderWidth: 1,
-      borderColor: colors.accent,
+    },
+    lockActionBtn: {
+      flex: 1,
+      borderRadius: 999,
+      minHeight: 56,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    lockActionBtnPrimary: {
       backgroundColor: colors.accent,
-      paddingVertical: spacing.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
-      gap: spacing.sm,
     },
-    lockSessionBtn: {
-      width: '100%',
-      borderRadius: radii.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
+    lockActionBtnDone: {
       backgroundColor: colors.surface,
-      paddingVertical: spacing.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
-      gap: spacing.sm,
     },
-    lockSessionText: {
-      fontSize: fontSize.sm,
-    },
-    lockCompleteText: {
-      color: '#fff',
+    lockActionText: {
+      fontSize: fontSize.md,
       fontFamily: fonts.bodyBold,
-      fontSize: fontSize.sm,
     },
     lockExitBtn: {
       alignSelf: 'center',
@@ -541,212 +567,182 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.background,
     },
     header: {
-      paddingHorizontal: spacing.lg,
-      paddingTop: 12,
-      paddingBottom: spacing.sm,
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 12,
-    },
-    headerSide: {
-      width: 28,
-      alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.sm,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.md,
+      minHeight: 100,
     },
     headerTitleWrap: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
+      marginHorizontal: spacing.sm,
+      minWidth: 0,
     },
-    headerIconPill: {
-      width: 28,
-      height: 28,
-      borderRadius: radii.sm,
+    headerTitleWrapRow: {
+      flex: 1,
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.habitBadgeLight,
-      borderWidth: 1,
-      borderColor: colors.habitBadge,
-      marginBottom: spacing.xs,
+      marginHorizontal: spacing.sm,
+      minWidth: 0,
+      gap: spacing.sm,
+    },
+    headerIconInline: {
+      width: 28,
+      height: 28,
+      padding: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     headerTitle: {
       color: colors.text,
-      fontSize: fontSize.lg,
-      fontFamily: fonts.headingMedium,
+      fontSize: fontSize.xl,
+      fontFamily: fonts.heading,
     },
-    placeholder: {
-      width: 20,
+    placeholderHeader: {
+      width: 24,
     },
     scroll: {
       flex: 1,
     },
     content: {
-      paddingHorizontal: spacing.lg,
-      paddingBottom: 120,
+      paddingHorizontal: spacing.md,
+      paddingBottom: 190,
+      paddingTop: spacing.xs,
       gap: spacing.md,
     },
     name: {
       color: colors.text,
-      fontSize: fontSize.xl,
-      fontFamily: fonts.headingSemiBold,
-      textAlign: 'center',
-    },
-    streakRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
-    streakCard: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radii.md,
-      padding: spacing.md,
-      alignItems: 'center',
-    },
-    streakValue: {
-      color: colors.habitBadge,
-      fontSize: 26,
-      fontFamily: fonts.headingSemiBold,
-    },
-    streakLabel: {
-      color: colors.mutedText,
-      fontSize: fontSize.xs,
-      fontFamily: fonts.body,
-      marginTop: spacing.xs,
+      fontSize: fontSize.xxl,
+      fontFamily: fonts.heading,
+      textAlign: 'left',
+      lineHeight: 48,
+      includeFontPadding: false,
+      textAlignVertical: 'center',
     },
     sectionTitle: {
       color: colors.text,
-      fontSize: fontSize.md,
-      fontFamily: fonts.headingRegular,
-      marginTop: spacing.sm,
-    },
-    weekRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radii.md,
-      paddingHorizontal: spacing.xs,
-      paddingVertical: spacing.md,
-    },
-    weekDay: {
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    weekDot: {
-      width: 26,
-      height: 26,
-      borderRadius: 13,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.surfaceLight,
-    },
-    weekDotDone: {
-      backgroundColor: colors.success,
-      borderColor: colors.success,
-    },
-    weekLabel: {
-      color: colors.mutedText,
-      fontSize: 10,
+      fontSize: fontSize.xxl,
       fontFamily: fonts.bodyBold,
+      marginTop: spacing.xs,
     },
-    weekLabelToday: {
-      color: colors.text,
-    },
-    infoCard: {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radii.md,
-      padding: spacing.md,
+    quickInfoRow: {
+      flexDirection: 'row',
       gap: spacing.sm,
     },
-    infoRow: {
+    infoPill: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: 999,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingHorizontal: spacing.sm,
+      backgroundColor: colors.surfaceLight,
+    },
+    infoPillFull: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: 999,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingHorizontal: spacing.sm,
+      backgroundColor: colors.surfaceLight,
+    },
+    infoPillText: {
+      color: colors.mutedText,
+      fontSize: fontSize.xs,
+      fontFamily: fonts.bodyBold,
+    },
+    progressCard: {
+      borderRadius: 20,
+      padding: spacing.md,
+      gap: spacing.md,
+    },
+    progressHeaderRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    infoLabel: {
+    progressCount: {
+      color: colors.accent,
+      fontSize: fontSize.sm,
+      fontFamily: fonts.bodyBold,
+    },
+    dotGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      rowGap: 16,
+      columnGap: 0,
+    },
+    dotCell: {
+      width: '14.28%',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dot: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.surfaceLight,
+    },
+    dotDone: {
+      backgroundColor: colors.accent,
+    },
+    dotToday: {
+      borderColor: colors.accent,
+      borderWidth: 1,
+    },
+    legendRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    legendText: {
       color: colors.mutedText,
       fontSize: fontSize.xs,
       fontFamily: fonts.body,
-      textTransform: 'uppercase',
-      letterSpacing: 0.4,
-    },
-    infoValue: {
-      color: colors.text,
-      fontSize: fontSize.sm,
-      fontFamily: fonts.bodyBold,
-    },
-    completeBtn: {
-      marginTop: spacing.sm,
-      borderRadius: radii.md,
-      backgroundColor: colors.accent,
-      paddingVertical: 13,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
-    completeBtnText: {
-      color: '#fff',
-      fontFamily: fonts.bodyBold,
-      fontSize: fontSize.sm,
-    },
-    sessionActionsRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
-    sessionBtn: {
-      flex: 1,
-      borderRadius: radii.md,
-      borderWidth: 1,
-      backgroundColor: colors.surface,
-      paddingVertical: spacing.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
-      gap: spacing.xs,
-    },
-    sessionStartBtn: {
-      borderColor: colors.success,
-      backgroundColor: colors.successLight,
-    },
-    sessionPauseBtn: {
-      borderColor: colors.accent,
-      backgroundColor: colors.accentLight,
-    },
-    sessionBtnText: {
-      fontSize: fontSize.sm,
-    },
-    actionsRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
-    lockInFloatingBtn: {
-      position: 'absolute',
-      bottom: spacing.lg,
-      alignSelf: 'center',
     },
     actionBtn: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: spacing.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radii.md,
+      gap: 8,
+      minHeight: 56,
+      paddingVertical: spacing.sm,
+      borderRadius: 999,
+    },
+    completeBtn: {
+      backgroundColor: colors.accent,
+    },
+    actionBtnDone: {
       backgroundColor: colors.surface,
-      paddingVertical: spacing.md,
     },
     deleteBtn: {
-      borderColor: colors.danger,
-      backgroundColor: colors.dangerLight,
+      backgroundColor: colors.danger,
+    },
+    floatingActions: {
+      position: 'absolute',
+      left: spacing.lg,
+      right: spacing.lg,
+      bottom: 40,
+      gap: spacing.lg,
+    },
+    primaryActionsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    lockInFloatingBtn: {
+      marginBottom: 56,
+      alignSelf: 'center',
     },
     actionText: {
       color: colors.accent,
@@ -770,13 +766,18 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: radii.lg,
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceElevated,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderStrong,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       overflow: 'hidden',
+      shadowColor: colors.shadow,
+      shadowOffset: {width: 0, height: 4},
+      shadowOpacity: 1,
+      shadowRadius: 12,
+      elevation: 6,
     },
     undoProgressTrack: {
       position: 'absolute',
@@ -792,16 +793,17 @@ const createStyles = (colors: ThemeColors) =>
     },
     undoText: {
       color: colors.text,
-      fontSize: fontSize.md,
+      fontSize: fontSize.sm,
       fontFamily: fonts.bodySemiBold,
     },
     undoAction: {
       color: colors.accent,
-      fontSize: fontSize.md,
+      fontSize: fontSize.sm,
       fontFamily: fonts.bodyBold,
     },
-    lockTimerWrap: {
-      marginTop: spacing.md,
-      alignItems: 'center',
+    actionBtnText: {
+      fontFamily: fonts.bodyBold,
+      fontSize: fontSize.md,
+      color: '#fff',
     },
   });
