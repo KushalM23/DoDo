@@ -6,6 +6,7 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import {AppIcon} from '../../components/AppIcon';
+import {FocusModeScreen} from '../../components/FocusModeScreen';
 import {HoldToConfirmButton} from '../../components/HoldToConfirmButton';
 import {HabitForm} from '../../components/HabitForm';
 import {LoadingScreen} from '../../components/LoadingScreen';
@@ -147,83 +148,26 @@ export function HabitDetailScreen() {
   const completedToday = isHabitCompletedOn(currentHabit.id, todayKey);
   const canCompleteToday = habitAppliesToDate(currentHabit, todayKey);
   if (lockInMode) {
-    const hour24 = lockTime.getHours();
-    const lockHour = String(
-      preferences.timeFormat === '24h' ? hour24 : ((hour24 + 11) % 12) + 1,
-    ).padStart(2, '0');
-    const lockMinute = String(lockTime.getMinutes()).padStart(2, '0');
-
     return (
-      <SafeAreaView style={styles.lockContainer} edges={['top', 'bottom']}>
-        <View style={styles.lockContent}>
-          <View style={styles.lockClockWrap}>
-            <Text style={styles.lockClockLine}>{lockHour}</Text>
-            <Text style={styles.lockClockLine}>{lockMinute}</Text>
-          </View>
-
-          <View style={styles.lockInfoBlock}>
-            <View style={styles.lockIconPill}>
-              <AppIcon
-                name={currentHabit.icon}
-                size={18}
-                color={colors.habitBadge}
-              />
-            </View>
-            <Text style={styles.lockTitle}>{currentHabit.title}</Text>
-            <Text style={styles.lockMeta}>
-              {formatHabitFrequency(currentHabit)}
-            </Text>
-            <Text style={styles.lockMeta}>
-              {minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}
-            </Text>
-          </View>
-
-          <HoldToConfirmButton
-            iconName="lock-open"
-            onHoldComplete={() => setLockInMode(false)}
-            holdDurationMs={3000}
-            square
-            size={80}
-            progressStyle="fill"
-            showHint={false}
-            style={styles.lockExitBtn}
-            fillColor={colors.danger}
-          />
-
-          <View style={styles.lockActionsRow}>
-            <Pressable
-              style={[
-                styles.lockActionBtn,
-                canCompleteToday && completedToday
-                  ? styles.lockActionBtnDone
-                  : styles.lockActionBtnPrimary,
-                busy && styles.disabled,
-              ]}
-              disabled={busy && canCompleteToday}
-              onPress={
-                canCompleteToday
-                  ? toggleTodayCompletion
-                  : () => setEditVisible(true)
-              }>
-              <AppIcon
-                name={canCompleteToday ? (completedToday ? 'rotate-ccw' : 'check') : 'edit'}
-                size={16}
-                color={canCompleteToday && completedToday ? colors.accent : '#fff'}
-              />
-              <Text
-                style={[
-                  styles.lockActionText,
-                  {
-                    color:
-                      canCompleteToday && completedToday ? colors.accent : '#fff',
-                  },
-                ]}>
-                {canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
+      <FocusModeScreen
+        now={lockTime}
+        timeFormat={preferences.timeFormat}
+        title={currentHabit.title}
+        metaLines={[
+          formatHabitFrequency(currentHabit),
+          minuteToLabel(currentHabit.timeMinute, preferences.timeFormat),
+        ]}
+        infoIconName={currentHabit.icon}
+        infoIconColor={colors.habitBadge}
+        infoIconBorderColor={colors.habitBadge}
+        infoIconBackgroundColor={colors.habitBadgeLight}
+        onExitFocus={() => setLockInMode(false)}
+        actionLabel={canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
+        actionIconName={canCompleteToday ? (completedToday ? 'rotate-ccw' : 'check') : 'edit'}
+        onActionPress={canCompleteToday ? toggleTodayCompletion : () => setEditVisible(true)}
+        actionDisabled={busy && canCompleteToday}
+        actionDone={canCompleteToday && completedToday}
+      />
     );
   }
 
@@ -416,12 +360,8 @@ export function HabitDetailScreen() {
           iconName="lock"
           onHoldComplete={() => setLockInMode(true)}
           holdDurationMs={1500}
-          square
-          size={80}
-          progressStyle="fill"
-          showHint={false}
+          size={84}
           style={styles.lockInFloatingBtn}
-          fillColor={colors.accent}
         />
 
         <View style={styles.primaryActionsRow}>
@@ -476,92 +416,6 @@ export function HabitDetailScreen() {
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    lockContainer: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    lockContent: {
-      flex: 1,
-      justifyContent: 'space-between',
-      alignItems: 'stretch',
-      paddingHorizontal: spacing.md,
-      paddingTop: spacing.md,
-      paddingBottom: 40,
-      gap: spacing.sm,
-    },
-    lockClockWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 240,
-      paddingVertical: spacing.md,
-    },
-    lockClockLine: {
-      color: colors.text,
-      fontSize: 120,
-      fontFamily: fonts.heading,
-      lineHeight: 150,
-      letterSpacing: -2,
-      includeFontPadding: false,
-    },
-    lockInfoBlock: {
-      alignItems: 'center',
-      gap: spacing.xs,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-    },
-    lockIconPill: {
-      width: 36,
-      height: 36,
-      borderRadius: radii.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: colors.habitBadge,
-      backgroundColor: colors.habitBadgeLight,
-      marginBottom: spacing.xs,
-    },
-    lockTitle: {
-      color: colors.text,
-      fontSize: fontSize.xl,
-      fontFamily: fonts.headingSemiBold,
-      textAlign: 'center',
-      letterSpacing: -0.3,
-    },
-    lockMeta: {
-      color: colors.mutedText,
-      fontSize: fontSize.sm,
-      fontFamily: fonts.body,
-      textAlign: 'center',
-    },
-    lockActionsRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      width: '100%',
-    },
-    lockActionBtn: {
-      flex: 1,
-      borderRadius: 999,
-      minHeight: 56,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-    },
-    lockActionBtnPrimary: {
-      backgroundColor: colors.accent,
-    },
-    lockActionBtnDone: {
-      backgroundColor: colors.surface,
-    },
-    lockActionText: {
-      fontSize: fontSize.md,
-      fontFamily: fonts.bodyBold,
-    },
-    lockExitBtn: {
-      alignSelf: 'center',
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-    },
     container: {
       flex: 1,
       backgroundColor: colors.background,
@@ -733,7 +587,7 @@ const createStyles = (colors: ThemeColors) =>
       position: 'absolute',
       left: spacing.lg,
       right: spacing.lg,
-      bottom: 40,
+      bottom: 20,
       gap: spacing.lg,
     },
     primaryActionsRow: {

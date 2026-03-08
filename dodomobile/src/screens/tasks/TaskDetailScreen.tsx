@@ -19,6 +19,7 @@ import {useTasks} from '../../state/TasksContext';
 import {useCategories} from '../../state/CategoriesContext';
 import {usePreferences} from '../../state/PreferencesContext';
 import {AppIcon, type AppIconName} from '../../components/AppIcon';
+import {FocusModeScreen} from '../../components/FocusModeScreen';
 import {HoldToConfirmButton} from '../../components/HoldToConfirmButton';
 import {CustomDatePicker} from '../../components/CustomDatePicker';
 import {CustomTimePicker} from '../../components/CustomTimePicker';
@@ -475,76 +476,26 @@ export function TaskDetailScreen() {
   }
 
   if (lockInMode) {
-    const hour24 = lockTime.getHours();
-    const lockHour = String(
-      preferences.timeFormat === '24h' ? hour24 : ((hour24 + 11) % 12) + 1,
-    ).padStart(2, '0');
-    const lockMinute = String(lockTime.getMinutes()).padStart(2, '0');
-
     return (
-      <SafeAreaView style={styles.lockContainer} edges={['top', 'bottom']}>
-        <View style={styles.lockContent}>
-          <View style={styles.lockClockWrap}>
-            <Text style={styles.lockClockLine}>{lockHour}</Text>
-            <Text style={styles.lockClockLine}>{lockMinute}</Text>
-          </View>
-
-          <View style={styles.lockInfoBlock}>
-            <Text style={styles.lockTitle} numberOfLines={2}>
-              {task.title}
-            </Text>
-            <Text style={styles.lockMeta}>
-              {categoryName} · {priorityInfo?.label ?? 'Priority'}
-            </Text>
-            <Text style={styles.lockMeta}>
-              Due{' '}
-              {formatDateTime(task.deadline, {
-                dateFormat: preferences.dateFormat,
-                timeFormat: preferences.timeFormat,
-                weekStart: preferences.weekStart,
-              })}
-            </Text>
-          </View>
-
-          <HoldToConfirmButton
-            iconName="lock-open"
-            onHoldComplete={() => setLockInMode(false)}
-            holdDurationMs={3000}
-            square
-            size={80}
-            progressStyle="fill"
-            showHint={false}
-            style={styles.lockExitBtn}
-            fillColor={colors.danger}
-          />
-          
-
-          <View style={styles.lockActionsRow}>
-            <Pressable
-              style={[
-                styles.lockActionBtn,
-                task.completed
-                  ? styles.lockActionBtnDone
-                  : styles.lockActionBtnPrimary,
-              ]}
-              onPress={handleComplete}
-              disabled={busy || savingDetails}>
-              <AppIcon
-                name="check"
-                size={16}
-                color={task.completed ? colors.accent : '#fff'}
-              />
-              <Text
-                style={[
-                  styles.lockActionText,
-                  {color: task.completed ? colors.accent : '#fff'},
-                ]}>
-                {task.completed ? 'Undo' : 'Complete'}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
+      <FocusModeScreen
+        now={lockTime}
+        timeFormat={preferences.timeFormat}
+        title={task.title}
+        metaLines={[
+          `${categoryName} · ${priorityInfo?.label ?? 'Priority'}`,
+          `Due ${formatDateTime(task.deadline, {
+            dateFormat: preferences.dateFormat,
+            timeFormat: preferences.timeFormat,
+            weekStart: preferences.weekStart,
+          })}`,
+        ]}
+        onExitFocus={() => setLockInMode(false)}
+        actionLabel={task.completed ? 'Undo' : 'Complete'}
+        actionIconName="check"
+        onActionPress={handleComplete}
+        actionDisabled={busy || savingDetails}
+        actionDone={task.completed}
+      />
     );
   }
 
@@ -748,12 +699,8 @@ export function TaskDetailScreen() {
           iconName="lock"
           onHoldComplete={() => setLockInMode(true)}
           holdDurationMs={1500}
-          square
-          size={80}
-          progressStyle="fill"
-          showHint={false}
+          size={84}
           style={styles.lockInBtn}
-          fillColor={colors.accent}
         />
 
         <View style={styles.primaryActionsRow}>
@@ -792,81 +739,6 @@ export function TaskDetailScreen() {
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    lockContainer: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    lockContent: {
-      flex: 1,
-      justifyContent: 'space-between',
-      alignItems: 'stretch',
-      paddingHorizontal: spacing.md,
-      paddingTop: spacing.md,
-      paddingBottom: 40,
-      gap: spacing.sm,
-    },
-    lockClockWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 240,
-      paddingVertical: spacing.md,
-    },
-    lockClockLine: {
-      color: colors.text,
-      fontSize: 120,
-      fontFamily: fonts.heading,
-      lineHeight: 150,
-      letterSpacing: -2,
-      includeFontPadding: false,
-    },
-    lockInfoBlock: {
-      alignItems: 'center',
-      gap: spacing.xs,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-    },
-    lockTitle: {
-      color: colors.text,
-      fontSize: fontSize.xl,
-      fontFamily: fonts.headingSemiBold,
-      textAlign: 'center',
-      letterSpacing: -0.3,
-    },
-    lockMeta: {
-      color: colors.mutedText,
-      fontSize: fontSize.sm,
-      textAlign: 'center',
-      fontFamily: fonts.body,
-    },
-    lockActionsRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      width: '100%',
-    },
-    lockActionBtn: {
-      flex: 1,
-      borderRadius: 999,
-      minHeight: 56,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-    },
-    lockActionBtnPrimary: {
-      backgroundColor: colors.accent,
-    },
-    lockActionBtnDone: {
-      backgroundColor: colors.surface,
-    },
-    lockActionText: {
-      fontSize: fontSize.md,
-      fontFamily: fonts.bodyBold,
-    },
-    lockExitBtn: {
-      alignSelf: 'center',
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-    },
     container: {
       flex: 1,
       backgroundColor: colors.background,
@@ -1052,7 +924,7 @@ const createStyles = (colors: ThemeColors) =>
       position: 'absolute',
       left: spacing.lg,
       right: spacing.lg,
-      bottom: 40,
+      bottom: 20,
       gap: spacing.lg,
     },
     primaryActionsRow: {
