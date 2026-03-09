@@ -35,6 +35,7 @@ type TasksContextValue = {
     updates: Partial<CreateTaskInput> & {
       completed?: boolean;
       timerStartedAt?: string | null;
+      actualDurationSeconds?: number;
       actualDurationMinutes?: number;
     },
   ) => Promise<void>;
@@ -115,7 +116,17 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
         ),
       );
 
-      await updateTaskLocal(user.id, task.id, {completed: newCompleted});
+      const updated = await updateTaskLocal(user.id, task.id, {
+        completed: newCompleted,
+      });
+      if (updated) {
+        setTasks(prev =>
+          sortTasks(
+            prev.map(t => (t.id === task.id ? updated : t)),
+            sortMode,
+          ),
+        );
+      }
 
       const didSync = await runSync(user.id, 'manual');
       if (!didSync) {
@@ -131,7 +142,7 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
 
   const startTimer = useCallback(
     async (task: Task) => {
-      if (!user?.id) {
+      if (!user?.id || task.completed || task.timerStartedAt) {
         return;
       }
       const now = new Date().toISOString();
@@ -143,7 +154,17 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
         ),
       );
 
-      await updateTaskLocal(user.id, task.id, {timerStartedAt: now});
+      const updated = await updateTaskLocal(user.id, task.id, {
+        timerStartedAt: now,
+      });
+      if (updated) {
+        setTasks(prev =>
+          sortTasks(
+            prev.map(t => (t.id === task.id ? updated : t)),
+            sortMode,
+          ),
+        );
+      }
       void runSync(user.id, 'manual');
     },
     [sortMode, user?.id],
@@ -151,18 +172,22 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
 
   const pauseTimer = useCallback(
     async (task: Task) => {
-      if (!user?.id) {
+      if (!user?.id || !task.timerStartedAt) {
         return;
       }
-      const optimistic: Task = {...task, timerStartedAt: null};
+      const updated = await updateTaskLocal(user.id, task.id, {
+        timerStartedAt: null,
+      });
+      if (!updated) {
+        return;
+      }
       setTasks(prev =>
         sortTasks(
-          prev.map(t => (t.id === task.id ? optimistic : t)),
+          prev.map(t => (t.id === task.id ? updated : t)),
           sortMode,
         ),
       );
 
-      await updateTaskLocal(user.id, task.id, {timerStartedAt: null});
       void runSync(user.id, 'manual');
     },
     [sortMode, user?.id],
@@ -174,6 +199,7 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
       updates: Partial<CreateTaskInput> & {
         completed?: boolean;
         timerStartedAt?: string | null;
+        actualDurationSeconds?: number;
         actualDurationMinutes?: number;
       },
     ) => {

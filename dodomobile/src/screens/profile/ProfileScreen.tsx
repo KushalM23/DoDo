@@ -28,6 +28,11 @@ import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import {fonts} from '../../theme/fonts';
 import {toLocalDateKey} from '../../utils/dateTime';
 import {habitAppliesToDate} from '../../utils/habits';
+import {
+  formatCompactDuration,
+  getTaskPlannedSeconds,
+  getTaskTrackedSeconds,
+} from '../../utils/taskTiming';
 
 /* ─── Streak calculation ──────────────────────────────────── */
 
@@ -216,16 +221,24 @@ export function ProfileScreen() {
   const overdueTasks = tasks.filter(
     t => !t.completed && new Date(t.deadline).getTime() < Date.now(),
   ).length;
-  const onTimeCompletions = completedTasks.filter(t => {
-    if (!t.completedAt) {
-      return false;
-    }
-    return new Date(t.completedAt).getTime() <= new Date(t.deadline).getTime();
-  }).length;
-  const onTimeRate =
-    totalCompleted > 0
-      ? Math.round((onTimeCompletions / totalCompleted) * 100)
-      : 0;
+  const taskTimeStats = useMemo(() => {
+    const actualSeconds = completedTasks.reduce(
+      (sum, task) => sum + getTaskTrackedSeconds(task),
+      0,
+    );
+    const allottedSeconds = completedTasks.reduce(
+      (sum, task) => sum + getTaskPlannedSeconds(task),
+      0,
+    );
+
+    return {
+      actualSeconds,
+      allottedSeconds,
+      label: `${formatCompactDuration(actualSeconds)} / ${formatCompactDuration(
+        allottedSeconds,
+      )}`,
+    };
+  }, [completedTasks]);
 
   const categoryProductivity = useMemo(() => {
     const counts = new Map<string, number>();
@@ -454,9 +467,9 @@ export function ProfileScreen() {
             icon="calendar"
           />
           <StatRow
-            label="On-time rate"
-            value={`${onTimeRate}%`}
-            icon="clock"
+            label="Time taken / allotted"
+            value={taskTimeStats.label}
+            icon="hourglass"
           />
           <StatRow
             label="Overdue tasks"

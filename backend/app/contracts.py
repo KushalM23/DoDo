@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 
@@ -63,6 +64,17 @@ def normalize_category_color(color: str | None, *, fallback: bool = True) -> str
 
 
 def to_task_dto(row: dict[str, Any]) -> dict[str, Any]:
+    actual_duration_seconds = row.get("actual_duration_seconds")
+    if actual_duration_seconds is None:
+        actual_duration_seconds = int(row.get("actual_duration_minutes") or 0) * 60
+
+    actual_duration_seconds = max(0, int(actual_duration_seconds))
+    actual_duration_minutes = row.get("actual_duration_minutes")
+    if actual_duration_minutes is None:
+        actual_duration_minutes = (
+            math.ceil(actual_duration_seconds / 60) if actual_duration_seconds > 0 else 0
+        )
+
     return {
         "id": row["id"],
         "title": row["title"],
@@ -75,7 +87,8 @@ def to_task_dto(row: dict[str, Any]) -> dict[str, Any]:
         "completed": row["completed"],
         "completedAt": row.get("completed_at"),
         "timerStartedAt": row.get("timer_started_at"),
-        "actualDurationMinutes": row.get("actual_duration_minutes") or 0,
+        "actualDurationSeconds": actual_duration_seconds,
+        "actualDurationMinutes": max(0, int(actual_duration_minutes or 0)),
         "completionXp": row.get("completion_xp") or 0,
         "createdAt": row["created_at"],
         "updatedAt": row.get("updated_at") or row["created_at"],

@@ -30,7 +30,42 @@ function parseJson<T>(value: string | null | undefined, fallback: T): T {
   }
 }
 
+function safeTaskSeconds(
+  seconds: number | null | undefined,
+  minutes: number | null | undefined,
+): number {
+  if (seconds != null && Number.isFinite(seconds)) {
+    return Math.max(0, Math.floor(seconds));
+  }
+  return Math.max(0, Math.floor((minutes ?? 0) * 60));
+}
+
+function secondsToMinutes(seconds: number): number {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  if (safeSeconds === 0) {
+    return 0;
+  }
+  return Math.ceil(safeSeconds / 60);
+}
+
+function elapsedTaskSeconds(startedAt: string | null | undefined, endedAtIso: string): number {
+  if (!startedAt) {
+    return 0;
+  }
+  const startedAtMs = Date.parse(startedAt);
+  const endedAtMs = Date.parse(endedAtIso);
+  if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor((endedAtMs - startedAtMs) / 1000));
+}
+
 function toTask(row: any): Task {
+  const actualDurationSeconds = safeTaskSeconds(
+    row.actual_duration_seconds,
+    row.actual_duration_minutes,
+  );
+
   return {
     id: row.id,
     title: row.title,
@@ -43,7 +78,9 @@ function toTask(row: any): Task {
     completed: Boolean(row.completed),
     completedAt: row.completed_at,
     timerStartedAt: row.timer_started_at,
-    actualDurationMinutes: row.actual_duration_minutes ?? 0,
+    actualDurationSeconds,
+    actualDurationMinutes:
+      row.actual_duration_minutes ?? secondsToMinutes(actualDurationSeconds),
     completionXp: row.completion_xp ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -258,7 +295,7 @@ export async function upsertTaskFromRemote(
     `INSERT OR REPLACE INTO tasks_local (
       id, user_id, title, description, category_id, scheduled_at, deadline,
       duration_minutes, priority, completed, completed_at, timer_started_at,
-      actual_duration_minutes, completion_xp, created_at, updated_at, deleted_at,
+      actual_duration_seconds, actual_duration_minutes, completion_xp, created_at, updated_at, deleted_at,
       last_modified_device_at, sync_state
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
     [
@@ -274,6 +311,7 @@ export async function upsertTaskFromRemote(
       task.completed ? 1 : 0,
       task.completedAt,
       task.timerStartedAt,
+      task.actualDurationSeconds,
       task.actualDurationMinutes,
       task.completionXp,
       task.createdAt,
@@ -303,6 +341,7 @@ export async function createTaskLocal(
     completed: false,
     completedAt: null,
     timerStartedAt: null,
+    actualDurationSeconds: 0,
     actualDurationMinutes: 0,
     completionXp: 0,
     createdAt: now,
@@ -316,7 +355,7 @@ export async function createTaskLocal(
     `INSERT INTO tasks_local (
       id, user_id, title, description, category_id, scheduled_at, deadline,
       duration_minutes, priority, completed, completed_at, timer_started_at,
-      actual_duration_minutes, completion_xp, created_at, updated_at, deleted_at,
+      actual_duration_seconds, actual_duration_minutes, completion_xp, created_at, updated_at, deleted_at,
       last_modified_device_at, sync_state
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
@@ -332,6 +371,7 @@ export async function createTaskLocal(
       task.completed ? 1 : 0,
       task.completedAt,
       task.timerStartedAt,
+      task.actualDurationSeconds,
       task.actualDurationMinutes,
       task.completionXp,
       task.createdAt,
@@ -359,6 +399,7 @@ export async function updateTaskLocal(
   updates: Partial<CreateTaskInput> & {
     completed?: boolean;
     timerStartedAt?: string | null;
+    actualDurationSeconds?: number;
     actualDurationMinutes?: number;
   },
 ): Promise<Task | null> {
@@ -372,9 +413,48 @@ export async function updateTaskLocal(
 
   const existing = toTask(existingRows[0]);
   const now = nowIso();
+  let actualDurationSeconds = safeTaskSeconds(
+    updates.actualDurationSeconds,
+    updates.actualDurationMinutes,
+  );
+  if (
+    updates.actualDurationSeconds == null &&
+    updates.actualDurationMinutes == null
+  ) {
+    actualDurationSeconds = existing.actualDurationSeconds;
+  } else {
+    actualDurationSeconds = Math.max(existing.actualDurationSeconds, actualDurationSeconds);
+  }
+
+  const nextCompleted = updates.completed ?? existing.completed;
+  let nextTimerStartedAt = existing.timerStartedAt;
+
+  if (typeof updates.timerStartedAt !== 'undefined') {
+    if (updates.timerStartedAt && !existing.completed && !nextCompleted) {
+      nextTimerStartedAt = updates.timerStartedAt;
+    } else if (nextTimerStartedAt) {
+      if (updates.actualDurationSeconds == null && updates.actualDurationMinutes == null) {
+        actualDurationSeconds += elapsedTaskSeconds(nextTimerStartedAt, now);
+      }
+      nextTimerStartedAt = null;
+    } else {
+      nextTimerStartedAt = null;
+    }
+  }
+
+  if (updates.completed === true && !existing.completed) {
+    if (nextTimerStartedAt) {
+      if (updates.actualDurationSeconds == null && updates.actualDurationMinutes == null) {
+        actualDurationSeconds += elapsedTaskSeconds(nextTimerStartedAt, now);
+      }
+      nextTimerStartedAt = null;
+    }
+  }
+
   const next: Task = {
     ...existing,
     ...updates,
+    completed: nextCompleted,
     completedAt:
       updates.completed === true
         ? updates.completed && !existing.completed
@@ -383,6 +463,9 @@ export async function updateTaskLocal(
         : updates.completed === false
         ? null
         : existing.completedAt,
+      timerStartedAt: nextTimerStartedAt,
+      actualDurationSeconds,
+      actualDurationMinutes: secondsToMinutes(actualDurationSeconds),
     updatedAt: now,
     lastModifiedDeviceAt: now,
     syncState: 'pending',
@@ -400,6 +483,7 @@ export async function updateTaskLocal(
       completed = ?,
       completed_at = ?,
       timer_started_at = ?,
+      actual_duration_seconds = ?,
       actual_duration_minutes = ?,
       updated_at = ?,
       last_modified_device_at = ?,
@@ -416,6 +500,7 @@ export async function updateTaskLocal(
       next.completed ? 1 : 0,
       next.completedAt,
       next.timerStartedAt,
+      next.actualDurationSeconds,
       next.actualDurationMinutes,
       next.updatedAt,
       next.lastModifiedDeviceAt,
@@ -424,12 +509,25 @@ export async function updateTaskLocal(
     ],
   );
 
+  const syncPayload: QueuePayload = {...updates};
+  if (
+    typeof updates.timerStartedAt !== 'undefined' ||
+    typeof updates.completed !== 'undefined' ||
+    typeof updates.actualDurationSeconds !== 'undefined' ||
+    typeof updates.actualDurationMinutes !== 'undefined'
+  ) {
+    syncPayload.timerStartedAt = next.timerStartedAt;
+    syncPayload.actualDurationSeconds = next.actualDurationSeconds;
+    syncPayload.actualDurationMinutes = next.actualDurationMinutes;
+    syncPayload.completed = next.completed;
+  }
+
   await enqueueSyncOp({
     userId,
     entity: 'task',
     entityId: taskId,
     action: 'update',
-    payload: updates as QueuePayload,
+    payload: syncPayload,
   });
 
   return next;

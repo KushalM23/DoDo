@@ -53,11 +53,13 @@ function asTaskCreate(payload: unknown): CreateTaskInput {
 function asTaskUpdate(payload: unknown): Partial<CreateTaskInput> & {
   completed?: boolean;
   timerStartedAt?: string | null;
+  actualDurationSeconds?: number;
   actualDurationMinutes?: number;
 } {
   return payload as Partial<CreateTaskInput> & {
     completed?: boolean;
     timerStartedAt?: string | null;
+    actualDurationSeconds?: number;
     actualDurationMinutes?: number;
   };
 }

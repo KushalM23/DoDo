@@ -22,6 +22,7 @@ import {
   habitAppliesToDate,
   minuteToLabel,
 } from '../../utils/habits';
+import {formatClockDuration} from '../../utils/taskTiming';
 
 type HabitDetailRoute = RouteProp<RootStackParamList, 'HabitDetail'>;
 
@@ -49,6 +50,8 @@ export function HabitDetailScreen() {
     loadHistory,
     isHabitCompletedOn,
     setHabitCompletedOn,
+    startHabitTimer,
+    pauseHabitTimer,
   } = useHabits();
 
   const [busy, setBusy] = useState(false);
@@ -86,6 +89,49 @@ export function HabitDetailScreen() {
     return () => clearInterval(timer);
   }, [lockInMode]);
 
+  const completedToday = habit ? isHabitCompletedOn(habit.id, todayKey) : false;
+  const canCompleteToday = habit ? habitAppliesToDate(habit, todayKey) : false;
+
+  useEffect(() => {
+    if (
+      !lockInMode ||
+      !habit ||
+      !canCompleteToday ||
+      completedToday ||
+      habit.timerStartedAt
+    ) {
+      return;
+    }
+
+    void startHabitTimer(habit.id, todayKey).catch(() => {});
+  }, [
+    canCompleteToday,
+    completedToday,
+    habit,
+    lockInMode,
+    startHabitTimer,
+    todayKey,
+  ]);
+
+  const focusElapsedSeconds = useMemo(() => {
+    if (!habit) {
+      return 0;
+    }
+
+    let total = Math.max(0, habit.trackedSecondsToday ?? 0);
+    if (!habit.timerStartedAt) {
+      return total;
+    }
+
+    const startedAtMs = Date.parse(habit.timerStartedAt);
+    if (!Number.isFinite(startedAtMs)) {
+      return total;
+    }
+
+    total += Math.max(0, Math.floor((lockTime.getTime() - startedAtMs) / 1000));
+    return total;
+  }, [habit, lockTime]);
+
   if (!initialized || (loading && habits.length === 0)) {
     return <LoadingScreen title="Loading habit" />;
   }
@@ -109,8 +155,24 @@ export function HabitDetailScreen() {
 
   const currentHabit = habit;
 
-  const completedToday = isHabitCompletedOn(currentHabit.id, todayKey);
-  const canCompleteToday = habitAppliesToDate(currentHabit, todayKey);
+  async function handleExitFocus() {
+    try {
+      if (
+        currentHabit.timerStartedAt &&
+        !completedToday &&
+        canCompleteToday
+      ) {
+        await pauseHabitTimer(currentHabit.id, todayKey);
+      }
+      setLockInMode(false);
+    } catch (err) {
+      showAlert(
+        'Failed to pause timer',
+        err instanceof Error ? err.message : 'Unable to pause focus timer.',
+      );
+    }
+  }
+
   if (lockInMode) {
     return (
       <FocusModeScreen
@@ -123,7 +185,10 @@ export function HabitDetailScreen() {
         ]}
         infoIconName={currentHabit.icon}
         infoIconColor={colors.habitBadge}
-        onExitFocus={() => setLockInMode(false)}
+        elapsedSeconds={focusElapsedSeconds}
+        onExitFocus={() => {
+          void handleExitFocus();
+        }}
         actionLabel={canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
         actionIconName={canCompleteToday ? (completedToday ? 'rotate-ccw' : 'check') : 'edit'}
         onActionPress={canCompleteToday ? toggleTodayCompletion : () => setEditVisible(true)}
@@ -222,7 +287,7 @@ export function HabitDetailScreen() {
             <Text style={styles.infoPillText}>
               {currentHabit.durationMinutes
                 ? `${currentHabit.durationMinutes}m`
-                : 'No duration'}
+                : formatClockDuration(focusElapsedSeconds)}
             </Text>
           </View>
         </View>

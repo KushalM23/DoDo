@@ -25,6 +25,23 @@ async function exec(sql: string, params: unknown[] = []): Promise<void> {
   await getDb().executeAsync(sql, params);
 }
 
+async function hasColumn(tableName: string, columnName: string): Promise<boolean> {
+  const rows = await query<{name: string}>(`PRAGMA table_info(${tableName})`);
+  return rows.some(row => row.name === columnName);
+}
+
+async function ensureColumn(
+  tableName: string,
+  columnName: string,
+  columnDefinition: string,
+): Promise<void> {
+  if (await hasColumn(tableName, columnName)) {
+    return;
+  }
+
+  await exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnDefinition}`);
+}
+
 export async function query<T>(
   sql: string,
   params: unknown[] = [],
@@ -69,6 +86,7 @@ export async function initializeLocalDb(): Promise<void> {
       completed INTEGER NOT NULL DEFAULT 0,
       completed_at TEXT,
       timer_started_at TEXT,
+      actual_duration_seconds INTEGER NOT NULL DEFAULT 0,
       actual_duration_minutes INTEGER NOT NULL DEFAULT 0,
       completion_xp INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
@@ -166,6 +184,19 @@ export async function initializeLocalDb(): Promise<void> {
   await exec('CREATE INDEX IF NOT EXISTS idx_habits_local_user_deleted ON habits_local(user_id, deleted_at)');
   await exec('CREATE INDEX IF NOT EXISTS idx_habit_completions_local_user_date ON habit_completions_local(user_id, completed_on)');
   await exec('CREATE INDEX IF NOT EXISTS idx_sync_queue_schedule ON sync_queue(user_id, status, next_retry_at, created_at)');
+
+  await ensureColumn(
+    'tasks_local',
+    'actual_duration_seconds',
+    'actual_duration_seconds INTEGER NOT NULL DEFAULT 0',
+  );
+  await exec(
+    `UPDATE tasks_local
+     SET actual_duration_seconds = CASE
+       WHEN actual_duration_seconds IS NULL OR actual_duration_seconds < 0 THEN MAX(COALESCE(actual_duration_minutes, 0), 0) * 60
+       ELSE actual_duration_seconds
+     END`,
+  );
 
   for (const [fromColor, toColor] of LEGACY_CATEGORY_COLOR_MIGRATIONS) {
     await exec(

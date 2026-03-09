@@ -173,6 +173,7 @@ export async function updateTask(
   updates: Partial<CreateTaskInput> & {
     completed?: boolean;
     timerStartedAt?: string | null;
+    actualDurationSeconds?: number;
     actualDurationMinutes?: number;
   },
 ): Promise<Task> {

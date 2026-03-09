@@ -73,6 +73,7 @@ function habitToTask(
     completed,
     completedAt: completed ? new Date().toISOString() : null,
     timerStartedAt: null,
+    actualDurationSeconds: 0,
     actualDurationMinutes: 0,
     completionXp: 0,
     createdAt: h.createdAt,

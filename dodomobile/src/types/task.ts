@@ -12,6 +12,7 @@ export type Task = {
   completed: boolean;
   completedAt: string | null;
   timerStartedAt: string | null;
+  actualDurationSeconds: number;
   actualDurationMinutes: number;
   completionXp: number;
   createdAt: string;
