@@ -8,11 +8,12 @@ import React, {
   useState,
 } from 'react';
 import {
-  createCategory as apiCreateCategory,
-  deleteCategory as apiDeleteCategory,
-  fetchCategories,
-  updateCategory as apiUpdateCategory,
-} from '../services/api';
+  createCategoryLocal,
+  listCategoriesLocal,
+  softDeleteCategoryLocal,
+  updateCategoryLocal,
+} from '../lib/local/repository';
+import {runSync} from '../lib/local/syncEngine';
 import {useAuth} from './AuthContext';
 import {
   DEFAULT_CATEGORY_COLOR,
@@ -114,42 +115,20 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
       return;
     }
 
-    const cacheKey = `dodo.categories:${user.id}`;
     setLoading(true);
 
-    // 1. Load from cache first
     try {
-      const cached = await AsyncStorage.getItem(cacheKey);
-      if (cached) {
-        const parsedCategories = JSON.parse(cached);
-        if (Array.isArray(parsedCategories) && parsedCategories.length > 0) {
-          const storedOrderRaw = await AsyncStorage.getItem(orderKey(user.id));
-          let storedOrder: string[] = [];
-          if (storedOrderRaw) {
-            try {
-              storedOrder = JSON.parse(storedOrderRaw) as string[];
-            } catch {
-              storedOrder = [];
-            }
-          }
-          const normalizedOrder = normalizeOrder(parsedCategories, storedOrder);
-
-          setOrderedIds(normalizedOrder);
-          setCategories(orderCategories(parsedCategories, normalizedOrder));
-          setInitialized(true); // render immediately if cache hit
-        }
-      }
-    } catch (e) {
-      console.error('[CategoriesContext] Cache load error:', e);
-    }
-
-    // 2. Fetch from network
-    try {
-      let nextCategories = await fetchCategories();
+      let nextCategories = await listCategoriesLocal(user.id);
       if (nextCategories.length === 0) {
         const seeded: Category[] = [];
         for (const category of DEFAULT_CATEGORIES) {
-          seeded.push(await apiCreateCategory(category));
+          seeded.push(
+            await createCategoryLocal(user.id, {
+              name: category.name,
+              color: category.color,
+              icon: category.icon,
+            }),
+          );
         }
         nextCategories = seeded;
       }
@@ -169,12 +148,10 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
           storedOrder = [];
         }
       }
-      const normalizedOrder = normalizeOrder(nextCategories, storedOrder);
 
+      const normalizedOrder = normalizeOrder(nextCategories, storedOrder);
       setOrderedIds(normalizedOrder);
       setCategories(orderCategories(nextCategories, normalizedOrder));
-
-      await AsyncStorage.setItem(cacheKey, JSON.stringify(nextCategories));
 
       if (
         storedOrderRaw == null ||
@@ -182,6 +159,16 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
       ) {
         await persistOrder(normalizedOrder);
       }
+
+      void runSync(user.id, 'manual').then(async didSync => {
+        if (!didSync) {
+          return;
+        }
+        const reconciled = await listCategoriesLocal(user.id);
+        const normalized = normalizeOrder(reconciled, normalizedOrder);
+        setOrderedIds(normalized);
+        setCategories(orderCategories(reconciled, normalized));
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (
@@ -202,12 +189,15 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
 
   const addCategory = useCallback(
     async (input: CreateCategoryInput) => {
+      if (!user?.id) {
+        return;
+      }
       const name = input.name.trim();
       if (!name) {
         throw new Error('Category name cannot be empty.');
       }
 
-      const created = await apiCreateCategory({
+      const created = await createCategoryLocal(user.id, {
         name,
         color: input.color || DEFAULT_CATEGORY_COLOR,
         icon: input.icon || DEFAULT_CATEGORY_ICON,
@@ -222,30 +212,42 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
       setOrderedIds(nextOrder);
       setCategories(orderCategories(nextCategories, nextOrder));
       await persistOrder(nextOrder);
+      void runSync(user.id, 'manual');
     },
-    [categories, orderedIds, persistOrder],
+    [categories, orderedIds, persistOrder, user?.id],
   );
 
   const editCategory = useCallback(
     async (id: string, input: CreateCategoryInput) => {
+      if (!user?.id) {
+        return;
+      }
       const name = input.name.trim();
       if (!name) {
         throw new Error('Category name cannot be empty.');
       }
 
-      const updated = await apiUpdateCategory(id, {
+      const updated = await updateCategoryLocal(user.id, id, {
         name,
         color: input.color || DEFAULT_CATEGORY_COLOR,
         icon: input.icon || DEFAULT_CATEGORY_ICON,
       });
+      if (!updated) {
+        return;
+      }
       setCategories(prev => prev.map(c => (c.id === id ? updated : c)));
+      void runSync(user.id, 'manual');
     },
-    [],
+    [user?.id],
   );
 
   const removeCategory = useCallback(
     async (id: string) => {
-      await apiDeleteCategory(id);
+      if (!user?.id) {
+        return;
+      }
+
+      await softDeleteCategoryLocal(user.id, id);
 
       const nextCategories = categories.filter(c => c.id !== id);
       const nextOrder = orderedIds.filter(categoryId => categoryId !== id);
@@ -253,8 +255,9 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
       setOrderedIds(nextOrder);
       setCategories(orderCategories(nextCategories, nextOrder));
       await persistOrder(nextOrder);
+      void runSync(user.id, 'manual');
     },
-    [categories, orderedIds, persistOrder],
+    [categories, orderedIds, persistOrder, user?.id],
   );
 
   const setCategoryOrder = useCallback(

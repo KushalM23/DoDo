@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -17,10 +17,12 @@ def _to_category_dto(row: dict) -> dict:
         "color": row.get("color") or "#E8651A",
         "icon": row.get("icon") or "inbox",
         "createdAt": row["created_at"],
+        "updatedAt": row.get("updated_at") or row["created_at"],
     }
 
 
 class CreateCategory(BaseModel):
+    id: Optional[str] = None
     name: str = Field(min_length=1, max_length=50)
     color: Literal[
         "#E8651A",
@@ -86,14 +88,18 @@ async def list_categories(auth: AuthState = Depends(require_auth)):
 
 @router.post("", status_code=201)
 async def create_category(body: CreateCategory, auth: AuthState = Depends(require_auth)):
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
     resp = (
         auth.supabase.table("categories")
         .insert(
             {
+                **({"id": body.id} if body.id else {}),
                 "user_id": auth.user_id,
                 "name": body.name.strip(),
                 "color": body.color,
                 "icon": body.icon,
+                "updated_at": now.isoformat(),
             }
         )
         .execute()
@@ -105,9 +111,11 @@ async def create_category(body: CreateCategory, auth: AuthState = Depends(requir
 async def update_category(
     category_id: str, body: UpdateCategory, auth: AuthState = Depends(require_auth)
 ):
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
     resp = (
         auth.supabase.table("categories")
-        .update({"name": body.name.strip(), "color": body.color, "icon": body.icon})
+        .update({"name": body.name.strip(), "color": body.color, "icon": body.icon, "updated_at": now.isoformat()})
         .eq("id", category_id)
         .eq("user_id", auth.user_id)
         .execute()

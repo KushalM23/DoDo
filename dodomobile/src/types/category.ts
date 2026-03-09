@@ -4,6 +4,10 @@ export type Category = {
   color: string;
   icon: CategoryIcon;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
+  lastModifiedDeviceAt?: string;
+  syncState?: 'synced' | 'pending' | 'retry' | 'terminal_local_only';
 };
 
 export type CategoryIcon =

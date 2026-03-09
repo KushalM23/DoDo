@@ -14,7 +14,8 @@ create table if not exists public.categories (
   name text not null check (char_length(name) between 1 and 50),
   color text not null default '#E8651A',
   icon text not null default 'inbox',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.tasks (
@@ -32,7 +33,8 @@ create table if not exists public.tasks (
   timer_started_at timestamptz,
   actual_duration_minutes integer not null default 0 check (actual_duration_minutes >= 0),
   completion_xp integer not null default 0 check (completion_xp >= 0),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.habits (
@@ -53,6 +55,7 @@ create table if not exists public.habits (
   frequency text,
   start_minute integer,
   duration_minutes integer,
+  updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 
@@ -77,6 +80,9 @@ create table if not exists public.habit_sessions (
   created_at timestamptz not null default now()
 );
 
+alter table public.categories add column if not exists updated_at timestamptz;
+alter table public.tasks add column if not exists updated_at timestamptz;
+alter table public.habits add column if not exists updated_at timestamptz;
 alter table public.habits add column if not exists start_minute integer;
 alter table public.habits add column if not exists duration_minutes integer;
 alter table public.habits add column if not exists frequency_type text;
@@ -149,6 +155,18 @@ update public.profiles
 set experience_points = coalesce(experience_points, 0),
     current_level = coalesce(current_level, 1);
 
+update public.categories
+set updated_at = coalesce(updated_at, created_at, now())
+where updated_at is null;
+
+update public.tasks
+set updated_at = coalesce(updated_at, created_at, now())
+where updated_at is null;
+
+update public.habits
+set updated_at = coalesce(updated_at, created_at, now())
+where updated_at is null;
+
 update public.tasks
 set actual_duration_minutes = coalesce(actual_duration_minutes, 0),
     completion_xp = coalesce(completion_xp, 0);
@@ -163,6 +181,12 @@ alter table public.habits alter column custom_days set not null;
 alter table public.habits alter column icon set default 'target';
 alter table public.habits alter column icon set not null;
 alter table public.habits alter column anchor_date set default current_date;
+alter table public.categories alter column updated_at set default now();
+alter table public.categories alter column updated_at set not null;
+alter table public.tasks alter column updated_at set default now();
+alter table public.tasks alter column updated_at set not null;
+alter table public.habits alter column updated_at set default now();
+alter table public.habits alter column updated_at set not null;
 alter table public.habits alter column anchor_date set not null;
 alter table public.habits alter column current_streak set default 0;
 alter table public.habits alter column current_streak set not null;
@@ -216,11 +240,14 @@ alter table public.habits add constraint habits_icon_check
   check (icon in ('book-open', 'dumbbell', 'droplets', 'utensils', 'bed', 'target', 'brain', 'leaf', 'music', 'cup-soda'));
 
 create index if not exists idx_categories_user_id on public.categories(user_id);
+create index if not exists idx_categories_updated_at on public.categories(user_id, updated_at);
 create index if not exists idx_tasks_user_id on public.tasks(user_id);
 create index if not exists idx_tasks_scheduled_at on public.tasks(scheduled_at);
 create index if not exists idx_tasks_user_scheduled_at on public.tasks(user_id, scheduled_at);
+create index if not exists idx_tasks_updated_at on public.tasks(user_id, updated_at);
 create index if not exists idx_habits_user_id on public.habits(user_id);
 create index if not exists idx_habits_user_next_occurrence on public.habits(user_id, next_occurrence_on);
+create index if not exists idx_habits_updated_at on public.habits(user_id, updated_at);
 create index if not exists idx_habit_completions_user_habit_date on public.habit_completions(user_id, habit_id, completed_on);
 create index if not exists idx_habit_completions_user_date on public.habit_completions(user_id, completed_on);
 create index if not exists idx_habit_sessions_user_habit_date on public.habit_sessions(user_id, habit_id, session_date);

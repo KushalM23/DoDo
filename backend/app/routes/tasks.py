@@ -50,6 +50,7 @@ def _to_task_dto(row: dict) -> dict:
         "actualDurationMinutes": row.get("actual_duration_minutes") or 0,
         "completionXp": row.get("completion_xp") or 0,
         "createdAt": row["created_at"],
+        "updatedAt": row.get("updated_at") or row["created_at"],
     }
 
 
@@ -111,6 +112,7 @@ def _task_completion_streak(auth: AuthState, candidate_day: date_type | None = N
 
 
 class CreateTask(BaseModel):
+    id: Optional[str] = None
     title: str = Field(min_length=1, max_length=140)
     description: str = Field(default="", max_length=1000)
     categoryId: Optional[str] = None
@@ -175,10 +177,12 @@ async def list_tasks(
 
 @router.post("", status_code=201)
 async def create_task(body: CreateTask, auth: AuthState = Depends(require_auth)):
+    now = datetime.now(timezone.utc)
     resp = (
         auth.supabase.table("tasks")
         .insert(
             {
+                **({"id": body.id} if body.id else {}),
                 "user_id": auth.user_id,
                 "title": body.title.strip(),
                 "description": body.description.strip(),
@@ -192,6 +196,7 @@ async def create_task(body: CreateTask, auth: AuthState = Depends(require_auth))
                 "timer_started_at": None,
                 "actual_duration_minutes": 0,
                 "completion_xp": 0,
+                "updated_at": now.isoformat(),
             }
         )
         .execute()
@@ -243,6 +248,8 @@ async def update_task(task_id: str, request: Request, auth: AuthState = Depends(
         raise HTTPException(status_code=400, detail="At least one field is required.")
 
     now = datetime.now(timezone.utc)
+    payload["updated_at"] = now.isoformat()
+    
     previous_completed = bool(current_row.get("completed"))
     next_completed = bool(payload["completed"]) if "completed" in payload else previous_completed
     xp_delta = 0

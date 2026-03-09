@@ -15,6 +15,10 @@ export type Task = {
   actualDurationMinutes: number;
   completionXp: number;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
+  lastModifiedDeviceAt?: string;
+  syncState?: 'synced' | 'pending' | 'retry' | 'terminal_local_only';
 };
 
 export type CreateTaskInput = {

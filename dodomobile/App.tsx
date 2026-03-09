@@ -10,6 +10,7 @@ import { HabitsProvider } from "./src/state/HabitsContext";
 import { PreferencesProvider, usePreferences } from "./src/state/PreferencesContext";
 import { ThemeColorsProvider, useThemeColors, useThemeMode } from "./src/theme/ThemeProvider";
 import { AlertProvider } from "./src/state/AlertContext";
+import { SyncProvider } from "./src/state/SyncContext";
 
 function AppNavigation() {
   const colors = useThemeColors();
@@ -37,9 +38,11 @@ function AppNavigation() {
         <CategoriesProvider>
           <HabitsProvider>
             <TasksProvider>
-              <NavigationContainer theme={navTheme}>
-                <RootNavigator />
-              </NavigationContainer>
+              <SyncProvider>
+                <NavigationContainer theme={navTheme}>
+                  <RootNavigator />
+                </NavigationContainer>
+              </SyncProvider>
             </TasksProvider>
           </HabitsProvider>
         </CategoriesProvider>

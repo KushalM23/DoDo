@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
   useCallback,
@@ -8,26 +7,21 @@ import React, {
   useState,
 } from 'react';
 import {
-  fetchHabits,
-  createHabit as apiCreateHabit,
-  deleteHabit as apiDeleteHabit,
-  updateHabit as apiUpdateHabit,
-  fetchHabitHistory,
-  completeHabit as apiCompleteHabit,
-  uncompleteHabit as apiUncompleteHabit,
-  startHabitTimer as apiStartHabitTimer,
-  pauseHabitTimer as apiPauseHabitTimer,
-} from '../services/api';
+  createHabitLocal,
+  listHabitCompletionMapLocal,
+  listHabitsLocal,
+  setHabitCompletedLocal,
+  setHabitTimerLocal,
+  softDeleteHabitLocal,
+  updateHabitLocal,
+} from '../lib/local/repository';
+import {runSync} from '../lib/local/syncEngine';
 import {useAuth} from './AuthContext';
 import {
   DEFAULT_HABIT_ICON,
   type CreateHabitInput,
   type Habit,
 } from '../types/habit';
-
-function tempId(): string {
-  return `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
 
 function localDateKey(value: Date): string {
   const yyyy = value.getFullYear();
@@ -76,50 +70,30 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
   const [initialized, setInitialized] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    if (!user?.id) {
       setHabits([]);
       setCompletionMap({});
       setInitialized(true);
       return;
     }
-    const cacheKey = `dodo.habits:${user.id}`;
-    const compCacheKey = `dodo.habits.comp:${user.id}`;
     setLoading(true);
 
-    // 1. Load from cache first
     try {
-      const cached = await AsyncStorage.getItem(cacheKey);
-      const cachedComp = await AsyncStorage.getItem(compCacheKey);
+      const localHabits = await listHabitsLocal(user.id);
+      setHabits(localHabits);
 
-      let hasHabits = false;
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) {
-          setHabits(parsed);
-          hasHabits = true;
+      const localMap = await listHabitCompletionMapLocal(user.id);
+      setCompletionMap(localMap);
+
+      void runSync(user.id, 'manual').then(async didSync => {
+        if (!didSync) {
+          return;
         }
-      }
-
-      if (cachedComp) {
-        try {
-          const parsedComp = JSON.parse(cachedComp);
-          if (parsedComp) {
-            setCompletionMap(parsedComp);
-          }
-        } catch {}
-      }
-
-      if (hasHabits) {
-        setInitialized(true); // render immediately if cache hit
-      }
-    } catch (e) {
-      console.error('[HabitsContext] Cache load error:', e);
-    }
-
-    try {
-      const data = await fetchHabits();
-      setHabits(data);
-      await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+        const reconciledHabits = await listHabitsLocal(user.id);
+        const reconciledMap = await listHabitCompletionMapLocal(user.id);
+        setHabits(reconciledHabits);
+        setCompletionMap(reconciledMap);
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (
@@ -132,47 +106,35 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
       setLoading(false);
       setInitialized(true);
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     setInitialized(false);
   }, [user?.id]);
 
-  // Optimistic add
-  const addHabit = useCallback(async (input: CreateHabitInput) => {
-    const id = tempId();
-    const optimistic: Habit = {
-      id,
-      title: input.title,
-      icon: input.icon ?? DEFAULT_HABIT_ICON,
-      frequencyType: input.frequencyType,
-      intervalDays: input.intervalDays ?? null,
-      customDays: input.customDays ?? [],
-      timeMinute: input.timeMinute ?? null,
-      durationMinutes: input.durationMinutes ?? null,
-      anchorDate: input.anchorDate ?? localDateKey(new Date()),
-      currentStreak: 0,
-      bestStreak: 0,
-      lastCompletedOn: null,
-      nextOccurrenceOn: null,
-      timerStartedAt: null,
-      trackedSecondsToday: 0,
-      createdAt: new Date().toISOString(),
-    };
-    setHabits(prev => [...prev, optimistic]);
+  const addHabit = useCallback(
+    async (input: CreateHabitInput) => {
+      if (!user?.id) {
+        return;
+      }
 
-    apiCreateHabit(input)
-      .then(real => {
-        setHabits(prev => prev.map(h => (h.id === id ? real : h)));
-      })
-      .catch(err => {
-        setHabits(prev => prev.filter(h => h.id !== id));
-        console.error('[HabitsContext] addHabit sync error:', err);
+      const optimistic = await createHabitLocal(user.id, {
+        ...input,
+        icon: input.icon ?? DEFAULT_HABIT_ICON,
+        anchorDate: input.anchorDate ?? localDateKey(new Date()),
       });
-  }, []);
+      setHabits(prev => [...prev, optimistic]);
+      void runSync(user.id, 'manual');
+    },
+    [user?.id],
+  );
 
   const editHabit = useCallback(
     async (habitId: string, input: Partial<CreateHabitInput>) => {
+      if (!user?.id) {
+        return;
+      }
+
       const before = habits.find(h => h.id === habitId);
       if (!before) {
         return;
@@ -194,40 +156,37 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
         ),
       );
 
-      try {
-        const updated = await apiUpdateHabit(habitId, input);
-        setHabits(prev => prev.map(h => (h.id === habitId ? updated : h)));
-      } catch (err) {
+      const updated = await updateHabitLocal(user.id, habitId, input);
+      if (!updated) {
         setHabits(prev => prev.map(h => (h.id === habitId ? before : h)));
-        throw err;
+        return;
       }
+
+      setHabits(prev => prev.map(h => (h.id === habitId ? updated : h)));
+      void runSync(user.id, 'manual');
     },
-    [habits],
+    [habits, user?.id],
   );
 
-  // Optimistic remove
-  const removeHabit = useCallback(async (id: string) => {
-    let removed: Habit | undefined;
-    setHabits(prev => {
-      removed = prev.find(h => h.id === id);
-      return prev.filter(h => h.id !== id);
-    });
-
-    apiDeleteHabit(id).catch(err => {
-      if (removed) {
-        setHabits(prev => [...prev, removed!]);
+  const removeHabit = useCallback(
+    async (id: string) => {
+      if (!user?.id) {
+        return;
       }
-      console.error('[HabitsContext] removeHabit sync error:', err);
-    });
-    setCompletionMap(prev => {
-      if (!(id in prev)) {
-        return prev;
-      }
-      const next = {...prev};
-      delete next[id];
-      return next;
-    });
-  }, []);
+      await softDeleteHabitLocal(user.id, id);
+      setHabits(prev => prev.filter(h => h.id !== id));
+      setCompletionMap(prev => {
+        if (!(id in prev)) {
+          return prev;
+        }
+        const next = {...prev};
+        delete next[id];
+        return next;
+      });
+      void runSync(user.id, 'manual');
+    },
+    [user?.id],
+  );
 
   const loadHistory = useCallback(
     async (params: {
@@ -236,44 +195,22 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
       days?: number;
       habitId?: string;
     }) => {
-      const rows = await fetchHabitHistory(params);
-      setCompletionMap(prev => {
-        const next = {...prev};
+      if (!user?.id) {
+        return;
+      }
 
-        if (params.startDate && params.endDate) {
-          const from = params.startDate;
-          const to = params.endDate;
-          const clearDatesInRange = (dateMap: Record<string, boolean>) => {
-            const out: Record<string, boolean> = {};
-            Object.entries(dateMap).forEach(([date, value]) => {
-              if (date < from || date > to) {
-                out[date] = value;
-              }
-            });
-            return out;
-          };
-
-          if (params.habitId) {
-            if (next[params.habitId]) {
-              next[params.habitId] = clearDatesInRange(next[params.habitId]);
-            }
-          } else {
-            Object.keys(next).forEach(habitId => {
-              next[habitId] = clearDatesInRange(next[habitId]);
-            });
-          }
-        }
-
-        for (const row of rows) {
-          if (!next[row.habitId]) {
-            next[row.habitId] = {};
-          }
-          next[row.habitId] = {...next[row.habitId], [row.date]: true};
-        }
-        return next;
+      const rows = await listHabitCompletionMapLocal(user.id, {
+        startDate: params.startDate,
+        endDate: params.endDate,
+        habitId: params.habitId,
       });
+
+      setCompletionMap(prev => ({
+        ...prev,
+        ...rows,
+      }));
     },
-    [],
+    [user?.id],
   );
 
   const isHabitCompletedOn = useCallback(
@@ -285,6 +222,10 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
 
   const setHabitCompletedOn = useCallback(
     async (habitId: string, date: string, completed: boolean) => {
+      if (!user?.id) {
+        return;
+      }
+
       setCompletionMap(prev => ({
         ...prev,
         [habitId]: {
@@ -293,84 +234,63 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
         },
       }));
 
-      try {
-        const updated = completed
-          ? await apiCompleteHabit(habitId, date)
-          : await apiUncompleteHabit(habitId, date);
-        setHabits(prev => prev.map(h => (h.id === habitId ? updated : h)));
-      } catch (err) {
-        setCompletionMap(prev => ({
-          ...prev,
-          [habitId]: {
-            ...(prev[habitId] ?? {}),
-            [date]: !completed,
-          },
-        }));
-        throw err;
-      }
+      await setHabitCompletedLocal({
+        userId: user.id,
+        habitId,
+        date,
+        completed,
+      });
+      void runSync(user.id, 'manual');
     },
-    [],
+    [user?.id],
   );
 
   const startHabitTimer = useCallback(
     async (habitId: string, date?: string) => {
-      const targetDate = date;
+      if (!user?.id) {
+        return;
+      }
       const nowIso = new Date().toISOString();
       setHabits(prev =>
         prev.map(h => (h.id === habitId ? {...h, timerStartedAt: nowIso} : h)),
       );
 
-      try {
-        const updated = await apiStartHabitTimer(habitId, targetDate);
-        setHabits(prev => prev.map(h => (h.id === habitId ? updated : h)));
-      } catch (err) {
-        setHabits(prev =>
-          prev.map(h => (h.id === habitId ? {...h, timerStartedAt: null} : h)),
-        );
-        throw err;
-      }
+      await setHabitTimerLocal({
+        userId: user.id,
+        habitId,
+        date,
+        startedAt: nowIso,
+        action: 'start_timer',
+      });
+      void runSync(user.id, 'manual');
     },
-    [],
+    [user?.id],
   );
 
   const pauseHabitTimer = useCallback(
     async (habitId: string, date?: string) => {
-      const previous =
-        habits.find(h => h.id === habitId)?.timerStartedAt ?? null;
+      if (!user?.id) {
+        return;
+      }
       setHabits(prev =>
         prev.map(h => (h.id === habitId ? {...h, timerStartedAt: null} : h)),
       );
 
-      try {
-        const updated = await apiPauseHabitTimer(habitId, date);
-        setHabits(prev => prev.map(h => (h.id === habitId ? updated : h)));
-      } catch (err) {
-        setHabits(prev =>
-          prev.map(h =>
-            h.id === habitId ? {...h, timerStartedAt: previous} : h,
-          ),
-        );
-        throw err;
-      }
+      await setHabitTimerLocal({
+        userId: user.id,
+        habitId,
+        date,
+        startedAt: null,
+        action: 'pause_timer',
+      });
+      void runSync(user.id, 'manual');
     },
-    [habits],
+    [user?.id],
   );
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
-
-  useEffect(() => {
-    if (user?.id && initialized) {
-      AsyncStorage.setItem(
-        `dodo.habits.comp:${user.id}`,
-        JSON.stringify(completionMap),
-      ).catch(err => {
-        console.error('Failed to save completionMap to cache', err);
-      });
-    }
-  }, [completionMap, user?.id, initialized]);
-
   const value = useMemo<HabitsContextValue>(
     () => ({
       habits,

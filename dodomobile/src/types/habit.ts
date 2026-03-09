@@ -50,6 +50,10 @@ export type Habit = {
   timerStartedAt: string | null;
   trackedSecondsToday: number;
   createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
+  lastModifiedDeviceAt?: string;
+  syncState?: 'synced' | 'pending' | 'retry' | 'terminal_local_only';
 };
 
 export type CreateHabitInput = {

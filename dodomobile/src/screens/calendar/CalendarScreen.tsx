@@ -6,8 +6,9 @@ import {
   InteractionManager,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {fetchTasksInRange} from '../../services/api';
+import {listTasksLocal} from '../../lib/local/repository';
+import {runSync} from '../../lib/local/syncEngine';
+import {useAuth} from '../../state/AuthContext';
 import {useHabits} from '../../state/HabitsContext';
 import {usePreferences} from '../../state/PreferencesContext';
 import {spacing} from '../../theme/colors';
@@ -31,6 +32,7 @@ import {BottomGradient} from '../../components/display/BottomGradient';
 export function CalendarScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const {user} = useAuth();
   const {habits, completionMap, loadHistory} = useHabits();
   const {preferences} = usePreferences();
   const {width, height} = useWindowDimensions();
@@ -45,56 +47,53 @@ export function CalendarScreen() {
 
   const [monthTasks, setMonthTasks] = useState<Task[]>([]);
 
-  // To cover the whole period (month tasks for status dots, etc)
-  // Let's grab the window based on the currentDate's month
+  // Read from SQLite first, then reconcile after background sync.
   useEffect(() => {
     let canceled = false;
-    let timeoutId: ReturnType<typeof setTimeout>;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let interactionHandle: ReturnType<
       typeof InteractionManager.runAfterInteractions
-    >;
+    > | undefined;
+
+    if (!user?.id) {
+      setMonthTasks([]);
+      return;
+    }
+
     const {startAt, endAt} = monthWindow(currentDate);
-    const cacheKey = `@dodo/cal_tasks_${startAt}_${endAt}`;
 
-    const fetchLatest = async () => {
-      try {
-        const data = await fetchTasksInRange(startAt, endAt);
-        if (!canceled) {
-          setMonthTasks(data);
-          await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
-        }
-      } catch (err) {
-        // ignore
-      }
-    };
-
-    // Load cache eagerly (no deferral) so data appears immediately
-    (async () => {
-      try {
-        const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached && !canceled) {
-          setMonthTasks(JSON.parse(cached));
-        }
-      } catch (err) {
-        // ignore
+    const loadMonthTasks = async () => {
+      const localTasks = await listTasksLocal(user.id, {startAt, endAt});
+      if (!canceled) {
+        setMonthTasks(localTasks);
       }
 
-      // Defer only the network refresh until animations finish
       interactionHandle = InteractionManager.runAfterInteractions(() => {
         timeoutId = setTimeout(() => {
-          if (!canceled) {
-            fetchLatest();
-          }
+          void runSync(user.id, 'manual').then(async didSync => {
+            if (!didSync || canceled) {
+              return;
+            }
+
+            const reconciledTasks = await listTasksLocal(user.id, {startAt, endAt});
+            if (!canceled) {
+              setMonthTasks(reconciledTasks);
+            }
+          });
         }, 100);
       });
-    })();
+    };
+
+    void loadMonthTasks();
 
     return () => {
       canceled = true;
-      clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       interactionHandle?.cancel();
     };
-  }, [currentDate]);
+  }, [currentDate, user?.id]);
 
   const allMonthCells = useMemo(
     () => buildMonthCells(currentDate, preferences.weekStart),

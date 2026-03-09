@@ -167,6 +167,7 @@ def _to_habit_dto(
         "timerStartedAt": timer_started_at,
         "trackedSecondsToday": max(0, int(tracked_seconds_today)),
         "createdAt": row["created_at"],
+        "updatedAt": row.get("updated_at") or row["created_at"],
     }
 
 
@@ -252,6 +253,7 @@ def _recalculate_streaks(auth: AuthState, habit_row: dict) -> dict:
         if last_applicable_completed
         else None,
         "next_occurrence_on": next_occurrence.isoformat() if next_occurrence else None,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
     update_resp = (
@@ -345,6 +347,7 @@ def _tracked_seconds_for_day(auth: AuthState, habit_id: str, day: date_type) -> 
 
 
 class CreateHabit(BaseModel):
+    id: Optional[str] = None
     title: str = Field(min_length=1, max_length=100)
     icon: HabitIcon = "target"
     anchorDate: Optional[str] = None
@@ -446,6 +449,7 @@ async def create_habit(body: CreateHabit, auth: AuthState = Depends(require_auth
         auth.supabase.table("habits")
         .insert(
             {
+                **({"id": body.id} if body.id else {}),
                 "user_id": auth.user_id,
                 "title": body.title.strip(),
                 "icon": body.icon,
@@ -459,6 +463,7 @@ async def create_habit(body: CreateHabit, auth: AuthState = Depends(require_auth
                 "best_streak": 0,
                 "last_completed_on": None,
                 "next_occurrence_on": next_occurrence.isoformat() if next_occurrence else None,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
         )
         .execute()
@@ -508,6 +513,7 @@ async def update_habit(
         _today_utc_date(),
     )
     payload["next_occurrence_on"] = next_occurrence.isoformat() if next_occurrence else None
+    payload["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     resp = (
         auth.supabase.table("habits")

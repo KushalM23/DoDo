@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
-from app.routes import auth_routes, categories, habits, health, tasks
+from app.routes import auth_routes, categories, habits, health, tasks, sync
 
 
 def create_app() -> FastAPI:
@@ -31,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(tasks.router, prefix="/api")
     app.include_router(categories.router, prefix="/api")
     app.include_router(habits.router, prefix="/api")
+    app.include_router(sync.router, prefix="/api")
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_request: Request, exc: RequestValidationError):

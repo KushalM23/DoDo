@@ -14,6 +14,8 @@ import {
   setAuthSession,
   setSessionRefreshHandler,
 } from '../services/api';
+import {purgeUserData} from '../lib/local/db';
+import {runFinalSyncForLogout} from '../lib/local/syncEngine';
 import type {AuthUser} from '../types/auth';
 
 const AUTH_SESSION_KEY = '@dodo/auth_session';
@@ -158,11 +160,22 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
         await register(email, password, displayName);
       },
       async signOut() {
+        if (user?.id) {
+          const synced = await runFinalSyncForLogout(user.id);
+          if (!synced) {
+            throw new Error('Unable to complete final sync. Logout blocked.');
+          }
+        }
+
         setAuthSession(null);
+        const previousUserId = user?.id;
         setToken(null);
         setUser(null);
         await AsyncStorage.removeItem(AUTH_SESSION_KEY);
         await AsyncStorage.removeItem('@dodo/auth_user');
+        if (previousUserId) {
+          await purgeUserData(previousUserId);
+        }
       },
     }),
     [loading, refreshCurrentUser, token, user],
