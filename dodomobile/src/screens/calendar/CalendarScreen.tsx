@@ -23,10 +23,12 @@ import {
   toHabitEvent,
   TimelineEvent,
   buildMonthCells,
+  resolveCalendarMonthSelection,
 } from './utils';
 import {CalendarGrid} from './CalendarGrid';
 import {Timeline} from './Timeline';
 import {BottomGradient} from '../../components/display/BottomGradient';
+import {DateWheelPickerModal} from '../../components/overlays/DateWheelPickerModal';
 
 export function CalendarScreen() {
   const colors = useThemeColors();
@@ -41,6 +43,7 @@ export function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState<string>(() =>
     localDateKey(today),
   );
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
 
   const [monthTasks, setMonthTasks] = useState<Task[]>([]);
 
@@ -151,6 +154,7 @@ export function CalendarScreen() {
             setSelectedDate={setSelectedDate}
             statusMap={statusMap}
             habitStatusMap={habitStatusMap}
+            onOpenMonthPicker={() => setIsMonthPickerOpen(true)}
           />
           <Timeline mode={mode} tasksForSelectedDate={tasksForSelectedDate} />
         </View>
@@ -158,6 +162,19 @@ export function CalendarScreen() {
 
       {/* Bottom Gradient overlay */}
       <BottomGradient colors={colors} />
+
+      <DateWheelPickerModal
+        mode="calendar-month"
+        visible={isMonthPickerOpen}
+        value={currentDate}
+        onClose={() => setIsMonthPickerOpen(false)}
+        onConfirm={({month, year}) => {
+          const nextSelection = resolveCalendarMonthSelection(month, year);
+          setCurrentDate(nextSelection.currentDate);
+          setSelectedDate(nextSelection.selectedDate);
+          setIsMonthPickerOpen(false);
+        }}
+      />
     </SafeAreaView>
   );
 }

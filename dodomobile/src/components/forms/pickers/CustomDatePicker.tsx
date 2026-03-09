@@ -223,11 +223,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     dayCellSelected: {
       backgroundColor: colors.text,
-      shadowColor: 'rgba(0,0,0,0.4)',
-      shadowOffset: {width: 0, height: 4},
-      shadowOpacity: 1,
-      shadowRadius: 8,
-      elevation: 4,
     },
     dayText: {
       color: colors.text,

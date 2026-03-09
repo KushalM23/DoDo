@@ -29,8 +29,11 @@ import {AppIcon, type AppIconName} from '../../components/AppIcon';
 import {BottomGradient} from '../../components/display/BottomGradient';
 import {TaskForm} from '../../components/forms/TaskForm';
 import {ManageCategoriesModal} from '../../components/overlays/ManageCategoriesModal';
+import {DateWheelPickerModal} from '../../components/overlays/DateWheelPickerModal';
+import {formatTaskTriggerLabel, parseDateKey} from '../../components/overlays/dateWheelPickerUtils';
 import {sortTasks} from '../../utils/taskSort';
 import {habitAppliesToDate, minuteToIso} from '../../utils/habits';
+import {toLocalDateKey} from '../../utils/dateTime';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import type {CreateTaskInput, Task} from '../../types/task';
@@ -42,43 +45,8 @@ const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
 /* ─── helpers ─────────────────────────────────────────────── */
 
-const DAY_NAMES = [
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-];
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-function todayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-    2,
-    '0',
-  )}-${String(d.getDate()).padStart(2, '0')}`;
-}
 function toLocalDateStr(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-    2,
-    '0',
-  )}-${String(d.getDate()).padStart(2, '0')}`;
+  return toLocalDateKey(new Date(iso));
 }
 function isSameDay(iso: string, dateStr: string): boolean {
   return toLocalDateStr(iso) === dateStr;
@@ -116,27 +84,6 @@ type DisplayTask = Task & {
   _habitId?: string;
   _habitIcon?: Habit['icon'];
 };
-
-function formatHeroDate(dateStr: string): string {
-  const parts = dateStr.split('-');
-  const y = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10) - 1;
-  const d = parseInt(parts[2], 10);
-  const dateObj = new Date(y, m, d);
-  const dayName = DAY_NAMES[dateObj.getDay()];
-  const monthName = MONTH_NAMES[dateObj.getMonth()];
-
-  let ordStr = 'th';
-  if (d === 1 || d === 21 || d === 31) {
-    ordStr = 'st';
-  } else if (d === 2 || d === 22) {
-    ordStr = 'nd';
-  } else if (d === 3 || d === 23) {
-    ordStr = 'rd';
-  }
-
-  return `${dayName.substring(0, 3)}, ${d}${ordStr} ${monthName}`;
-}
 
 function formatTaskTime(iso: string): string {
   const d = new Date(iso);
@@ -415,6 +362,7 @@ function TaskPage({
   loading,
   onRefresh,
   onManageCategories,
+  onHeadingPress,
   colors,
 }: {
   index: number;
@@ -428,6 +376,7 @@ function TaskPage({
   loading: boolean;
   onRefresh: () => void;
   onManageCategories?: () => void;
+  onHeadingPress?: () => void;
   colors: ThemeColors;
 }) {
   const done = completedTasks.length;
@@ -473,18 +422,23 @@ function TaskPage({
         ListHeaderComponent={
           <View style={{paddingBottom: 16, paddingTop: 8, gap: 8}}>
             <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
-              <Text
-                style={{
-                  fontSize: 38,
-                  alignSelf: 'center',
-                  textTransform: 'capitalize',
-                  fontFamily: fonts.heading,
-                  color: colors.text,
-                  letterSpacing: -0.5,
-                  marginBottom: 10,
-                }}>
-                {heading}
-              </Text>
+              <Pressable
+                disabled={!onHeadingPress}
+                onPress={onHeadingPress}
+                style={{alignSelf: 'center'}}>
+                <Text
+                  style={{
+                    fontSize: 38,
+                    alignSelf: 'center',
+                    textTransform: 'capitalize',
+                    fontFamily: fonts.heading,
+                    color: colors.text,
+                    letterSpacing: -0.5,
+                    marginBottom: 10,
+                  }}>
+                  {heading}
+                </Text>
+              </Pressable>
               {index !== 0 && onManageCategories && (
                 <Pressable
                   onPress={onManageCategories}
@@ -588,7 +542,8 @@ export function TasksScreen() {
   const {categories} = useCategories();
   const [formVisible, setFormVisible] = useState(false);
   const [manageCategoriesVisible, setManageCategoriesVisible] = useState(false);
-  const selectedDate = useMemo(() => todayStr(), []);
+  const [selectedDate, setSelectedDate] = useState(() => toLocalDateKey(new Date()));
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   // FAB animations
   const addBtnScale = useRef(new Animated.Value(1)).current;
@@ -627,7 +582,7 @@ export function TasksScreen() {
   const pages = useMemo(() => {
     const overviewPage = {
       key: 'overview',
-      heading: formatHeroDate(selectedDate),
+      heading: formatTaskTriggerLabel(selectedDate),
       tasks: allFilteredTasks,
       completed: completedTasks,
     };
@@ -695,6 +650,7 @@ export function TasksScreen() {
             loading={loading}
             onRefresh={() => void refresh(selectedDate)}
             onManageCategories={() => setManageCategoriesVisible(true)}
+            onHeadingPress={index === 0 ? () => setIsDatePickerOpen(true) : undefined}
             colors={colors}
           />
         ))}
@@ -744,6 +700,17 @@ export function TasksScreen() {
       <ManageCategoriesModal
         visible={manageCategoriesVisible}
         onClose={() => setManageCategoriesVisible(false)}
+      />
+
+      <DateWheelPickerModal
+        mode="task-date"
+        visible={isDatePickerOpen}
+        value={parseDateKey(selectedDate)}
+        onClose={() => setIsDatePickerOpen(false)}
+        onConfirm={value => {
+          setSelectedDate(toLocalDateKey(value));
+          setIsDatePickerOpen(false);
+        }}
       />
     </SafeAreaView>
   );
