@@ -297,7 +297,7 @@ export async function upsertTaskFromRemote(
       duration_minutes, priority, completed, completed_at, timer_started_at,
       actual_duration_seconds, actual_duration_minutes, completion_xp, created_at, updated_at, deleted_at,
       last_modified_device_at, sync_state
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       task.id,
       userId,
@@ -318,6 +318,7 @@ export async function upsertTaskFromRemote(
       task.updatedAt ?? now,
       task.deletedAt ?? null,
       now,
+      'synced',
     ],
   );
 }
@@ -357,7 +358,7 @@ export async function createTaskLocal(
       duration_minutes, priority, completed, completed_at, timer_started_at,
       actual_duration_seconds, actual_duration_minutes, completion_xp, created_at, updated_at, deleted_at,
       last_modified_device_at, sync_state
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       task.id,
       userId,

@@ -105,9 +105,9 @@ export function HabitDetailScreen() {
 
     void startHabitTimer(habit.id, todayKey).catch(() => {});
   }, [
+    habit?.id,
     canCompleteToday,
     completedToday,
-    habit,
     lockInMode,
     startHabitTimer,
     todayKey,
@@ -156,6 +156,8 @@ export function HabitDetailScreen() {
   const currentHabit = habit;
 
   async function handleExitFocus() {
+    setLockInMode(false);
+
     try {
       if (
         currentHabit.timerStartedAt &&
@@ -164,7 +166,6 @@ export function HabitDetailScreen() {
       ) {
         await pauseHabitTimer(currentHabit.id, todayKey);
       }
-      setLockInMode(false);
     } catch (err) {
       showAlert(
         'Failed to pause timer',

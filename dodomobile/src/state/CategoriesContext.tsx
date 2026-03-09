@@ -82,6 +82,17 @@ function normalizeOrder(categories: Category[], rawOrder: string[]): string[] {
   return nextOrder;
 }
 
+function buildOrderedCategoryState(
+  categories: Category[],
+  rawOrder: string[],
+): {orderedIds: string[]; categories: Category[]} {
+  const nextOrder = normalizeOrder(categories, rawOrder);
+  return {
+    orderedIds: nextOrder,
+    categories: orderCategories(categories, nextOrder),
+  };
+}
+
 export function CategoriesProvider({children}: {children: React.ReactNode}) {
   const {user} = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -136,15 +147,18 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
         }
       }
 
-      const normalizedOrder = normalizeOrder(nextCategories, storedOrder);
-      setOrderedIds(normalizedOrder);
-      setCategories(orderCategories(nextCategories, normalizedOrder));
+      const orderedState = buildOrderedCategoryState(
+        nextCategories,
+        storedOrder,
+      );
+      setOrderedIds(orderedState.orderedIds);
+      setCategories(orderedState.categories);
 
       if (
         storedOrderRaw == null ||
-        JSON.stringify(storedOrder) !== JSON.stringify(normalizedOrder)
+        JSON.stringify(storedOrder) !== JSON.stringify(orderedState.orderedIds)
       ) {
-        await persistOrder(normalizedOrder);
+        await persistOrder(orderedState.orderedIds);
       }
 
       if (hadLocalCategories) {
@@ -153,9 +167,12 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
             return;
           }
           const reconciled = await listCategoriesLocal(user.id);
-          const normalized = normalizeOrder(reconciled, normalizedOrder);
-          setOrderedIds(normalized);
-          setCategories(orderCategories(reconciled, normalized));
+          const reconciledState = buildOrderedCategoryState(
+            reconciled,
+            orderedState.orderedIds,
+          );
+          setOrderedIds(reconciledState.orderedIds);
+          setCategories(reconciledState.categories);
         });
       }
     } catch (err) {
@@ -193,14 +210,14 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
       });
 
       const nextCategories = [...categories, created];
-      const nextOrder = normalizeOrder(nextCategories, [
+      const orderedState = buildOrderedCategoryState(nextCategories, [
         ...orderedIds,
         created.id,
       ]);
 
-      setOrderedIds(nextOrder);
-      setCategories(orderCategories(nextCategories, nextOrder));
-      await persistOrder(nextOrder);
+      setOrderedIds(orderedState.orderedIds);
+      setCategories(orderedState.categories);
+      await persistOrder(orderedState.orderedIds);
       void runSync(user.id, 'manual');
     },
     [categories, orderedIds, persistOrder, user?.id],
@@ -239,11 +256,14 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
       await softDeleteCategoryLocal(user.id, id);
 
       const nextCategories = categories.filter(c => c.id !== id);
-      const nextOrder = orderedIds.filter(categoryId => categoryId !== id);
+      const orderedState = buildOrderedCategoryState(
+        nextCategories,
+        orderedIds.filter(categoryId => categoryId !== id),
+      );
 
-      setOrderedIds(nextOrder);
-      setCategories(orderCategories(nextCategories, nextOrder));
-      await persistOrder(nextOrder);
+      setOrderedIds(orderedState.orderedIds);
+      setCategories(orderedState.categories);
+      await persistOrder(orderedState.orderedIds);
       void runSync(user.id, 'manual');
     },
     [categories, orderedIds, persistOrder, user?.id],
@@ -251,10 +271,10 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
 
   const setCategoryOrder = useCallback(
     async (nextOrderInput: string[]) => {
-      const nextOrder = normalizeOrder(categories, nextOrderInput);
-      setOrderedIds(nextOrder);
-      setCategories(prev => orderCategories(prev, nextOrder));
-      await persistOrder(nextOrder);
+      const orderedState = buildOrderedCategoryState(categories, nextOrderInput);
+      setOrderedIds(orderedState.orderedIds);
+      setCategories(orderedState.categories);
+      await persistOrder(orderedState.orderedIds);
     },
     [categories, persistOrder],
   );

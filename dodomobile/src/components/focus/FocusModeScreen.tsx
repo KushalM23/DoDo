@@ -3,8 +3,9 @@ import {Pressable, StatusBar, StyleSheet, Text, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {AppIcon, type AppIconName} from '../AppIcon';
 import {HoldToConfirmButton} from './HoldToConfirmButton';
+import {FocusFlipClock} from './FocusFlipClock';
 import {useAlert} from '../../state/AlertContext';
-import {fontSize, radii, spacing} from '../../theme/colors';
+import {fontSize, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {darkColors, type ThemeColors} from '../../theme/ThemeProvider';
 import {
@@ -12,7 +13,6 @@ import {
   enableFocusModeSilence,
   openFocusModeSilenceSettings,
 } from '../../utils/focusModeSilencer';
-import {formatClockDuration} from '../../utils/taskTiming';
 
 type FocusModeScreenProps = {
   now: Date;
@@ -124,14 +124,6 @@ export function FocusModeScreen({
           <View style={styles.clockWrap}>
             <Text style={styles.clockLine}>{twoDigits(hour)}</Text>
             <Text style={styles.clockLine}>{twoDigits(now.getMinutes())}</Text>
-            {typeof elapsedSeconds === 'number' ? (
-              <View style={styles.elapsedWrap}>
-                <Text style={styles.elapsedLabel}>Focus time</Text>
-                <Text style={styles.elapsedValue}>
-                  {formatClockDuration(elapsedSeconds)}
-                </Text>
-              </View>
-            ) : null}
           </View>
 
           <View style={styles.infoBlock}>
@@ -151,6 +143,10 @@ export function FocusModeScreen({
               </Text>
             ))}
           </View>
+
+          {typeof elapsedSeconds === 'number' ? (
+            <FocusFlipClock totalSeconds={elapsedSeconds} />
+          ) : null}
         </View>
 
         <View style={styles.floatingActions}>
@@ -215,7 +211,7 @@ const createStyles = (colors: ThemeColors) =>
     clockWrap: {
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: 240,
+      minHeight: 220,
       paddingVertical: spacing.md,
     },
     clockLine: {
@@ -226,38 +222,12 @@ const createStyles = (colors: ThemeColors) =>
       letterSpacing: -2,
       includeFontPadding: false,
     },
-    elapsedWrap: {
-      marginTop: spacing.md,
-      alignItems: 'center',
-      gap: 2,
-    },
-    elapsedLabel: {
-      color: colors.mutedText,
-      fontSize: fontSize.xs,
-      fontFamily: fonts.bodyBold,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-    },
-    elapsedValue: {
-      color: colors.text,
-      fontSize: fontSize.xxl,
-      fontFamily: fonts.headingSemiBold,
-      letterSpacing: -0.5,
-    },
     infoBlock: {
-      marginTop: spacing.lg,
+      marginTop: spacing.md,
       alignItems: 'center',
       gap: spacing.xs,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
-    },
-    iconPill: {
-      width: 36,
-      height: 36,
-      borderRadius: radii.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: spacing.xs,
     },
     title: {
       color: colors.text,

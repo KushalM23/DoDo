@@ -154,7 +154,7 @@ export function TaskDetailScreen() {
     }
 
     void startTimer(task).catch(() => {});
-  }, [lockInMode, startTimer, task]);
+  }, [lockInMode, startTimer, task?.id]);
 
   useEffect(() => {
     return () => {
@@ -302,11 +302,12 @@ export function TaskDetailScreen() {
       return;
     }
 
+    setLockInMode(false);
+
     try {
       if (!task.completed && task.timerStartedAt) {
         await pauseTimer(task);
       }
-      setLockInMode(false);
     } catch (err) {
       showAlert(
         'Failed to pause timer',

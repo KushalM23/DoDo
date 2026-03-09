@@ -116,10 +116,9 @@ export function RegisterScreen({navigation}: Props) {
                       }
                       placeholder={field === 'name' ? 'Alex' : 'you@example.com'}
                       placeholderTextColor={colors.mutedText}
-                      style={[
-                        styles.fieldInput,
-                        focused === field && styles.fieldInputFocused,
-                      ]}
+                      style={
+                        styles.fieldInput
+                      }
                       value={field === 'name' ? name : email}
                       onChangeText={field === 'name' ? setName : setEmail}
                       onFocus={() => setFocused(field)}
@@ -226,14 +225,6 @@ const createStyles = (c: ThemeColors) =>
       fontSize: fontSize.md,
       fontFamily: fonts.bodyBold,
       textAlignVertical: 'center',
-    },
-    fieldInputFocused: {
-      borderColor: c.accent,
-      shadowColor: c.accent,
-      shadowOffset: {width: 0, height: 0},
-      shadowOpacity: 0.16,
-      shadowRadius: 10,
-      elevation: 3,
     },
     passwordField: {
       backgroundColor: c.surfaceLight,
