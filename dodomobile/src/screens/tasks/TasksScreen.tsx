@@ -1,852 +1,780 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { useAlert } from "../../state/AlertContext";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useTasks } from "../../state/TasksContext";
-import { useHabits } from "../../state/HabitsContext";
-import { useCategories } from "../../state/CategoriesContext";
-import { TaskForm } from "../../components/TaskForm";
-import { TaskItem } from "../../components/TaskItem";
-import { CategoryBar } from "../../components/CategoryBar";
-import { DateStrip } from "../../components/DateStrip";
-import { SortModal } from "../../components/SortModal";
-import { AppIcon } from "../../components/AppIcon";
-import { LoadingScreen } from "../../components/LoadingScreen";
-import { sortTasks } from "../../utils/taskSort";
-import { habitAppliesToDate, minuteToIso } from "../../utils/habits";
-import { spacing, radii, fontSize } from "../../theme/colors";
-import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
-import type { CreateTaskInput, Task } from "../../types/task";
-import type { Habit } from "../../types/habit";
-import type { RootStackParamList } from "../../navigation/RootNavigator";
+/**
+ * TasksScreen — Multi-Page Object-Based Layout
+ *
+ * Page 0: Day Overview — all tasks & habits for the day
+ * Page 1..N: One page per category — filtered tasks
+ *
+ * Swipe left/right to navigate between pages.
+ * Page indicator dots at bottom.
+ */
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {
+  Animated,
+  Dimensions,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useTasks} from '../../state/TasksContext';
+import {useHabits} from '../../state/HabitsContext';
+import {useCategories} from '../../state/CategoriesContext';
+import {AppIcon, type AppIconName} from '../../components/AppIcon';
+import {BottomGradient} from '../../components/display/BottomGradient';
+import {TaskForm} from '../../components/forms/TaskForm';
+import {ManageCategoriesModal} from '../../components/overlays/ManageCategoriesModal';
+import {sortTasks} from '../../utils/taskSort';
+import {habitAppliesToDate, minuteToIso} from '../../utils/habits';
+import {fonts} from '../../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
+import type {CreateTaskInput, Task} from '../../types/task';
+import type {Habit} from '../../types/habit';
+import type {Category} from '../../types/category';
+import type {RootStackParamList} from '../../navigation/RootNavigator';
+
+const {width: SCREEN_WIDTH} = Dimensions.get('window');
+
+/* ─── helpers ─────────────────────────────────────────────── */
+
+const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 function todayStr(): string {
   const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}-${String(d.getDate()).padStart(2, '0')}`;
 }
-
-function toLocalDateStr(isoString: string): string {
-  const d = new Date(isoString);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+function toLocalDateStr(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}-${String(d.getDate()).padStart(2, '0')}`;
 }
-
-function isSameDay(isoString: string, dateStr: string): boolean {
-  return toLocalDateStr(isoString) === dateStr;
+function isSameDay(iso: string, dateStr: string): boolean {
+  return toLocalDateStr(iso) === dateStr;
 }
-
-/** Convert a habit into a Task-shaped object for display */
 function habitToTask(
-  habit: Habit,
+  h: Habit,
   dateStr: string,
   completed: boolean,
-): Task & { _isHabit: true; _habitId: string; _habitIcon: Habit["icon"] } {
-  const minute = habit.timeMinute ?? 9 * 60;
-  const durationMinutes = habit.durationMinutes ?? 30;
-  const scheduledAt = minuteToIso(dateStr, minute);
+): Task & {_isHabit: true; _habitId: string; _habitIcon: Habit['icon']} {
+  const minute = h.timeMinute ?? 9 * 60;
+  const dur = h.durationMinutes ?? 30;
   return {
-    id: `habit_${habit.id}_${dateStr}`,
+    id: `habit_${h.id}_${dateStr}`,
     _isHabit: true,
-    _habitId: habit.id,
-    _habitIcon: habit.icon,
-    title: habit.title,
-    description: "",
+    _habitId: h.id,
+    _habitIcon: h.icon,
+    title: h.title,
+    description: '',
     categoryId: null,
-    scheduledAt,
-    deadline: minuteToIso(dateStr, Math.min(1439, minute + durationMinutes)),
-    durationMinutes,
+    scheduledAt: minuteToIso(dateStr, minute),
+    deadline: minuteToIso(dateStr, Math.min(1439, minute + dur)),
+    durationMinutes: dur,
     priority: 2,
     completed,
     completedAt: completed ? new Date().toISOString() : null,
-    timerStartedAt: completed ? null : habit.timerStartedAt,
-    actualDurationMinutes: Math.max(0, Math.round((habit.trackedSecondsToday ?? 0) / 60)),
+    timerStartedAt: null,
+    actualDurationMinutes: 0,
     completionXp: 0,
-    createdAt: habit.createdAt,
+    createdAt: h.createdAt,
   };
 }
 
-type DisplayTask = Task & { _isHabit?: boolean; _habitId?: string; _habitIcon?: Habit["icon"] };
-type UndoState =
-  | { kind: "complete"; task: Task; message: string }
-  | { kind: "habit-complete"; habitId: string; date: string; message: string }
-  | { kind: "delete"; task: Task; message: string };
+type DisplayTask = Task & {
+  _isHabit?: boolean;
+  _habitId?: string;
+  _habitIcon?: Habit['icon'];
+};
+
+function formatHeroDate(dateStr: string): string {
+  const parts = dateStr.split('-');
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const dateObj = new Date(y, m, d);
+  const dayName = DAY_NAMES[dateObj.getDay()];
+  const monthName = MONTH_NAMES[dateObj.getMonth()];
+
+  let ordStr = 'th';
+  if (d === 1 || d === 21 || d === 31) {
+    ordStr = 'st';
+  } else if (d === 2 || d === 22) {
+    ordStr = 'nd';
+  } else if (d === 3 || d === 23) {
+    ordStr = 'rd';
+  }
+
+  return `${dayName.substring(0, 3)}, ${d}${ordStr} ${monthName}`;
+}
+
+function formatTaskTime(iso: string): string {
+  const d = new Date(iso);
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12;
+  h = h ? h : 12;
+  const minStr = m < 10 ? '0' + m : m;
+  return `${h}:${minStr} ${ampm}`;
+}
+
+/** Format duration: 60+ minutes → hours format */
+function formatDuration(minutes: number | null | undefined): string | null {
+  if (minutes == null || minutes <= 0) {
+    return null;
+  }
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remaining = minutes % 60;
+  const hourStr = hours === 1 ? '1 hour' : `${hours} hours`;
+  if (remaining === 0) {
+    return hourStr;
+  }
+  return `${hourStr} ${remaining} min`;
+}
+
+function priorityColor(priority: number, colors: ThemeColors): string {
+  if (priority === 3) {
+    return colors.highPriority;
+  }
+  if (priority === 2) {
+    return colors.mediumPriority;
+  }
+  return colors.lowPriority;
+}
+
+function priorityIcon(priority: number): AppIconName {
+  if (priority === 3) {
+    return 'arrow-up-circle';
+  }
+  if (priority === 2) {
+    return 'minus-circle';
+  }
+  return 'arrow-down-circle';
+}
+
+/* ─── Task slab (object) ───────────────────────────────────── */
+
+function TaskSlab({
+  task,
+  onToggle,
+  onPress,
+  categories,
+}: {
+  task: DisplayTask;
+  onToggle: (t: DisplayTask) => void;
+  onPress: (t: DisplayTask) => void;
+  categories: Category[];
+}) {
+  const colors = useThemeColors();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  function handlePressIn() {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: false,
+      speed: 40,
+    }).start();
+  }
+  function handlePressOut() {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: false,
+      speed: 20,
+      bounciness: 8,
+    }).start();
+  }
+
+  // Determine the leading icon (replaces checkmark)
+  let leadingIconName: AppIconName;
+  let leadingIconColor: string;
+
+  if (task._isHabit && task._habitIcon) {
+    leadingIconName = task._habitIcon as AppIconName;
+    leadingIconColor = colors.habitBadge;
+  } else {
+    const cat = categories.find(c => c.id === task.categoryId);
+    if (cat) {
+      leadingIconName = cat.icon as AppIconName;
+      leadingIconColor = cat.color;
+    } else {
+      leadingIconName = 'check-circle';
+      leadingIconColor = colors.accent;
+    }
+  }
+
+  // Determine the right-side indicator
+  let rightIcon: AppIconName;
+  let rightIconColor: string;
+
+  if (task._isHabit) {
+    rightIcon = 'repeat' as AppIconName;
+    rightIconColor = colors.habitBadge;
+  } else {
+    rightIcon = priorityIcon(task.priority);
+    rightIconColor = priorityColor(task.priority, colors);
+  }
+
+  const durationStr = formatDuration(task.durationMinutes);
+
+  return (
+    <Animated.View
+      style={{
+        transform: [{scale: scaleAnim}],
+        marginBottom: 12,
+        paddingVertical: 18,
+        paddingHorizontal: 4,
+        opacity: task.completed ? 0.5 : 1,
+      }}>
+      <Pressable
+        style={{flexDirection: 'row', alignItems: 'center', gap: 14}}
+        onPress={() => onPress(task)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        delayLongPress={400}>
+        {/* Leading icon — acts as checkmark toggle */}
+        <Pressable
+          onPress={() => onToggle(task)}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <AppIcon
+            name={task.completed ? 'check' : leadingIconName}
+            size={24}
+            color={task.completed ? leadingIconColor : leadingIconColor}
+          />
+        </Pressable>
+
+        {/* Text */}
+        <View style={{flex: 1}}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontSize: 22,
+              fontFamily: fonts.headingSemiBold,
+              letterSpacing: 0.4,
+              color: task.completed ? colors.mutedText : colors.text,
+              textDecorationLine: task.completed ? 'line-through' : 'none',
+            }}>
+            {task.title}
+          </Text>
+          <Text
+            style={{
+              fontSize: 13,
+              color: colors.mutedText,
+              marginTop: 5,
+              fontFamily: fonts.bodyMedium,
+              textDecorationLine: task.completed ? 'line-through' : 'none',
+            }}>
+            {formatTaskTime(task.scheduledAt)}
+            {durationStr ? ` • ${durationStr}` : null}
+          </Text>
+        </View>
+
+        {/* Priority or habit badge */}
+        <View style={{padding: 6}}>
+          <AppIcon name={rightIcon} size={16} color={rightIconColor} />
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+/* ─── Page indicator dots ──────────────────────────────────── */
+
+function PageDots({
+  count,
+  scrollX,
+  colors,
+}: {
+  count: number;
+  scrollX: Animated.Value;
+  colors: ThemeColors;
+}) {
+  if (count <= 1) {
+    return null;
+  }
+
+  const dotSize = 8;
+  const dotGap = 16;
+  const pillWidth = 20;
+  const step = dotSize + dotGap; // 16
+
+  const inputRange: number[] = [];
+  const leftOutput: number[] = [];
+  const widthOutput: number[] = [];
+
+  for (let i = 0; i < count; i++) {
+    inputRange.push(i * SCREEN_WIDTH);
+    leftOutput.push(i * step - (pillWidth - dotSize) / 2);
+    widthOutput.push(pillWidth);
+
+    if (i < count - 1) {
+      inputRange.push((i + 0.5) * SCREEN_WIDTH);
+      leftOutput.push(i * step - (pillWidth - dotSize) / 2);
+      widthOutput.push(pillWidth + step);
+    }
+  }
+
+  const indicatorLeft = scrollX.interpolate({
+    inputRange,
+    outputRange: leftOutput,
+    extrapolate: 'clamp',
+  });
+
+  const indicatorWidth = scrollX.interpolate({
+    inputRange,
+    outputRange: widthOutput,
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'center',
+        paddingVertical: 12,
+      }}>
+      <View style={{flexDirection: 'row', gap: dotGap}}>
+        {Array.from({length: count}).map((_, i) => (
+          <View
+            key={`dot-${i}`}
+            style={{
+              width: dotSize,
+              height: dotSize,
+              borderRadius: dotSize / 2,
+              backgroundColor: colors.surfaceLight,
+            }}
+          />
+        ))}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            height: dotSize,
+            borderRadius: dotSize / 2,
+            backgroundColor: colors.accent,
+            width: indicatorWidth,
+            transform: [{translateX: indicatorLeft}],
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
+/* ─── Single page content ──────────────────────────────────── */
+
+function TaskPage({
+  index,
+  scrollX,
+  heading,
+  tasks,
+  completedTasks,
+  onToggle,
+  onPress,
+  categories,
+  loading,
+  onRefresh,
+  onManageCategories,
+  colors,
+}: {
+  index: number;
+  scrollX: Animated.Value;
+  heading: string;
+  tasks: DisplayTask[];
+  completedTasks: Task[];
+  onToggle: (t: DisplayTask) => void;
+  onPress: (t: DisplayTask) => void;
+  categories: Category[];
+  loading: boolean;
+  onRefresh: () => void;
+  onManageCategories?: () => void;
+  colors: ThemeColors;
+}) {
+  const done = completedTasks.length;
+  const total = tasks.length + done;
+  const progress = total > 0 ? done / total : 0;
+
+  const inputRange = [
+    (index - 1) * SCREEN_WIDTH,
+    index * SCREEN_WIDTH,
+    (index + 1) * SCREEN_WIDTH,
+  ];
+
+  const scale = scrollX.interpolate({
+    inputRange,
+    outputRange: [0.95, 1, 0.95],
+    extrapolate: 'clamp',
+  });
+
+  const opacity = scrollX.interpolate({
+    inputRange,
+    outputRange: [0.3, 1, 0.3],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <Animated.View style={{width: SCREEN_WIDTH, transform: [{scale}], opacity, marginBottom: 100}}>
+      <FlatList
+        data={[...tasks, ...completedTasks]}
+        keyExtractor={t => t.id}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
+        }
+        contentContainerStyle={{
+          paddingHorizontal: 28,
+          paddingTop: 24,
+          paddingBottom: 16,
+        }}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View style={{paddingBottom: 16, paddingTop: 8, gap: 8}}>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+              <Text
+                style={{
+                  fontSize: 38,
+                  alignSelf: 'center',
+                  textTransform: 'capitalize',
+                  fontFamily: fonts.heading,
+                  color: colors.text,
+                  letterSpacing: -0.5,
+                  marginBottom: 10,
+                }}>
+                {heading}
+              </Text>
+              {index !== 0 && onManageCategories && (
+                <Pressable
+                  onPress={onManageCategories}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 10,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <AppIcon name="package" size={24} color={colors.accent} />
+                </Pressable>
+              )}
+            </View>
+
+            {total > 0 && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginTop: 4,
+                }}>
+                <View
+                  style={{
+                    flex: 1,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: colors.surfaceLight,
+                    overflow: 'hidden',
+                  }}>
+                  <View
+                    style={{
+                      height: '100%',
+                      backgroundColor: colors.accent,
+                      borderRadius: 3,
+                      width: `${Math.round(progress * 100)}%`,
+                    }}
+                  />
+                </View>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontFamily: fonts.bodyBold,
+                    color: colors.mutedText,
+                    letterSpacing: 0.2,
+                  }}>
+                  {done}/{total} done
+                </Text>
+              </View>
+            )}
+          </View>
+        }
+        renderItem={({item}) => (
+          <TaskSlab
+            task={item as DisplayTask}
+            onToggle={onToggle}
+            onPress={onPress}
+            categories={categories}
+          />
+        )}
+        ListEmptyComponent={
+          <View style={{alignItems: 'center', paddingTop: 40, gap: 6}}>
+            <Text
+              style={{
+                fontSize: 22,
+                fontFamily: fonts.bodyBold,
+                color: colors.text,
+                letterSpacing: -0.5,
+              }}>
+              Nothing here.
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: colors.mutedText,
+                fontFamily: fonts.bodyMedium,
+              }}>
+              Full clear!
+            </Text>
+          </View>
+        }
+      />
+    </Animated.View>
+  );
+}
+
+/* ─── Main screen ──────────────────────────────────────────── */
 
 export function TasksScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { showAlert } = useAlert();
-  const { tasks, loading, initialized: tasksInitialized, error, sortMode, setSortMode, refresh, addTask, removeTask, toggleTaskCompletion, startTimer } = useTasks();
-  const {
-    habits,
-    loading: habitsLoading,
-    initialized: habitsInitialized,
-    loadHistory,
-    isHabitCompletedOn,
-    setHabitCompletedOn,
-    startHabitTimer,
-  } = useHabits();
-  const { categories, loading: categoriesLoading, initialized: categoriesInitialized } = useCategories();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
-  const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const {tasks, loading, refresh, addTask, toggleTaskCompletion} = useTasks();
+  const {habits, loadHistory, isHabitCompletedOn, setHabitCompletedOn} =
+    useHabits();
+  const {categories} = useCategories();
   const [formVisible, setFormVisible] = useState(false);
-  const [sortVisible, setSortVisible] = useState(false);
-  const [archiveMode, setArchiveMode] = useState(false);
-  const [undoState, setUndoState] = useState<UndoState | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [undoProgress, setUndoProgress] = useState(0);
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [manageCategoriesVisible, setManageCategoriesVisible] = useState(false);
+  const selectedDate = useMemo(() => todayStr(), []);
 
-  // Multi-select state
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const isTodaySelected = selectedDate === todayStr();
-  const screenBootLoading =
-    !tasksInitialized ||
-    !habitsInitialized ||
-    !categoriesInitialized ||
-    (loading && tasks.length === 0) ||
-    (habitsLoading && habits.length === 0) ||
-    (categoriesLoading && categories.length === 0);
+  // FAB animations
+  const addBtnScale = useRef(new Animated.Value(1)).current;
+  const pageScrollRef = useRef<ScrollView>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    void loadHistory({ startDate: selectedDate, endDate: selectedDate }).catch(() => { });
+    void loadHistory({startDate: selectedDate, endDate: selectedDate}).catch(
+      () => {},
+    );
   }, [selectedDate, loadHistory]);
 
-  // Compute dates within the DateStrip range that have incomplete tasks
-  const incompleteDateKeys = useMemo(() => {
-    const keys = new Set<string>();
-    for (const t of tasks) {
-      if (!t.completed) {
-        keys.add(toLocalDateStr(t.scheduledAt));
-      }
-    }
-    return keys;
-  }, [tasks]);
+  const allFilteredTasks = useMemo(() => {
+    const dateTasks = tasks.filter(
+      t => !t.completed && isSameDay(t.scheduledAt, selectedDate),
+    );
+    const habitTasks: DisplayTask[] = habits
+      .filter(h => habitAppliesToDate(h, selectedDate))
+      .filter(h => !isHabitCompletedOn(h.id, selectedDate))
+      .map(h => habitToTask(h, selectedDate, false));
+    return sortTasks([...dateTasks, ...habitTasks], 'time_asc');
+  }, [tasks, habits, selectedDate, isHabitCompletedOn]);
 
-  // Filter tasks and merge habits
-  const filteredTasks = useMemo(() => {
-    // Regular tasks
-    const dateTasks = tasks.filter((t) => {
-      if (t.completed) return false;
-      if (pendingDeleteId === t.id) return false;
-      const dateMatch = isSameDay(t.scheduledAt, selectedDate);
-      if (!dateMatch) return false;
-      if (selectedCategory === null) return true;
-      return t.categoryId === selectedCategory;
-    });
+  const completedTasks = useMemo(() => {
+    const compTasks = tasks.filter(
+      t => t.completed && isSameDay(t.scheduledAt, selectedDate),
+    );
+    const compHabits: DisplayTask[] = habits
+      .filter(h => habitAppliesToDate(h, selectedDate))
+      .filter(h => isHabitCompletedOn(h.id, selectedDate))
+      .map(h => habitToTask(h, selectedDate, true));
+    return sortTasks([...compTasks, ...compHabits], 'time_asc');
+  }, [tasks, habits, selectedDate, isHabitCompletedOn]);
 
-    // Habit-derived tasks (only in Overview / no category filter)
-    const habitTasks: DisplayTask[] = selectedCategory === null && isTodaySelected
-      ? habits
-        .filter((h) => habitAppliesToDate(h, selectedDate))
-        .reduce<DisplayTask[]>((acc, h) => {
-          const next = habitToTask(h, selectedDate, isHabitCompletedOn(h.id, selectedDate));
-          if (!next.completed) acc.push(next);
-          return acc;
-        }, [])
-      : [];
+  // Build pages: [overview, ...categories]
+  const pages = useMemo(() => {
+    const overviewPage = {
+      key: 'overview',
+      heading: formatHeroDate(selectedDate),
+      tasks: allFilteredTasks,
+      completed: completedTasks,
+    };
 
-    return sortTasks([...dateTasks, ...habitTasks], sortMode);
-  }, [tasks, habits, selectedDate, selectedCategory, isHabitCompletedOn, sortMode, isTodaySelected]);
+    const categoryPages = categories.map(cat => ({
+      key: cat.id,
+      heading: cat.name,
+      tasks: allFilteredTasks.filter(t => t.categoryId === cat.id),
+      completed: completedTasks.filter(t => t.categoryId === cat.id),
+    }));
 
-  const archivedTasks = useMemo(() => {
-    return [...tasks]
-      .filter((t) => t.completed)
-      .filter((t) => t.id !== pendingDeleteId)
-      .filter((t) => isSameDay(t.scheduledAt, selectedDate))
-      .filter((t) => (selectedCategory ? t.categoryId === selectedCategory : true))
-      .sort((a, b) => {
-        const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-        const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
-        return bTime - aTime;
-      });
-  }, [tasks, selectedCategory, pendingDeleteId, selectedDate]);
-
-  const listData = archiveMode ? archivedTasks : filteredTasks;
-  const categoriesById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
-
-  const handleRefresh = useCallback(() => {
-    void refresh(selectedDate);
-  }, [refresh, selectedDate]);
-
-  const handleDateChange = useCallback(
-    (date: string) => {
-      setSelectedDate(date);
-      void refresh(date);
-      // Exit selection mode on date change
-      setSelectionMode(false);
-      setSelectedIds(new Set());
-    },
-    [refresh],
-  );
+    return [overviewPage, ...categoryPages];
+  }, [allFilteredTasks, completedTasks, categories, selectedDate]);
 
   async function handleCreateTask(input: CreateTaskInput) {
     await addTask(input);
   }
 
-  function scheduleUndo(nextUndo: UndoState) {
-    if (undoTimerRef.current) {
-      clearTimeout(undoTimerRef.current);
-      undoTimerRef.current = null;
-    }
-
-    if (undoState?.kind === "delete" && pendingDeleteId === undoState.task.id) {
-      void removeTask(undoState.task.id).catch((err) => {
-        showAlert("Failed to delete task", err instanceof Error ? err.message : "Unknown error");
-      });
-      setPendingDeleteId(null);
-    }
-
-    setUndoState(nextUndo);
-    setUndoProgress(1);
-
-    const startTime = Date.now();
-    if (undoProgressTimerRef.current) {
-      clearInterval(undoProgressTimerRef.current);
-      undoProgressTimerRef.current = null;
-    }
-    undoProgressTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, 1 - elapsed / 3000);
-      setUndoProgress(remaining);
-      if (remaining <= 0 && undoProgressTimerRef.current) {
-        clearInterval(undoProgressTimerRef.current);
-        undoProgressTimerRef.current = null;
-      }
-    }, 50);
-
-    undoTimerRef.current = setTimeout(() => {
-      if (nextUndo.kind === "delete") {
-        void removeTask(nextUndo.task.id).catch((err) => {
-          showAlert("Failed to delete task", err instanceof Error ? err.message : "Unknown error");
-        });
-        setPendingDeleteId(null);
-      }
-      setUndoState(null);
-      setUndoProgress(0);
-      undoTimerRef.current = null;
-    }, 3000);
-  }
-
-  function handleUndo() {
-    if (!undoState) return;
-    if (undoTimerRef.current) {
-      clearTimeout(undoTimerRef.current);
-      undoTimerRef.current = null;
-    }
-    if (undoProgressTimerRef.current) {
-      clearInterval(undoProgressTimerRef.current);
-      undoProgressTimerRef.current = null;
-    }
-
-    if (undoState.kind === "complete") {
-      void toggleTaskCompletion(undoState.task);
-    }
-
-    if (undoState.kind === "habit-complete") {
-      void setHabitCompletedOn(undoState.habitId, undoState.date, false).catch((err) => {
-        showAlert("Failed to undo habit", err instanceof Error ? err.message : "Unknown error");
-      });
-    }
-
-    if (undoState.kind === "delete") {
-      setPendingDeleteId(null);
-    }
-
-    setUndoState(null);
-    setUndoProgress(0);
-  }
-
-  useEffect(() => {
-    return () => {
-      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-      if (undoProgressTimerRef.current) clearInterval(undoProgressTimerRef.current);
-    };
-  }, []);
-
-  function handleDeleteTask(taskId: string) {
-    if (taskId.startsWith("habit_")) {
-      showAlert("Manage habits in Habits tab", "Delete habits from the Habits screen.");
-      return;
-    }
-
-    const taskToDelete = tasks.find((t) => t.id === taskId);
-    if (!taskToDelete) return;
-
-    setPendingDeleteId(taskId);
-    scheduleUndo({ kind: "delete", task: taskToDelete, message: "Task deleted" });
-  }
-
-  function handleToggleTask(task: DisplayTask) {
+  function handleToggle(task: DisplayTask) {
     if (task._isHabit) {
-      if (!isTodaySelected) {
-        showAlert("Habits are only for today", "You can complete habits only on the current date.");
-        return;
-      }
-      const nextCompleted = !task.completed;
-      const habitId = task._habitId!;
-      void setHabitCompletedOn(habitId, selectedDate, nextCompleted).catch((err) => {
-        showAlert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
-      });
-
-      if (nextCompleted) {
-        scheduleUndo({
-          kind: "habit-complete",
-          habitId,
-          date: selectedDate,
-          message: "Habit completed",
-        });
-      }
+      void setHabitCompletedOn(
+        task._habitId!,
+        selectedDate,
+        !task.completed,
+      ).catch(() => {});
       return;
     }
-    void toggleTaskCompletion(task).catch((err) => {
-      showAlert("Failed to update task", err instanceof Error ? err.message : "Unknown error");
-    });
-
-    if (!task.completed) {
-      scheduleUndo({
-        kind: "complete",
-        task: {
-          ...task,
-          completed: true,
-          completedAt: new Date().toISOString(),
-        },
-        message: "Task completed",
-      });
-    }
+    void toggleTaskCompletion(task).catch(() => {});
   }
 
-  function handleSwipeLeft(task: DisplayTask) {
-    if (task._isHabit) {
-      if (!isTodaySelected) {
-        showAlert("Habits are only for today", "You can complete habits only on the current date.");
-        return;
-      }
-      const habitId = task._habitId!;
-
-      if (task.completed) {
-        void setHabitCompletedOn(habitId, selectedDate, false).catch((err) => {
-          showAlert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
-        });
-        return;
-      }
-
-      void setHabitCompletedOn(habitId, selectedDate, true).catch((err) => {
-        showAlert("Failed to update habit", err instanceof Error ? err.message : "Unknown error");
-      });
-      scheduleUndo({
-        kind: "habit-complete",
-        habitId,
-        date: selectedDate,
-        message: "Habit completed",
-      });
-      return;
-    }
-
-    if (task.completed) {
-      void toggleTaskCompletion(task);
-    } else {
-      void toggleTaskCompletion(task);
-      scheduleUndo({
-        kind: "complete",
-        task: {
-          ...task,
-          completed: true,
-          completedAt: new Date().toISOString(),
-        },
-        message: "Task completed",
-      });
-    }
-  }
-
-  function handleTaskPress(task: DisplayTask) {
-    if (selectionMode) {
-      toggleSelectTask(task.id);
-      return;
-    }
+  function handlePress(task: DisplayTask) {
     if (task._isHabit && task._habitId) {
-      navigation.navigate("HabitDetail", { habitId: task._habitId });
-      return;
-    }
-    navigation.navigate("TaskDetail", { taskId: task.id });
-  }
-
-  function handleTaskLongPress(task: DisplayTask) {
-    if (!selectionMode) {
-      setSelectionMode(true);
-      setSelectedIds(new Set([task.id]));
+      navigation.navigate('HabitDetail', {habitId: task._habitId});
     } else {
-      toggleSelectTask(task.id);
+      navigation.navigate('TaskDetail', {taskId: task.id});
     }
-  }
-
-  function toggleSelectTask(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      if (next.size === 0) {
-        setSelectionMode(false);
-      }
-      return next;
-    });
-  }
-
-  function exitSelectionMode() {
-    setSelectionMode(false);
-    setSelectedIds(new Set());
-  }
-
-  function handleBulkStart() {
-    const realTaskIds = [...selectedIds].filter((id) => !id.startsWith("habit_"));
-    for (const id of realTaskIds) {
-      const task = tasks.find((t) => t.id === id);
-      if (task && !task.completed) {
-        void startTimer(task).catch(() => { });
-      }
-    }
-    exitSelectionMode();
-  }
-
-  function handleBulkComplete() {
-    const realTaskIds = [...selectedIds].filter((id) => !id.startsWith("habit_"));
-    for (const id of realTaskIds) {
-      const task = tasks.find((t) => t.id === id);
-      if (task && !task.completed) {
-        void toggleTaskCompletion(task).catch(() => { });
-      }
-    }
-    // habit completions
-    const habitTaskIds = [...selectedIds].filter((id) => id.startsWith("habit_"));
-    for (const id of habitTaskIds) {
-      const parts = id.split("_");
-      const habitId = parts[1];
-      if (isTodaySelected) {
-        void setHabitCompletedOn(habitId, selectedDate, true).catch(() => { });
-      }
-    }
-    exitSelectionMode();
-  }
-
-  function handleBulkDelete() {
-    const realTaskIds = [...selectedIds].filter((id) => !id.startsWith("habit_"));
-    if (realTaskIds.length === 0) {
-      showAlert("No deletable tasks", "Habit tasks cannot be deleted here. Use the Habits tab.");
-      return;
-    }
-    showAlert(
-      `Delete ${realTaskIds.length} task${realTaskIds.length > 1 ? "s" : ""}?`,
-      "This action cannot be undone immediately.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            for (const id of realTaskIds) {
-              void removeTask(id).catch(() => { });
-            }
-            exitSelectionMode();
-          },
-        },
-      ],
-    );
-  }
-
-  if (screenBootLoading) {
-    return <LoadingScreen title="Loading tasks" />;
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      {selectionMode ? (
-        <View style={styles.selectionHeader}>
-          <Pressable style={styles.selectionCancelBtn} onPress={exitSelectionMode}>
-            <AppIcon name="x" size={18} color={colors.text} />
-          </Pressable>
-          <Text style={styles.selectionCount}>{selectedIds.size} selected</Text>
-          <Pressable style={styles.selectionSelectAll} onPress={() => {
-            const allIds = new Set(listData.map((t) => t.id));
-            setSelectedIds(allIds);
-          }}>
-            <Text style={styles.selectionSelectAllText}>All</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.header}>
-          <Text style={styles.appName}>Dodo</Text>
-          <Pressable style={styles.sortBtn} onPress={() => setSortVisible(true)}>
-            <AppIcon name="arrow-up-down" size={16} color={colors.text} />
-            <Text style={styles.sortBtnText}>Sort</Text>
-          </Pressable>
-        </View>
-      )}
-
-      {/* Categories */}
-      <CategoryBar selected={selectedCategory} onSelect={setSelectedCategory} />
-
-      {/* Error */}
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      {/* Task List */}
-      <FlatList
-        data={listData}
-        keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={handleRefresh} tintColor={colors.accent} />}
-        renderItem={({ item }) => (
-          <TaskItem
-            task={item}
-            category={item.categoryId ? categoriesById.get(item.categoryId) ?? null : null}
-            isHabit={!!(item as DisplayTask)._isHabit}
-            habitIcon={(item as DisplayTask)._habitIcon}
-            onToggle={handleToggleTask}
-            onDelete={(id) => handleDeleteTask(id)}
-            onSwipeLeft={(t) => handleSwipeLeft(t as DisplayTask)}
-            onPress={(t) => handleTaskPress(t as DisplayTask)}
-            onLongPress={(t) => handleTaskLongPress(t as DisplayTask)}
-            selected={selectedIds.has(item.id)}
-            selectionMode={selectionMode}
-          />
+      {/* Horizontal page scroller */}
+      <Animated.ScrollView
+        ref={pageScrollRef as any}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{nativeEvent: {contentOffset: {x: scrollX}}}],
+          {useNativeDriver: false},
         )}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <AppIcon name="inbox" size={40} color={colors.mutedText} />
-            <Text style={styles.emptyTitle}>No tasks</Text>
-            <Text style={styles.emptyText}>
-              {archiveMode
-                ? "No completed tasks yet."
-                : selectedCategory
-                  ? "No tasks in this category for the selected date."
-                  : "Tap + to add your first task."}
-            </Text>
-          </View>
-        }
-        contentContainerStyle={listData.length === 0 ? styles.emptyContainer : styles.listContent}
-        style={styles.list}
-      />
+        scrollEventThrottle={16}
+        style={{flex: 1}}
+        decelerationRate="fast">
+        {pages.map((page, index) => (
+          <TaskPage
+            key={page.key}
+            index={index}
+            scrollX={scrollX}
+            heading={page.heading}
+            tasks={page.tasks}
+            completedTasks={page.completed}
+            onToggle={handleToggle}
+            onPress={handlePress}
+            categories={categories}
+            loading={loading}
+            onRefresh={() => void refresh(selectedDate)}
+            onManageCategories={() => setManageCategoriesVisible(true)}
+            colors={colors}
+          />
+        ))}
+      </Animated.ScrollView>
 
-      {/* Bulk action bar (selection mode) */}
-      {selectionMode && (
-        <View style={styles.bulkActionBar}>
-          <Pressable
-            style={[styles.bulkBtn, styles.bulkStartBtn]}
-            onPress={handleBulkStart}
-            disabled={selectedIds.size === 0}
-          >
-            <AppIcon name="play" size={16} color={colors.success} />
-            <Text style={[styles.bulkBtnText, { color: colors.success }]}>Start</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.bulkBtn, styles.bulkCompleteBtn]}
-            onPress={handleBulkComplete}
-            disabled={selectedIds.size === 0}
-          >
-            <AppIcon name="check" size={16} color={colors.accent} />
-            <Text style={[styles.bulkBtnText, { color: colors.accent }]}>Complete</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.bulkBtn, styles.bulkDeleteBtn]}
-            onPress={handleBulkDelete}
-            disabled={selectedIds.size === 0}
-          >
-            <AppIcon name="trash-2" size={16} color={colors.danger} />
-            <Text style={[styles.bulkBtnText, { color: colors.danger }]}>Delete</Text>
-          </Pressable>
-        </View>
-      )}
+      {/* Bottom Gradient overlay */}
+      <BottomGradient colors={colors} />
 
-      {!selectionMode && (
-        <Pressable style={styles.newTaskFab} onPress={() => setFormVisible(true)}>
-          <AppIcon name="plus" size={22} color="#fff" />
-          <Text style={styles.newTaskFabText}>New Task</Text>
+      {/* Page indicator dots */}
+      <View style={styles.dotsContainer}>
+        <PageDots count={pages.length} scrollX={scrollX} colors={colors} />
+      </View>
+
+      {/* Floating Add Button (Right) */}
+      <Animated.View
+        style={[styles.fabContainer, {transform: [{scale: addBtnScale}]}]}>
+        <Pressable
+          style={styles.fab}
+          onPress={() => setFormVisible(true)}
+          onPressIn={() =>
+            Animated.spring(addBtnScale, {
+              toValue: 0.9,
+              useNativeDriver: true,
+              speed: 40,
+            }).start()
+          }
+          onPressOut={() =>
+            Animated.spring(addBtnScale, {
+              toValue: 1,
+              useNativeDriver: true,
+              speed: 20,
+            }).start()
+          }>
+          <AppIcon name="plus" size={32} color="#fff" />
         </Pressable>
-      )}
+      </Animated.View>
 
-      {/* Bottom: Date Strip + Archive Button */}
-      {!selectionMode && (
-        <View style={styles.bottomBar}>
-          <View style={styles.dateStripContainer}>
-            <DateStrip selectedDate={selectedDate} onSelectDate={handleDateChange} incompleteDateKeys={incompleteDateKeys} />
-          </View>
-          <Pressable
-            style={[styles.archiveIconBtn, archiveMode && styles.archiveIconBtnActive]}
-            onPress={() => setArchiveMode((prev) => !prev)}
-          >
-            <AppIcon name="package" size={20} color={archiveMode ? colors.accent : colors.mutedText} />
-          </Pressable>
-        </View>
-      )}
-
-      {undoState && (
-        <View style={styles.undoBar}>
-          <View style={styles.undoProgressTrack}>
-            <View style={[styles.undoProgressFill, { width: `${Math.max(0, Math.min(1, undoProgress)) * 100}%` }]} />
-          </View>
-          <Text style={styles.undoText}>{undoState.message}</Text>
-          <Pressable onPress={handleUndo} hitSlop={10}>
-            <Text style={styles.undoAction}>Undo</Text>
-          </Pressable>
-        </View>
-      )}
-
-      {/* Modals */}
       <TaskForm
         visible={formVisible}
         categories={categories}
         defaultDate={selectedDate}
-        defaultCategoryId={selectedCategory}
+        defaultCategoryId={null}
         onCancel={() => setFormVisible(false)}
         onSubmit={handleCreateTask}
       />
-      <SortModal
-        visible={sortVisible}
-        current={sortMode}
-        onSelect={setSortMode}
-        onClose={() => setSortVisible(false)}
+
+      <ManageCategoriesModal
+        visible={manageCategoriesVisible}
+        onClose={() => setManageCategoriesVisible(false)}
       />
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingTop: 14,
-    paddingBottom: spacing.xs,
-  },
-  selectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingTop: 14,
-    paddingBottom: spacing.xs,
-  },
-  selectionCancelBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  selectionCount: {
-    fontSize: fontSize.md,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  selectionSelectAll: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.sm,
-    backgroundColor: colors.accentLight,
-    borderWidth: 1,
-    borderColor: colors.accent,
-  },
-  selectionSelectAllText: {
-    color: colors.accent,
-    fontWeight: "700",
-    fontSize: fontSize.sm,
-  },
-  appName: {
-    fontSize: fontSize.xxl,
-    fontWeight: "800",
-    color: colors.accent,
-  },
-  sortBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sortBtnText: {
-    color: colors.text,
-    fontWeight: "600",
-    fontSize: fontSize.sm,
-  },
-  errorText: {
-    color: colors.danger,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.xs,
-    fontSize: fontSize.sm,
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    paddingHorizontal: 14,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  emptyContainer: {
-    flex: 1,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 32,
-    gap: spacing.sm,
-  },
-  emptyTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  emptyText: {
-    color: colors.mutedText,
-    textAlign: "center",
-    lineHeight: 20,
-    fontSize: fontSize.sm,
-  },
-  bulkActionBar: {
-    flexDirection: "row",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  bulkBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    borderRadius: radii.md,
-    borderWidth: 1,
-  },
-  bulkStartBtn: {
-    borderColor: colors.success,
-    backgroundColor: colors.successLight,
-  },
-  bulkCompleteBtn: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-  },
-  bulkDeleteBtn: {
-    borderColor: colors.danger,
-    backgroundColor: colors.dangerLight,
-  },
-  bulkBtnText: {
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-  },
-  bottomBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  dateStripContainer: {
-    flex: 1,
-  },
-  archiveIconBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: spacing.sm,
-  },
-  archiveIconBtnActive: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-  },
-  newTaskFab: {
-    position: "absolute",
-    right: spacing.lg,
-    bottom: 92,
-    minHeight: 54,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.accent,
-    marginBottom: 10,
-  },
-  newTaskFabText: {
-    color: "#fff",
-    fontSize: fontSize.md,
-    fontWeight: "700",
-  },
-  undoBar: {
-    position: "absolute",
-    left: spacing.lg,
-    right: spacing.lg,
-    bottom: 74,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    overflow: "hidden",
-  },
-  undoProgressTrack: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 4,
-    backgroundColor: colors.border,
-  },
-  undoProgressFill: {
-    height: "100%",
-    backgroundColor: colors.accent,
-  },
-  undoText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: "600",
-  },
-  undoAction: {
-    color: colors.accent,
-    fontSize: fontSize.md,
-    fontWeight: "700",
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    dotsContainer: {
+      position: 'absolute',
+      bottom: 80,
+      left: 0,
+      right: 0,
+      alignItems: 'center',
+      zIndex: 20,
+    },
+    fabContainer: {
+      position: 'absolute',
+      bottom: 100,
+      right: 48,
+      zIndex: 100,
+    },
+    fab: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });

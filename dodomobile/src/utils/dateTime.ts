@@ -6,7 +6,7 @@ type DateTimePrefs = {
   weekStart: WeekStartPreference;
 };
 
-const DAY_LABELS_SUN_FIRST = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_LABELS_SUN_FIRST = ["S", "M", "T", "W", "T", "F", "S"];
 
 function toDate(value: string | Date): Date {
   return value instanceof Date ? value : new Date(value);

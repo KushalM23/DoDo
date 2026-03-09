@@ -1,45 +1,126 @@
-import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useAlert } from "../../state/AlertContext";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { AppIcon } from "../../components/AppIcon";
-import { useAuth } from "../../state/AuthContext";
-import { usePreferences } from "../../state/PreferencesContext";
-import { changePassword, deleteAccount } from "../../services/api";
-import type { RootStackParamList } from "../../navigation/RootNavigator";
-import { spacing, radii, fontSize } from "../../theme/colors";
-import { type ThemeColors, useThemeColors } from "../../theme/ThemeProvider";
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import {useAlert} from '../../state/AlertContext';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {AppIcon} from '../../components/AppIcon';
+import {useAuth} from '../../state/AuthContext';
+import {usePreferences} from '../../state/PreferencesContext';
+import {changePassword, deleteAccount} from '../../services/api';
+import type {RootStackParamList} from '../../navigation/RootNavigator';
+import {spacing, fontSize} from '../../theme/colors';
+import {fonts} from '../../theme/fonts';
+import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
+import {CustomModal} from '../../components/overlays/CustomModal';
 
-function SegmentedControl<T extends string>({
-  title,
+/* ─── Pill Toggle (matches floating navbar style) ─────────── */
+
+function PillToggle<T extends string>({
   value,
   options,
   onChange,
   colors,
 }: {
-  title: string;
   value: T;
-  options: { value: T; label: string }[];
+  options: {value: T; label: string; icon?: string}[];
   onChange: (next: T) => void;
   colors: ThemeColors;
 }) {
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const activeIdx = options.findIndex(o => o.value === value);
+  const safeIdx = activeIdx >= 0 ? activeIdx : 0;
+  const pillLeft = useRef(
+    new Animated.Value(safeIdx * (1 / options.length) * 100),
+  ).current;
+
+  useEffect(() => {
+    Animated.spring(pillLeft, {
+      toValue: safeIdx * (1 / options.length) * 100,
+      useNativeDriver: false,
+      tension: 70,
+      friction: 11,
+    }).start();
+  }, [safeIdx, options.length, pillLeft]);
+
+  function handleSelect(next: T, idx: number) {
+    Animated.spring(pillLeft, {
+      toValue: idx * (1 / options.length) * 100,
+      useNativeDriver: false,
+      tension: 70,
+      friction: 11,
+    }).start();
+    onChange(next);
+  }
+
+  const widthPct = `${100 / options.length}%` as `${number}%`;
 
   return (
-    <View style={styles.prefBlock}>
-      <Text style={styles.prefLabel}>{title}</Text>
-      <View style={styles.segmentWrap}>
-        {options.map((option) => {
+    <View style={{marginBottom: 20}}>
+      <View
+        style={{
+          flexDirection: 'row',
+          borderRadius: 28,
+          backgroundColor: colors.surface,
+          padding: 4,
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+        {/* Sliding pill background */}
+        <View
+          style={{position: 'absolute', top: 4, left: 4, right: 4, bottom: 4}}>
+          <Animated.View
+            style={{
+              height: '100%',
+              width: widthPct,
+              left: pillLeft.interpolate({
+                inputRange: [0, 100],
+                outputRange: ['0%', '100%'],
+              }),
+              borderRadius: 24,
+              backgroundColor: colors.accent,
+            }}
+          />
+        </View>
+
+        {/* Option buttons */}
+        {options.map((option, idx) => {
           const active = value === option.value;
           return (
             <Pressable
               key={option.value}
-              style={[styles.segmentBtn, active && styles.segmentBtnActive]}
-              onPress={() => onChange(option.value)}
-            >
-              <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{option.label}</Text>
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 10,
+                gap: 6,
+                zIndex: 1,
+              }}
+              onPress={() => handleSelect(option.value, idx)}>
+              {option.icon ? (
+                <AppIcon
+                  name={option.icon as any}
+                  size={14}
+                  color={active ? '#fff' : colors.mutedText}
+                />
+              ) : null}
+              <Text
+                style={{
+                  color: active ? '#fff' : colors.mutedText,
+                  fontSize: fontSize.sm,
+                  fontFamily: fonts.bodyBold,
+                }}>
+                {option.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -48,376 +129,352 @@ function SegmentedControl<T extends string>({
   );
 }
 
+/* ─── Main ─────────────────────────────────────────────────── */
+
 export function SettingsScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { showAlert } = useAlert();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { signOut } = useAuth();
+  const {showAlert} = useAlert();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const {signOut} = useAuth();
   const {
     preferences,
     setDarkMode,
     setDateFormat,
     setTimeFormat,
-    setWeekStart,
     resetPreferences,
   } = usePreferences();
 
-  const [newPassword, setNewPassword] = useState("");
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [passwordCurrent, setPasswordCurrent] = useState('');
+  const [passwordNew, setPasswordNew] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   async function handlePasswordChange() {
-    const trimmed = newPassword.trim();
-    if (trimmed.length < 6) {
-      showAlert("Invalid password", "Password must be at least 6 characters.");
+    if (passwordNew.length < 6) {
+      showAlert(
+        'Invalid password',
+        'New password must be at least 6 characters.',
+      );
+      return;
+    }
+    if (passwordNew !== passwordConfirm) {
+      showAlert(
+        "Passwords don't match",
+        'New password and confirm password must match.',
+      );
       return;
     }
 
     setChangingPassword(true);
     try {
-      await changePassword(trimmed);
-      setNewPassword("");
-      showAlert("Password updated", "Your password was changed successfully.");
+      await changePassword(passwordNew);
+      setPasswordCurrent('');
+      setPasswordNew('');
+      setPasswordConfirm('');
+      setPasswordModalVisible(false);
+      showAlert('Password updated', 'Your password was changed successfully.');
     } catch (error) {
-      showAlert("Change failed", error instanceof Error ? error.message : "Unknown error");
+      showAlert(
+        'Change failed',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
     } finally {
       setChangingPassword(false);
     }
   }
 
-  function confirmDeleteAccount() {
-    showAlert(
-      "Delete account",
-      "This permanently deletes your account and all related data. This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            void handleDeleteAccount();
-          },
-        },
-      ],
-    );
+  function openPasswordModal() {
+    setPasswordCurrent('');
+    setPasswordNew('');
+    setPasswordConfirm('');
+    setPasswordModalVisible(true);
+  }
+
+  function openDeleteModal() {
+    setDeletePassword('');
+    setDeleteModalVisible(true);
   }
 
   async function handleDeleteAccount() {
+    if (!deletePassword) {
+      showAlert(
+        'Password required',
+        'Please enter your password to delete your account.',
+      );
+      return;
+    }
     setDeletingAccount(true);
     try {
       await deleteAccount();
       await signOut();
     } catch (error) {
-      showAlert("Delete failed", error instanceof Error ? error.message : "Unknown error");
+      showAlert(
+        'Delete failed',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
     } finally {
       setDeletingAccount(false);
     }
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <AppIcon name="chevron-left" size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
-        <View style={{ width: 22 }} />
+        <View style={{width: 22}} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.sectionTitle}>Preferences</Text>
-
-        <View style={styles.prefBlock}>
-          <View style={styles.themeRow}>
-            <View>
-              <Text style={styles.prefLabel}>App theme</Text>
-            </View>
-
-            <View style={styles.themeToggleTrack}>
-              <Pressable
-                style={[styles.themeOption, !preferences.darkMode && styles.themeOptionActive]}
-                onPress={() => {
-                  void setDarkMode(false);
-                }}
-              >
-                <AppIcon name="sun" size={14} color={!preferences.darkMode ? colors.accent : colors.mutedText} />
-                <Text style={[styles.themeOptionText, !preferences.darkMode && styles.themeOptionTextActive]}>Light</Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.themeOption, preferences.darkMode && styles.themeOptionActive]}
-                onPress={() => {
-                  void setDarkMode(true);
-                }}
-              >
-                <AppIcon name="moon" size={14} color={preferences.darkMode ? colors.accent : colors.mutedText} />
-                <Text style={[styles.themeOptionText, preferences.darkMode && styles.themeOptionTextActive]}>Dark</Text>
-              </Pressable>
-            </View>
-          </View>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 24,
+            marginTop: 24,
+          }}>
+          <Text style={[styles.sectionTitle, {marginTop: 0, marginBottom: 0}]}>
+            Preferences
+          </Text>
+          <Pressable onPress={() => void resetPreferences()} hitSlop={12}>
+            <AppIcon name="rotate-ccw" size={20} color={colors.text} />
+          </Pressable>
         </View>
 
-        <SegmentedControl
-          title="Date format"
+        <PillToggle
+          value={preferences.darkMode ? 'dark' : 'light'}
+          colors={colors}
+          options={[
+            {value: 'light', label: 'Light', icon: 'sun'},
+            {value: 'dark', label: 'Dark', icon: 'moon'},
+          ]}
+          onChange={next => {
+            void setDarkMode(next === 'dark');
+          }}
+        />
+
+        <PillToggle
           value={preferences.dateFormat}
           colors={colors}
           options={[
-            { value: "eu", label: "EU (DD/MM/YYYY)" },
-            { value: "us", label: "US (MM/DD/YYYY)" },
+            {value: 'eu', label: 'DD/MM/YYYY'},
+            {value: 'us', label: 'MM/DD/YYYY'},
           ]}
-          onChange={(next) => {
+          onChange={next => {
             void setDateFormat(next);
           }}
         />
 
-        <SegmentedControl
-          title="Time format"
+        <PillToggle
           value={preferences.timeFormat}
           colors={colors}
           options={[
-            { value: "12h", label: "12-hour" },
-            { value: "24h", label: "24-hour" },
+            {value: '12h', label: '12-hour'},
+            {value: '24h', label: '24-hour'},
           ]}
-          onChange={(next) => {
+          onChange={next => {
             void setTimeFormat(next);
           }}
         />
-
-        <SegmentedControl
-          title="Week start"
-          value={preferences.weekStart}
-          colors={colors}
-          options={[
-            { value: "monday", label: "Monday" },
-            { value: "sunday", label: "Sunday" },
-          ]}
-          onChange={(next) => {
-            void setWeekStart(next);
-          }}
-        />
-
-        <Pressable
-          style={styles.resetBtn}
-          onPress={() => {
-            void resetPreferences();
-          }}
-        >
-          <AppIcon name="rotate-ccw" size={14} color={colors.accent} />
-          <Text style={styles.resetText}>Reset preferences</Text>
-        </Pressable>
-
         <Text style={styles.sectionTitle}>Account</Text>
 
-        <View style={styles.accountCard}>
-          <Text style={styles.prefLabel}>Change password</Text>
-          <TextInput
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry
-            placeholder="Enter new password"
-            placeholderTextColor={colors.mutedText}
-            style={styles.input}
-          />
+        {/* Password change — no card background */}
+        <View style={styles.accountSection}>
           <Pressable
-            style={[styles.actionBtn, styles.passwordBtn, changingPassword && styles.disabled]}
-            onPress={handlePasswordChange}
-            disabled={changingPassword}
-          >
-            <AppIcon name="key-round" size={14} color={colors.accent} />
-            <Text style={[styles.actionText, { color: colors.accent }]}>
-              {changingPassword ? "Saving..." : "Change password"}
-            </Text>
-          </Pressable>
-
-          <Pressable style={[styles.actionBtn, styles.logoutBtn]} onPress={() => void signOut()}>
+            style={[styles.actionBtn, styles.logoutBtn]}
+            onPress={() => void signOut()}>
             <AppIcon name="log-out" size={14} color={colors.text} />
             <Text style={styles.actionText}>Logout</Text>
           </Pressable>
+          <Pressable
+            style={[styles.actionBtn, styles.passwordBtn]}
+            onPress={openPasswordModal}>
+            <AppIcon name="key-round" size={14} color={colors.text} />
+            <Text style={[styles.actionText, {color: colors.text}]}>
+              Change password
+            </Text>
+          </Pressable>
 
           <Pressable
-            style={[styles.actionBtn, styles.deleteBtn, deletingAccount && styles.disabled]}
-            onPress={confirmDeleteAccount}
-            disabled={deletingAccount}
-          >
-            <AppIcon name="trash-2" size={14} color={colors.danger} />
-            <Text style={[styles.actionText, { color: colors.danger }]}>
-              {deletingAccount ? "Deleting..." : "Delete account"}
+            style={[styles.actionBtn, styles.deleteBtn]}
+            onPress={openDeleteModal}>
+            <AppIcon name="trash-2" size={14} color={colors.text} />
+            <Text style={[styles.actionText, {color: colors.text}]}>
+              Delete account
             </Text>
           </Pressable>
         </View>
+
+        <CustomModal
+          visible={passwordModalVisible}
+          title="Change Password"
+          onClose={() => setPasswordModalVisible(false)}>
+          <TextInput
+            style={styles.input}
+            placeholder="Current Password"
+            placeholderTextColor={colors.mutedText}
+            secureTextEntry
+            value={passwordCurrent}
+            onChangeText={setPasswordCurrent}
+            editable={!changingPassword}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="New Password"
+            placeholderTextColor={colors.mutedText}
+            secureTextEntry
+            value={passwordNew}
+            onChangeText={setPasswordNew}
+            editable={!changingPassword}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm New Password"
+            placeholderTextColor={colors.mutedText}
+            secureTextEntry
+            value={passwordConfirm}
+            onChangeText={setPasswordConfirm}
+            editable={!changingPassword}
+          />
+          <Pressable
+            style={[
+              styles.actionBtn,
+              styles.passwordModalBtn,
+              {marginTop: 8},
+              changingPassword && styles.disabled,
+            ]}
+            onPress={handlePasswordChange}
+            disabled={changingPassword}>
+            <AppIcon name="key-round" size={14} color={colors.text} />
+            <Text style={[styles.actionText, {color: colors.text}]}>
+              {changingPassword ? 'Saving...' : 'Change password'}
+            </Text>
+          </Pressable>
+        </CustomModal>
+
+        <CustomModal
+          visible={deleteModalVisible}
+          title="Delete Account"
+          onClose={() => setDeleteModalVisible(false)}>
+          <Text style={styles.warningText}>
+            This permanently deletes your account and all related data. This
+            action cannot be undone.
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Current Password"
+            placeholderTextColor={colors.mutedText}
+            secureTextEntry
+            value={deletePassword}
+            onChangeText={setDeletePassword}
+            editable={!deletingAccount}
+          />
+          <Pressable
+            style={[
+              styles.actionBtn,
+              styles.deleteBtn,
+              {marginTop: 8},
+              deletingAccount && styles.disabled,
+            ]}
+            onPress={handleDeleteAccount}
+            disabled={deletingAccount}>
+            <AppIcon name="trash-2" size={14} color={'#fff'} />
+            <Text style={[styles.actionText, {color: '#fff'}]}>
+              {deletingAccount ? 'Deleting...' : 'Delete account'}
+            </Text>
+          </Pressable>
+        </CustomModal>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-  },
-  scroll: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  sectionTitle: {
-    color: colors.mutedText,
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  prefBlock: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  prefLabel: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-    marginBottom: spacing.sm,
-  },
-  prefHint: {
-    color: colors.mutedText,
-    fontSize: fontSize.xs,
-    marginTop: -4,
-  },
-  themeRow: {
-    gap: spacing.sm,
-  },
-  themeToggleTrack: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surfaceLight,
-    overflow: "hidden",
-    marginTop: spacing.xs,
-  },
-  themeOption: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-  },
-  themeOptionActive: {
-    backgroundColor: colors.accentLight,
-  },
-  themeOptionText: {
-    color: colors.mutedText,
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-  },
-  themeOptionTextActive: {
-    color: colors.accent,
-  },
-  segmentWrap: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    overflow: "hidden",
-  },
-  segmentBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surfaceLight,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  segmentBtnActive: {
-    backgroundColor: colors.accentLight,
-  },
-  segmentText: {
-    color: colors.mutedText,
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-  },
-  segmentTextActive: {
-    color: colors.accent,
-    fontWeight: "700",
-  },
-  resetBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-    borderRadius: radii.sm,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  resetText: {
-    color: colors.accent,
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-  },
-  accountCard: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  input: {
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: colors.text,
-    fontSize: fontSize.sm,
-  },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-  },
-  actionText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-  },
-  passwordBtn: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-  },
-  logoutBtn: {
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceLight,
-  },
-  deleteBtn: {
-    borderColor: colors.danger,
-    backgroundColor: colors.dangerLight,
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 28,
+      paddingVertical: spacing.xs,
+    },
+    headerTitle: {
+      color: colors.text,
+      fontSize: 36,
+      fontFamily: fonts.heading,
+      letterSpacing: -0.5,
+    },
+    scroll: {
+      paddingHorizontal: 28,
+      paddingBottom: 100,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: fontSize.lg,
+      fontFamily: fonts.headingSemiBold,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginTop: 24,
+      marginBottom: 24,
+    },
+    accountSection: {
+      gap: 10,
+    },
+    input: {
+      backgroundColor: colors.surfaceLight,
+      borderRadius: 100,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.sm,
+      color: colors.text,
+      fontSize: fontSize.md,
+      fontFamily: fonts.body,
+    },
+    actionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 12,
+      borderRadius: 28,
+    },
+    actionText: {
+      color: colors.text,
+      fontSize: fontSize.sm,
+      fontFamily: fonts.bodyBold,
+    },
+    passwordBtn: {
+      backgroundColor: colors.surface,
+    },
+    passwordModalBtn: {
+      backgroundColor: colors.accent,
+    },
+    logoutBtn: {
+      backgroundColor: colors.surface,
+    },
+    deleteBtn: {
+      backgroundColor: colors.danger,
+    },
+    disabled: {
+      opacity: 0.6,
+    },
+    warningText: {
+      color: colors.mutedText,
+      fontSize: fontSize.md,
+      fontFamily: fonts.body,
+      marginBottom: spacing.xs,
+    },
+  });

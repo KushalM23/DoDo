@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
-from app.routes import auth_routes, categories, habits, health, tasks
+from app.routes import auth_routes, categories, habits, sync, tasks
 
 
 def create_app() -> FastAPI:
@@ -22,15 +22,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    @app.get("/")
-    async def root():
-        return {"name": "dodo-api", "version": "0.1.0"}
-
     app.include_router(auth_routes.router, prefix="/api")
-    app.include_router(health.router, prefix="/api/health")
     app.include_router(tasks.router, prefix="/api")
     app.include_router(categories.router, prefix="/api")
     app.include_router(habits.router, prefix="/api")
+    app.include_router(sync.router, prefix="/api")
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_request: Request, exc: RequestValidationError):

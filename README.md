@@ -92,19 +92,19 @@ npm install
 4. Start Metro:
 
 ```bash
-npm run mobile:start
+npm start
 ```
 
 5. Run app:
 
 ```bash
-npm run mobile:android
+npm run android
 ```
 
 On macOS, you can also run:
 
 ```bash
-npm run mobile:ios
+npm run ios
 ```
 
 ## Core API groups

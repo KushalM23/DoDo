@@ -1,86 +1,146 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useAlert } from "../../state/AlertContext";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useTasks } from "../../state/TasksContext";
-import { useCategories } from "../../state/CategoriesContext";
-import { usePreferences } from "../../state/PreferencesContext";
-import { AppIcon } from "../../components/AppIcon";
-import { HoldToConfirmButton } from "../../components/HoldToConfirmButton";
-import { TaskForm } from "../../components/TaskForm";
-import { CustomDateTimePicker } from "../../components/CustomDateTimePicker";
-import { LoadingScreen } from "../../components/LoadingScreen";
-import { spacing, radii, fontSize } from "../../theme/colors";
-import { type ThemeColors, useThemeColors, useThemeMode } from "../../theme/ThemeProvider";
-import type { RootStackParamList } from "../../navigation/RootNavigator";
-import type { CreateTaskInput, Priority } from "../../types/task";
-import { formatDateTime, toLocalDateKey } from "../../utils/dateTime";
+import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import {useAlert} from '../../state/AlertContext';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useTasks} from '../../state/TasksContext';
+import {useCategories} from '../../state/CategoriesContext';
+import {usePreferences} from '../../state/PreferencesContext';
+import {AppIcon, type AppIconName} from '../../components/AppIcon';
+import {FocusModeScreen} from '../../components/focus/FocusModeScreen';
+import {HoldToConfirmButton} from '../../components/focus/HoldToConfirmButton';
+import {LoadingScreen} from '../../components/feedback/LoadingScreen';
+import {CustomDatePicker} from '../../components/forms/pickers/CustomDatePicker';
+import {CustomTimePicker} from '../../components/forms/pickers/CustomTimePicker';
+import {CustomDurationPicker} from '../../components/forms/pickers/CustomDurationPicker';
+import {spacing, fontSize} from '../../theme/colors';
+import {fonts} from '../../theme/fonts';
+import {
+  type ThemeColors,
+  useThemeColors,
+  useThemeMode,
+} from '../../theme/ThemeProvider';
+import type {RootStackParamList} from '../../navigation/RootNavigator';
+import type {CreateTaskInput, Priority, Task} from '../../types/task';
+import {formatDate, formatDateTime, formatTime} from '../../utils/dateTime';
 
-type UndoState =
-  | {
-    kind: "complete";
-    task: CreateTaskInput & {
-      id: string;
-      completed: boolean;
-      completedAt: string | null;
-      timerStartedAt: string | null;
-      actualDurationMinutes: number;
-      completionXp: number;
-      createdAt: string;
-    };
-    message: string;
+function priorityMeta(
+  priority: Priority,
+  colors: ThemeColors,
+): {
+  label: string;
+  color: string;
+  icon: 'arrow-down-circle' | 'minus-circle' | 'arrow-up-circle';
+} {
+  if (priority === 3) {
+    return {label: 'High', color: colors.highPriority, icon: 'arrow-up-circle'};
   }
-  | { kind: "delete"; taskId: string; message: string };
-
-function localDateOnly(iso: string): string {
-  return toLocalDateKey(iso);
+  if (priority === 2) {
+    return {
+      label: 'Medium',
+      color: colors.mediumPriority,
+      icon: 'minus-circle',
+    };
+  }
+  return {label: 'Low', color: colors.lowPriority, icon: 'arrow-down-circle'};
 }
 
-function priorityMeta(priority: Priority, colors: ThemeColors): { label: string; color: string; icon: "arrow-down-circle" | "minus-circle" | "arrow-up-circle" } {
-  if (priority === 3) return { label: "High", color: colors.highPriority, icon: "arrow-up-circle" };
-  if (priority === 2) return { label: "Medium", color: colors.mediumPriority, icon: "minus-circle" };
-  return { label: "Low", color: colors.lowPriority, icon: "arrow-down-circle" };
+function getTaskDurationMinutes(task: Task): number {
+  if (task.durationMinutes != null && Number.isFinite(task.durationMinutes)) {
+    return Math.max(1, task.durationMinutes);
+  }
+  const inferred = Math.round(
+    (new Date(task.deadline).getTime() - new Date(task.scheduledAt).getTime()) /
+      60000,
+  );
+  return Math.max(1, inferred || 60);
+}
+
+function formatDurationSmart(mins: number): string {
+  if (mins < 60) {
+    return `${mins}m`;
+  }
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (m === 0) {
+    return `${h}h`;
+  }
+  return `${h}h${m}m`;
 }
 
 export function TaskDetailScreen() {
   const colors = useThemeColors();
   const themeMode = useThemeMode();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { showAlert } = useAlert();
-  const route = useRoute<RouteProp<RootStackParamList, "TaskDetail">>();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { tasks, loading: tasksLoading, initialized: tasksInitialized, toggleTaskCompletion, removeTask, updateTaskDetails } = useTasks();
-  const { categories, loading: categoriesLoading, initialized: categoriesInitialized } = useCategories();
-  const { preferences } = usePreferences();
+  const {showAlert} = useAlert();
+  const route = useRoute<RouteProp<RootStackParamList, 'TaskDetail'>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const {
+    tasks,
+    loading: tasksLoading,
+    initialized: tasksInitialized,
+    toggleTaskCompletion,
+    removeTask,
+    updateTaskDetails,
+  } = useTasks();
+  const {
+    categories,
+    loading: categoriesLoading,
+    initialized: categoriesInitialized,
+  } = useCategories();
+  const {preferences} = usePreferences();
 
   const taskId = route.params.taskId;
-  const task = tasks.find((t) => t.id === taskId);
+  const task = tasks.find(t => t.id === taskId);
 
-  const [editVisible, setEditVisible] = useState(false);
-  const [postponeVisible, setPostponeVisible] = useState(false);
-  const [postponeMode, setPostponeMode] = useState<"options" | "custom">("options");
-  const [postponeDate, setPostponeDate] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('');
+  const [titleDraft, setTitleDraft] = useState('');
+  const [priorityDraft, setPriorityDraft] = useState<Priority>(2);
+  const [scheduledAtDraft, setScheduledAtDraft] = useState(() => new Date());
+  const [durationMinutesDraft, setDurationMinutesDraft] = useState(60);
+  const [categoryIdDraft, setCategoryIdDraft] = useState<string | null>(null);
+
   const [busy, setBusy] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(task?.description ?? "");
-  const [savingNote, setSavingNote] = useState(false);
-  const [undoState, setUndoState] = useState<UndoState | null>(null);
+  const [savingDetails, setSavingDetails] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(false);
-  const [undoProgress, setUndoProgress] = useState(0);
   const [lockInMode, setLockInMode] = useState(false);
   const [lockTime, setLockTime] = useState(() => new Date());
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const undoProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAutoSavedSignatureRef = useRef('');
+  const autoSaveErrorShownRef = useRef(false);
 
   useEffect(() => {
-    setNoteDraft(task?.description ?? "");
-  }, [task?.id, task?.description]);
-
-
+    if (!task) {
+      return;
+    }
+    setTitleDraft(task.title);
+    setPriorityDraft(task.priority);
+    setScheduledAtDraft(new Date(task.scheduledAt));
+    setDurationMinutesDraft(getTaskDurationMinutes(task));
+    setCategoryIdDraft(task.categoryId);
+    setActiveTab('');
+    lastAutoSavedSignatureRef.current = '';
+    autoSaveErrorShownRef.current = false;
+  }, [task?.id]);
 
   useEffect(() => {
-    if (!lockInMode) return;
+    if (!lockInMode) {
+      return;
+    }
     const timer = setInterval(() => setLockTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, [lockInMode]);
@@ -90,77 +150,111 @@ export function TaskDetailScreen() {
       if (undoTimerRef.current) {
         clearTimeout(undoTimerRef.current);
       }
-      if (undoProgressTimerRef.current) {
-        clearInterval(undoProgressTimerRef.current);
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
       }
     };
   }, []);
 
-  const category = task?.categoryId ? categories.find((c) => c.id === task.categoryId) ?? null : null;
-  const categoryName = category?.name ?? "None";
+  const category = task?.categoryId
+    ? categories.find(c => c.id === task.categoryId) ?? null
+    : null;
+  const categoryName = category?.name ?? 'None';
+  const selectedCategory = categoryIdDraft
+    ? categories.find(c => c.id === categoryIdDraft) ?? null
+    : null;
 
-  const priorityInfo = useMemo(() => (task ? priorityMeta(task.priority, colors) : null), [task, colors]);
+  const priorityInfo = useMemo(
+    () => (task ? priorityMeta(task.priority, colors) : null),
+    [task, colors],
+  );
+
+  const draftPriorityInfo = useMemo(
+    () => priorityMeta(priorityDraft, colors),
+    [priorityDraft, colors],
+  );
+
+  const durationLabel = formatDurationSmart(durationMinutesDraft);
+  const tabsTop = [
+    {
+      id: 'date',
+      icon: 'calendar' as AppIconName,
+      valueDisplay: formatDate(scheduledAtDraft, preferences.dateFormat),
+    },
+    {
+      id: 'time',
+      icon: 'clock' as AppIconName,
+      valueDisplay: formatTime(scheduledAtDraft, preferences.timeFormat),
+    },
+  ];
+
+  const tabsBottom = [
+    {
+      id: 'priority',
+      icon: draftPriorityInfo.icon,
+      color: draftPriorityInfo.color,
+      valueDisplay:
+        priorityDraft === 3 ? 'High' : priorityDraft === 2 ? 'Med' : 'Low',
+    },
+    {
+      id: 'duration',
+      icon: 'hourglass' as AppIconName,
+      valueDisplay: durationLabel,
+    },
+    ...(categories.length > 0
+      ? [
+          {
+            id: 'category',
+            icon: (selectedCategory?.icon ?? 'package') as AppIconName,
+            color: selectedCategory?.color,
+            valueDisplay: selectedCategory?.name ?? 'Category',
+          },
+        ]
+      : []),
+  ];
+
+  const hasChanges = useMemo(() => {
+    if (!task) {
+      return false;
+    }
+    const originalDuration = getTaskDurationMinutes(task);
+    return (
+      titleDraft.trim() !== task.title ||
+      priorityDraft !== task.priority ||
+      categoryIdDraft !== task.categoryId ||
+      durationMinutesDraft !== originalDuration ||
+      scheduledAtDraft.toISOString() !== new Date(task.scheduledAt).toISOString()
+    );
+  }, [
+    task,
+    titleDraft,
+    priorityDraft,
+    categoryIdDraft,
+    durationMinutesDraft,
+    scheduledAtDraft,
+  ]);
 
   function clearUndoTimer() {
     if (undoTimerRef.current) {
       clearTimeout(undoTimerRef.current);
       undoTimerRef.current = null;
     }
-    if (undoProgressTimerRef.current) {
-      clearInterval(undoProgressTimerRef.current);
-      undoProgressTimerRef.current = null;
-    }
   }
 
-  function scheduleUndo(next: UndoState) {
+  function scheduleDelete(taskId: string) {
     clearUndoTimer();
-    setUndoState(next);
-    setUndoProgress(1);
-
-    const startTime = Date.now();
-    if (undoProgressTimerRef.current) {
-      clearInterval(undoProgressTimerRef.current);
-      undoProgressTimerRef.current = null;
-    }
-    undoProgressTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, 1 - elapsed / 3000);
-      setUndoProgress(remaining);
-      if (remaining <= 0 && undoProgressTimerRef.current) {
-        clearInterval(undoProgressTimerRef.current);
-        undoProgressTimerRef.current = null;
-      }
-    }, 50);
-
+    setPendingDelete(true);
     undoTimerRef.current = setTimeout(() => {
-      if (next.kind === "delete") {
-        void removeTask(next.taskId).finally(() => navigation.goBack());
-      }
+      void removeTask(taskId).finally(() => navigation.goBack());
       setPendingDelete(false);
-      setUndoState(null);
-      setUndoProgress(0);
       undoTimerRef.current = null;
     }, 3000);
   }
 
-  function handleUndo() {
-    if (!undoState) return;
-    clearUndoTimer();
-
-    if (undoState.kind === "complete") {
-      void toggleTaskCompletion(undoState.task);
-    }
-
-    if (undoState.kind === "delete") {
-      setPendingDelete(false);
-    }
-
-    setUndoState(null);
-    setUndoProgress(0);
-  }
-
   async function handleComplete() {
-    if (!task || busy || pendingDelete) return;
+    if (!task || busy || pendingDelete || savingDetails) {
+      return;
+    }
 
     if (task.completed) {
       setBusy(true);
@@ -172,77 +266,116 @@ export function TaskDetailScreen() {
       return;
     }
 
-    const completedSnapshot = {
-      ...task,
-      completed: true,
-      completedAt: new Date().toISOString(),
-    };
-
     setBusy(true);
     try {
       await toggleTaskCompletion(task);
-      scheduleUndo({ kind: "complete", task: completedSnapshot, message: "Task completed" });
     } finally {
       setBusy(false);
     }
   }
 
   function handleDelete() {
-    if (!task) return;
-    setPendingDelete(true);
-    scheduleUndo({ kind: "delete", taskId: task.id, message: "Task deleted" });
-  }
-
-  async function postponeTo(nextScheduledAt: Date) {
-    if (!task || busy || pendingDelete) return;
-
-    const durationMs = task.durationMinutes != null
-      ? task.durationMinutes * 60 * 1000
-      : Math.max(0, new Date(task.deadline).getTime() - new Date(task.scheduledAt).getTime());
-    const nextDeadline = new Date(nextScheduledAt.getTime() + durationMs);
-
-    setBusy(true);
-    try {
-      await updateTaskDetails(task.id, {
-        scheduledAt: nextScheduledAt.toISOString(),
-        deadline: nextDeadline.toISOString(),
-      });
-    } catch (err) {
-      showAlert("Failed to postpone", err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setBusy(false);
+    if (!task || busy || savingDetails) {
+      return;
     }
+    scheduleDelete(task.id);
   }
 
-  function handlePostpone() {
-    if (!task) return;
-    setPostponeDate(new Date(task.scheduledAt));
-    setPostponeMode("options");
-    setPostponeVisible(true);
-  }
-
-  async function handleEditSubmit(input: CreateTaskInput) {
-    if (!task) return;
-    await updateTaskDetails(task.id, input);
-    setEditVisible(false);
-  }
-
-  async function handleSaveNote() {
-    if (!task || savingNote) return;
-    const trimmed = noteDraft.trim();
-    const current = (task.description ?? "").trim();
-    if (trimmed === current) return;
-    setSavingNote(true);
-    try {
-      await updateTaskDetails(task.id, { description: trimmed });
-    } catch (err) {
-      showAlert("Failed to save notes", err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setSavingNote(false);
+  useEffect(() => {
+    if (!task || busy || pendingDelete || savingDetails) {
+      return;
     }
-  }
 
-  if (!tasksInitialized || !categoriesInitialized || (tasksLoading && tasks.length === 0) || (categoriesLoading && categories.length === 0)) {
+    const trimmedTitle = titleDraft.trim();
+    if (!trimmedTitle) {
+      return;
+    }
+    if (!Number.isFinite(durationMinutesDraft) || durationMinutesDraft < 1) {
+      return;
+    }
+    if (!hasChanges) {
+      return;
+    }
+
+    const signature = [
+      trimmedTitle,
+      priorityDraft,
+      categoryIdDraft ?? 'none',
+      durationMinutesDraft,
+      scheduledAtDraft.toISOString(),
+    ].join('|');
+
+    if (signature === lastAutoSavedSignatureRef.current) {
+      return;
+    }
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      const deadline = new Date(
+        scheduledAtDraft.getTime() + durationMinutesDraft * 60 * 1000,
+      );
+
+      const input: CreateTaskInput = {
+        title: trimmedTitle,
+        description: task.description ?? '',
+        categoryId: categoryIdDraft,
+        scheduledAt: scheduledAtDraft.toISOString(),
+        deadline: deadline.toISOString(),
+        durationMinutes: durationMinutesDraft,
+        priority: priorityDraft,
+      };
+
+      setSavingDetails(true);
+      void updateTaskDetails(task.id, input)
+        .then(() => {
+          lastAutoSavedSignatureRef.current = signature;
+          autoSaveErrorShownRef.current = false;
+        })
+        .catch(err => {
+          if (!autoSaveErrorShownRef.current) {
+            showAlert(
+              'Failed to update task',
+              err instanceof Error ? err.message : 'Unknown error',
+            );
+            autoSaveErrorShownRef.current = true;
+          }
+        })
+        .finally(() => {
+          setSavingDetails(false);
+        });
+    }, 450);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [
+    task,
+    hasChanges,
+    titleDraft,
+    priorityDraft,
+    categoryIdDraft,
+    durationMinutesDraft,
+    scheduledAtDraft,
+    busy,
+    pendingDelete,
+    savingDetails,
+    updateTaskDetails,
+    showAlert,
+  ]);
+
+  if (
+    !tasksInitialized ||
+    !categoriesInitialized ||
+    (tasksLoading && tasks.length === 0) ||
+    (categoriesLoading && categories.length === 0)
+  ) {
     return <LoadingScreen title="Loading task" />;
   }
 
@@ -254,7 +387,7 @@ export function TaskDetailScreen() {
             <AppIcon name="chevron-left" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Task</Text>
-          <View style={{ width: 24 }} />
+          <View style={{width: 24}} />
         </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>Task not found</Text>
@@ -264,50 +397,26 @@ export function TaskDetailScreen() {
   }
 
   if (lockInMode) {
-    const hour24 = lockTime.getHours();
-    const lockHour = String(preferences.timeFormat === "24h" ? hour24 : ((hour24 + 11) % 12) + 1).padStart(2, "0");
-    const lockMinute = String(lockTime.getMinutes()).padStart(2, "0");
-
     return (
-      <SafeAreaView style={styles.lockContainer} edges={["top", "bottom"]}>
-        <View style={styles.lockContent}>
-          <View style={styles.lockClockWrap}>
-            <Text style={styles.lockClockLine}>{lockHour}</Text>
-            <Text style={styles.lockClockLine}>{lockMinute}</Text>
-          </View>
-
-          <View style={styles.lockInfoBlock}>
-            <Text style={styles.lockTitle} numberOfLines={2}>{task.title}</Text>
-            <Text style={styles.lockMeta}>{categoryName} · {priorityInfo?.label ?? "Priority"}</Text>
-            <Text style={styles.lockMeta}>Due {formatDateTime(task.deadline, {
-              dateFormat: preferences.dateFormat,
-              timeFormat: preferences.timeFormat,
-              weekStart: preferences.weekStart,
-            })}</Text>
-          </View>
-
-          <View style={styles.lockActionsRow}>
-            <Pressable style={[styles.lockActionBtn, styles.lockCompleteBtn]} onPress={handleComplete} disabled={busy}>
-              <AppIcon name="check" size={16} color={task.completed ? colors.mutedText : colors.accent} />
-              <Text style={[styles.lockActionText, { color: task.completed ? colors.mutedText : colors.accent }]}>
-                {task.completed ? "Undo" : "Complete"}
-              </Text>
-            </Pressable>
-          </View>
-
-          <HoldToConfirmButton
-            iconName="lock-open"
-            onHoldComplete={() => setLockInMode(false)}
-            holdDurationMs={3000}
-            square
-            size={80}
-            progressStyle="fill"
-            showHint={false}
-            style={styles.lockExitBtn}
-            fillColor={colors.danger}
-          />
-        </View>
-      </SafeAreaView>
+      <FocusModeScreen
+        now={lockTime}
+        timeFormat={preferences.timeFormat}
+        title={task.title}
+        metaLines={[
+          `${categoryName} · ${priorityInfo?.label ?? 'Priority'}`,
+          `Due ${formatDateTime(task.deadline, {
+            dateFormat: preferences.dateFormat,
+            timeFormat: preferences.timeFormat,
+            weekStart: preferences.weekStart,
+          })}`,
+        ]}
+        onExitFocus={() => setLockInMode(false)}
+        actionLabel={task.completed ? 'Undo' : 'Complete'}
+        actionIconName="check"
+        onActionPress={handleComplete}
+        actionDisabled={busy || savingDetails}
+        actionDone={task.completed}
+      />
     );
   }
 
@@ -317,70 +426,189 @@ export function TaskDetailScreen() {
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <AppIcon name="chevron-left" size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>{task.title}</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerTitleInputWrap}>
+          <TextInput value={titleDraft} style={styles.headerTitle} onChangeText={setTitleDraft} />
+        </View>
+        <View style={{width: 24}} />
       </View>
 
-      <View style={{ flex: 1 }}>
+      <View style={{flex: 1}}>
         {!pendingDelete ? (
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}>
 
-            <Text style={styles.label}>Details</Text>
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <AppIcon name="calendar" size={14} color={colors.mutedText} />
-                <Text style={styles.infoLabel}>Scheduled</Text>
-                <Text style={styles.infoValue}>
-                  {formatDateTime(task.scheduledAt, {
-                    dateFormat: preferences.dateFormat,
-                    timeFormat: preferences.timeFormat,
-                    weekStart: preferences.weekStart,
+            <View style={styles.tabsWrapper}>
+              <View style={styles.tabsRow}>
+                {tabsTop.map(tab => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <Pressable
+                      key={tab.id}
+                      style={[styles.tabBtn, isActive && styles.tabBtnActive]}
+                      onPress={() => setActiveTab(isActive ? '' : tab.id)}>
+                      <AppIcon
+                        name={tab.icon}
+                        size={16}
+                        color={isActive ? '#fff' : colors.mutedText}
+                      />
+                      <Text
+                        style={[
+                          styles.tabValue,
+                          isActive && styles.tabValueLight,
+                        ]}
+                        numberOfLines={1}>
+                        {tab.valueDisplay}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={styles.tabsRow}>
+                {tabsBottom.map(tab => {
+                  const isActive = activeTab === tab.id;
+                  const hasColor = !!tab.color;
+                  return (
+                    <Pressable
+                      key={tab.id}
+                      style={[
+                        styles.tabBtn,
+                        isActive
+                          ? styles.tabBtnActive
+                          : hasColor
+                          ? {backgroundColor: tab.color}
+                          : undefined,
+                      ]}
+                      onPress={() => setActiveTab(isActive ? '' : tab.id)}>
+                      <AppIcon
+                        name={tab.icon}
+                        size={16}
+                        color={isActive || hasColor ? '#fff' : colors.mutedText}
+                      />
+                      <Text
+                        style={[
+                          styles.tabValue,
+                          (isActive || hasColor) && styles.tabValueLight,
+                        ]}
+                        numberOfLines={1}>
+                        {tab.valueDisplay}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {activeTab === 'priority' && (
+              <View style={styles.sectionCard}>
+                <Text style={styles.contentLabel}>Priority Level</Text>
+                <View style={styles.wrapRow}>
+                  {([1, 2, 3] as Priority[]).map(p => {
+                    const active = priorityDraft === p;
+                    const col =
+                      p === 3
+                        ? colors.highPriority
+                        : p === 2
+                        ? colors.mediumPriority
+                        : colors.lowPriority;
+                    return (
+                      <Pressable
+                        key={p}
+                        style={[styles.chipBtn, active && {backgroundColor: col}]}
+                        onPress={() => setPriorityDraft(p)}>
+                        <AppIcon
+                          name={
+                            p === 3
+                              ? 'arrow-up-circle'
+                              : p === 2
+                              ? 'minus-circle'
+                              : 'arrow-down-circle'
+                          }
+                          size={18}
+                          color={active ? '#fff' : colors.mutedText}
+                        />
+                        <Text
+                          style={[styles.chipBtnText, active && {color: '#fff'}]}>
+                          {p === 1 ? 'Low' : p === 2 ? 'Medium' : 'High'}
+                        </Text>
+                      </Pressable>
+                    );
                   })}
-                </Text>
+                </View>
               </View>
-              <View style={styles.infoSep} />
-              <View style={styles.infoRow}>
-                <AppIcon name="clock" size={14} color={colors.mutedText} />
-                <Text style={styles.infoLabel}>Duration</Text>
-                <Text style={styles.infoValue}>{task.durationMinutes ? `${task.durationMinutes} min` : "-"}</Text>
-              </View>
-              <View style={styles.infoSep} />
-              <View style={styles.infoRow}>
-                <AppIcon name={category?.icon ?? "inbox"} size={14} color={category?.color ?? colors.mutedText} />
-                <Text style={styles.infoLabel}>Category</Text>
-                <Text style={styles.infoValue}>{categoryName}</Text>
-              </View>
-              <View style={styles.infoSep} />
-              <View style={styles.infoRow}>
-                <AppIcon name={priorityInfo?.icon ?? "minus-circle"} size={14} color={priorityInfo?.color ?? colors.mutedText} />
-                <Text style={styles.infoLabel}>Priority</Text>
-                <Text style={styles.infoValue}>{priorityInfo?.label ?? "-"}</Text>
-              </View>
-            </View>
+            )}
 
-            <View style={styles.notesHeader}>
-              <Text style={styles.label}>Notes</Text>
-              <Pressable style={styles.noteSaveBtn} onPress={handleSaveNote} disabled={savingNote}>
-                <AppIcon name="save" size={14} color={savingNote ? colors.mutedText : colors.accent} />
-              </Pressable>
-            </View>
-            <View style={styles.notesCard}>
-              <TextInput
-                style={styles.notesInput}
-                value={noteDraft}
-                onChangeText={setNoteDraft}
-                placeholder="Add notes..."
-                placeholderTextColor={colors.mutedText}
-                multiline
-                textAlignVertical="top"
-              />
-            </View>
+            {activeTab === 'date' && (
+              <View style={styles.sectionCard}>
+                <View style={styles.compactDateWrap}>
+                  <CustomDatePicker
+                    key={`task-detail-picker-date-${themeMode}`}
+                    value={scheduledAtDraft}
+                    onChange={setScheduledAtDraft}
+                    weekStart={preferences.weekStart}
+                  />
+                </View>
+              </View>
+            )}
+
+            {activeTab === 'time' && (
+              <View style={styles.sectionCard}>
+                <CustomTimePicker
+                  key={`task-detail-picker-time-${themeMode}`}
+                  value={scheduledAtDraft}
+                  onChange={setScheduledAtDraft}
+                  timeFormat={preferences.timeFormat}
+                />
+              </View>
+            )}
+
+            {activeTab === 'duration' && (
+              <View style={styles.sectionCard}>
+                <CustomDurationPicker
+                  value={durationMinutesDraft}
+                  onChange={setDurationMinutesDraft}
+                />
+              </View>
+            )}
+
+            {activeTab === 'category' && (
+              <View style={styles.sectionCard}>
+                <Text style={styles.contentLabel}>Select Category</Text>
+                <View style={styles.wrapRow}>
+                  {categories.map(cat => {
+                    const active = categoryIdDraft === cat.id;
+                    return (
+                      <Pressable
+                        key={cat.id}
+                        style={[styles.catChip, active && {backgroundColor: cat.color}]}
+                        onPress={() => setCategoryIdDraft(active ? null : cat.id)}>
+                        <AppIcon
+                          name={cat.icon as AppIconName}
+                          size={16}
+                          color={active ? '#fff' : colors.mutedText}
+                        />
+                        <Text
+                          style={[
+                            styles.catChipText,
+                            active && {color: '#fff', fontFamily: fonts.bodyBold},
+                          ]}>
+                          {cat.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
           </ScrollView>
         ) : (
           <View style={styles.deletedState}>
             <AppIcon name="trash-2" size={24} color={colors.danger} />
             <Text style={styles.deletedTitle}>Task deleted</Text>
-            <Text style={styles.deletedText}>Undo within 3 seconds to restore it.</Text>
+            <Text style={styles.deletedText}>Removing task...</Text>
           </View>
         )}
       </View>
@@ -390,520 +618,230 @@ export function TaskDetailScreen() {
           iconName="lock"
           onHoldComplete={() => setLockInMode(true)}
           holdDurationMs={1500}
-          square
-          size={80}
-          progressStyle="fill"
-          showHint={false}
+          size={84}
           style={styles.lockInBtn}
-          fillColor={colors.accent}
         />
 
         <View style={styles.primaryActionsRow}>
-          <Pressable style={[styles.actionBtn, styles.completeBtn]} onPress={handleComplete} disabled={busy}>
-            <AppIcon name="check" size={18} color={task.completed ? colors.mutedText : colors.accent} />
-            <Text style={[styles.actionBtnText, { color: task.completed ? colors.mutedText : colors.accent }]}>
-              {task.completed ? "Undo" : "Complete"}
+          <Pressable
+            style={[
+              styles.actionBtn,
+              task.completed ? {backgroundColor: colors.surface} : styles.completeBtn,
+            ]}
+            onPress={handleComplete}
+            disabled={busy || savingDetails}>
+            <AppIcon
+              name="check"
+              size={18}
+              color={task.completed ? colors.accent : '#fff'}
+            />
+            <Text
+              style={[
+                styles.actionBtnText,
+                {color: task.completed ? colors.accent : '#fff'},
+              ]}>
+              {task.completed ? 'Undo' : 'Complete'}
             </Text>
           </Pressable>
-        </View>
-
-        <View style={styles.secondaryActionsRow}>
-          <Pressable style={[styles.actionBtn, styles.editBtn]} onPress={() => setEditVisible(true)} disabled={busy}>
-            <AppIcon name="edit" size={18} color={colors.text} />
-            <Text style={[styles.actionBtnText, { color: colors.text }]}>Edit</Text>
-          </Pressable>
-
-          <Pressable style={[styles.actionBtn, styles.postponeBtn]} onPress={handlePostpone} disabled={busy}>
-            <AppIcon name="calendar" size={18} color={colors.text} />
-            <Text style={[styles.actionBtnText, { color: colors.text }]}>Postpone</Text>
-          </Pressable>
-
-          <Pressable style={[styles.actionBtn, styles.deleteBtn]} onPress={handleDelete} disabled={busy}>
-            <AppIcon name="trash-2" size={18} color={colors.danger} />
-            <Text style={[styles.actionBtnText, { color: colors.danger }]}>Delete</Text>
+          <Pressable
+            style={[styles.actionBtn, styles.deleteBtn]}
+            onPress={handleDelete}
+            disabled={busy || savingDetails}>
+            <AppIcon name="trash-2" size={18} color="#fff" />
+            <Text style={[styles.actionBtnText, {color: '#fff'}]}>Delete</Text>
           </Pressable>
         </View>
       </View>
-
-      {undoState && (
-        <View style={styles.undoBar}>
-          <View style={styles.undoProgressTrack}>
-            <View style={[styles.undoProgressFill, { width: `${Math.max(0, Math.min(1, undoProgress)) * 100}%` }]} />
-          </View>
-          <Text style={styles.undoText}>{undoState.message}</Text>
-          <Pressable onPress={handleUndo} hitSlop={10}>
-            <Text style={styles.undoAction}>Undo</Text>
-          </Pressable>
-        </View>
-      )}
-
-      <TaskForm
-        visible={editVisible}
-        mode="edit"
-        submitLabel="Save Changes"
-        initialValues={{
-          title: task.title,
-          description: task.description,
-          categoryId: task.categoryId,
-          scheduledAt: task.scheduledAt,
-          deadline: task.deadline,
-          durationMinutes: task.durationMinutes,
-          priority: task.priority,
-        }}
-        categories={categories}
-        defaultDate={localDateOnly(task.scheduledAt)}
-        defaultCategoryId={task.categoryId}
-        onCancel={() => setEditVisible(false)}
-        onSubmit={handleEditSubmit}
-      />
-
-      <Modal transparent animationType="fade" visible={postponeVisible} onRequestClose={() => setPostponeVisible(false)}>
-        <Pressable style={styles.overlay} onPress={() => setPostponeVisible(false)}>
-          <Pressable style={styles.postponePopup} onPress={() => { }}>
-            <Text style={styles.postponeTitle}>Postpone task</Text>
-
-            {postponeMode === "options" ? (
-              <View style={styles.postponeOptionList}>
-                <Pressable
-                  style={styles.postponeOptionBtn}
-                  onPress={() => {
-                    const next = new Date(task.scheduledAt);
-                    next.setDate(next.getDate() + 1);
-                    setPostponeVisible(false);
-                    void postponeTo(next);
-                  }}
-                >
-                  <AppIcon name="calendar" size={16} color={colors.text} />
-                  <Text style={styles.postponeOptionText}>Tomorrow</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.postponeOptionBtn}
-                  onPress={() => setPostponeMode("custom")}
-                >
-                  <AppIcon name="edit" size={16} color={colors.text} />
-                  <Text style={styles.postponeOptionText}>Custom date & time</Text>
-                </Pressable>
-                <Pressable style={styles.postponeCancelBtn} onPress={() => setPostponeVisible(false)}>
-                  <Text style={styles.postponeCancelText}>Cancel</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <>
-                <CustomDateTimePicker
-                  key={`task-detail-postpone-picker-${themeMode}`}
-                  value={postponeDate}
-                  onChange={setPostponeDate}
-                  timeFormat={preferences.timeFormat}
-                  weekStart={preferences.weekStart}
-                />
-                <View style={styles.postponeActions}>
-                  <Pressable style={styles.postponeCancelBtn} onPress={() => setPostponeMode("options")}>
-                    <Text style={styles.postponeCancelText}>Back</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.postponeSaveBtn}
-                    onPress={() => {
-                      setPostponeVisible(false);
-                      void postponeTo(postponeDate);
-                    }}
-                  >
-                    <Text style={styles.postponeSaveText}>Save</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  lockContainer: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  lockContent: {
-    flex: 1,
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xl,
-    gap: spacing.md,
-  },
-  lockClockWrap: {
-    alignItems: "center",
-    marginTop: spacing.lg,
-    paddingTop: spacing.xs,
-  },
-  lockClockLine: {
-    color: "#fff",
-    fontSize: 88,
-    fontWeight: "800",
-    lineHeight: 110,
-    letterSpacing: 0.5,
-    includeFontPadding: true,
-  },
-  lockInfoBlock: {
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  lockTitle: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  lockMeta: {
-    color: colors.mutedText,
-    fontSize: fontSize.sm,
-    textAlign: "center",
-  },
-  lockActionsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    width: "100%",
-  },
-  lockActionBtn: {
-    flex: 1,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    minHeight: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    backgroundColor: colors.surface,
-  },
-  lockActionText: {
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-  },
-  lockStartBtn: {
-    borderColor: colors.success,
-  },
-  lockPauseBtn: {
-    borderColor: colors.accent,
-  },
-  lockCompleteBtn: {
-    borderColor: colors.border,
-  },
-  lockExitBtn: {
-    alignSelf: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 170,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyText: {
-    color: colors.mutedText,
-    fontSize: fontSize.md,
-  },
-  deletedState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  deletedTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-  },
-  deletedText: {
-    color: colors.mutedText,
-    fontSize: fontSize.sm,
-    textAlign: "center",
-  },
-  title: {
-    fontSize: fontSize.xl,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-  statusRow: {
-    flexDirection: "row",
-    marginBottom: spacing.md,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.sm,
-  },
-  statusText: {
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-  },
-  label: {
-    color: colors.mutedText,
-    fontWeight: "600",
-    fontSize: fontSize.xs,
-    marginBottom: spacing.sm,
-    marginTop: spacing.lg,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  infoCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  infoLabel: {
-    color: colors.mutedText,
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    width: 80,
-  },
-  infoValue: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: "500",
-    flex: 1,
-  },
-  infoSep: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.xs,
-  },
-  notesCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-  },
-  notesHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  notesInput: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    lineHeight: 20,
-    minHeight: 120,
-  },
-  noteSaveBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-  },
-  noteSaveText: {
-    color: colors.accent,
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-  },
-  floatingActions: {
-    position: "absolute",
-    left: spacing.lg,
-    right: spacing.lg,
-    bottom: 58,
-    gap: spacing.sm,
-  },
-  primaryActionsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  secondaryActionsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  lockInBtn: {
-    marginBottom: spacing.xs,
-    alignSelf: "center",
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    borderRadius: radii.md,
-    borderWidth: 1,
-  },
-  startBtn: {
-    borderColor: colors.success,
-    backgroundColor: colors.successLight,
-  },
-  pauseBtn: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-  },
-  postponeBtn: {
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  editBtn: {
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  completeBtn: {
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  deleteBtn: {
-    borderColor: colors.danger,
-    backgroundColor: colors.dangerLight,
-  },
-  actionBtnText: {
-    fontWeight: "700",
-    fontSize: fontSize.sm,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: spacing.lg,
-  },
-  postponePopup: {
-    width: "100%",
-    maxWidth: 420,
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-  },
-  postponeTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    marginBottom: spacing.sm,
-  },
-  postponeOptionList: {
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  postponeOptionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surfaceLight,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  postponeOptionText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-  },
-  postponeActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  postponeCancelBtn: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  postponeCancelText: {
-    color: colors.mutedText,
-    fontWeight: "700",
-    fontSize: fontSize.sm,
-  },
-  postponeSaveBtn: {
-    borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.accentLight,
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  postponeSaveText: {
-    color: colors.accent,
-    fontWeight: "700",
-    fontSize: fontSize.sm,
-  },
-  undoBar: {
-    position: "absolute",
-    left: spacing.lg,
-    right: spacing.lg,
-    bottom: spacing.lg,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    overflow: "hidden",
-  },
-  undoProgressTrack: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 4,
-    backgroundColor: colors.border,
-  },
-  undoProgressFill: {
-    height: "100%",
-    backgroundColor: colors.accent,
-  },
-  undoText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: "600",
-  },
-  undoAction: {
-    color: colors.accent,
-    fontSize: fontSize.md,
-    fontWeight: "700",
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+    },
+    headerTitle: {
+      fontSize: fontSize.xxl,
+      fontFamily: fonts.headingSemiBold,
+      color: colors.text,
+      textAlign: 'center',
+      paddingHorizontal: spacing.sm,
+      marginBottom: 0,
+    },
+    headerTitleInputWrap: {
+      flex: 1,
+      minWidth: 0,
+      marginHorizontal: spacing.sm,
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: spacing.md,
+      paddingBottom: 190,
+      paddingTop: spacing.xs,
+      gap: spacing.md,
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyText: {
+      color: colors.mutedText,
+      fontSize: fontSize.md,
+      fontFamily: fonts.body,
+    },
+    deletedState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.sm,
+    },
+    deletedTitle: {
+      color: colors.text,
+      fontSize: fontSize.lg,
+      fontFamily: fonts.headingSemiBold,
+      letterSpacing: -0.3,
+    },
+    deletedText: {
+      color: colors.mutedText,
+      fontSize: fontSize.sm,
+      fontFamily: fonts.body,
+      textAlign: 'center',
+    },
+    tabsWrapper: {
+      gap: 16,
+      marginBottom: 10,
+    },
+    tabsRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    tabBtn: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: 999,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingHorizontal: spacing.sm,
+      backgroundColor: colors.surfaceLight,
+    },
+    tabBtnActive: {
+      backgroundColor: colors.accent,
+    },
+    tabValue: {
+      fontSize: fontSize.xs,
+      color: colors.mutedText,
+      fontFamily: fonts.bodyBold,
+    },
+    tabValueLight: {
+      color: '#fff',
+    },
+    sectionCard: {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      padding: 0,
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+    },
+    compactDateWrap: {
+      alignSelf: 'center',
+      width: '100%',
+      transform: [{scale: 0.9}],
+      marginVertical: -14,
+    },
+    contentLabel: {
+      fontFamily: fonts.bodyBold,
+      fontSize: fontSize.sm,
+      color: colors.mutedText,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: spacing.md,
+    },
+    wrapRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    chipBtn: {
+      flex: 1,
+      minWidth: '30%',
+      borderRadius: 50,
+      paddingVertical: 14,
+      alignItems: 'center',
+      backgroundColor: colors.surfaceLight,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    chipBtnText: {
+      fontFamily: fonts.bodyBold,
+      color: colors.mutedText,
+      fontSize: fontSize.sm,
+    },
+    catChip: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 50,
+      backgroundColor: colors.surfaceLight,
+      alignItems: 'center',
+      gap: 8,
+    },
+    catChipText: {
+      fontFamily: fonts.bodyMedium,
+      color: colors.mutedText,
+      fontSize: fontSize.sm,
+    },
+    floatingActions: {
+      position: 'absolute',
+      left: spacing.lg,
+      right: spacing.lg,
+      bottom: 20,
+      gap: spacing.lg,
+    },
+    primaryActionsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    lockInBtn: {
+      marginBottom: 20,
+      alignSelf: 'center',
+    },
+    actionBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      minHeight: 56,
+      paddingVertical: spacing.sm,
+      borderRadius: 999,
+    },
+    completeBtn: {
+      backgroundColor: colors.accent,
+    },
+    deleteBtn: {
+      backgroundColor: colors.danger,
+    },
+    actionBtnText: {
+      fontFamily: fonts.bodyBold,
+      fontSize: fontSize.md,
+      color: '#fff',
+    },
+  });

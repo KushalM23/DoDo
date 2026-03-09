@@ -28,15 +28,23 @@ export function setAuthSession(session: { token: string; refreshToken: string } 
 
 async function performTokenRefresh(): Promise<string | null> {
   if (!authRefreshToken) return null;
-  const refreshed = await refreshAuthSession(authRefreshToken);
-  if (!refreshed.token || !refreshed.refreshToken) {
+  try {
+    const refreshed = await refreshAuthSession(authRefreshToken);
+    if (!refreshed.token || !refreshed.refreshToken) {
+      return null;
+    }
+    setAuthSession({ token: refreshed.token, refreshToken: refreshed.refreshToken });
+    if (sessionRefreshHandler) {
+      await sessionRefreshHandler({ token: refreshed.token, refreshToken: refreshed.refreshToken });
+    }
+    return refreshed.token;
+  } catch (err) {
+    setAuthSession(null);
+    if (sessionRefreshHandler) {
+      await sessionRefreshHandler(null);
+    }
     return null;
   }
-  setAuthSession({ token: refreshed.token, refreshToken: refreshed.refreshToken });
-  if (sessionRefreshHandler) {
-    await sessionRefreshHandler({ token: refreshed.token, refreshToken: refreshed.refreshToken });
-  }
-  return refreshed.token;
 }
 
 async function tryRefreshAccessToken(): Promise<string | null> {
@@ -56,7 +64,8 @@ async function apiRequest<T>(
   requiresAuth = true,
   hasRetried = false,
 ): Promise<T> {
-  if (requiresAuth && !authToken) {
+  const tokenUsed = authToken;
+  if (requiresAuth && !tokenUsed) {
     throw new Error("You are not logged in.");
   }
 
@@ -65,7 +74,7 @@ async function apiRequest<T>(
     method,
     headers: {
       "Content-Type": "application/json",
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      ...(tokenUsed ? { Authorization: `Bearer ${tokenUsed}` } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -86,6 +95,11 @@ async function apiRequest<T>(
 
   if (!response.ok) {
     if (response.status === 401 && requiresAuth && !hasRetried) {
+      if (authToken !== tokenUsed) {
+        // Token was already refreshed by another concurrent request, retry immediately
+        return apiRequest<T>(path, method, body, requiresAuth, true);
+      }
+      
       const refreshedToken = await tryRefreshAccessToken();
       if (refreshedToken) {
         return apiRequest<T>(path, method, body, requiresAuth, true);
@@ -145,19 +159,7 @@ export async function deleteAccount(): Promise<void> {
   await apiRequest<void>("/auth/delete-account", "DELETE");
 }
 
-export async function fetchTasks(categoryId?: string): Promise<Task[]> {
-  const qs = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : "";
-  const data = await apiRequest<{ tasks: Task[] }>(`/tasks${qs}`, "GET");
-  return data.tasks;
-}
-
-export async function fetchTasksInRange(startAt: string, endAt: string): Promise<Task[]> {
-  const qs = `?startAt=${encodeURIComponent(startAt)}&endAt=${encodeURIComponent(endAt)}`;
-  const data = await apiRequest<{ tasks: Task[] }>(`/tasks${qs}`, "GET");
-  return data.tasks;
-}
-
-export async function createTask(input: CreateTaskInput): Promise<Task> {
+export async function createTask(input: CreateTaskInput & { id?: string }): Promise<Task> {
   const data = await apiRequest<{ task: Task }>("/tasks", "POST", input);
   return data.task;
 }
@@ -178,12 +180,7 @@ export async function deleteTask(taskId: string): Promise<void> {
   await apiRequest<void>(`/tasks/${taskId}`, "DELETE");
 }
 
-export async function fetchCategories(): Promise<Category[]> {
-  const data = await apiRequest<{ categories: Category[] }>("/categories", "GET");
-  return data.categories;
-}
-
-export async function createCategory(input: CreateCategoryInput): Promise<Category> {
+export async function createCategory(input: CreateCategoryInput & { id?: string }): Promise<Category> {
   const data = await apiRequest<{ category: Category }>("/categories", "POST", input);
   return data.category;
 }
@@ -197,12 +194,7 @@ export async function deleteCategory(categoryId: string): Promise<void> {
   await apiRequest<void>(`/categories/${categoryId}`, "DELETE");
 }
 
-export async function fetchHabits(): Promise<Habit[]> {
-  const data = await apiRequest<{ habits: Habit[] }>("/habits", "GET");
-  return data.habits;
-}
-
-export async function createHabit(input: CreateHabitInput): Promise<Habit> {
+export async function createHabit(input: CreateHabitInput & { id?: string }): Promise<Habit> {
   const data = await apiRequest<{ habit: Habit }>("/habits", "POST", input);
   return data.habit;
 }
@@ -217,22 +209,6 @@ export async function updateHabit(
 
 export async function deleteHabit(habitId: string): Promise<void> {
   await apiRequest<void>(`/habits/${habitId}`, "DELETE");
-}
-
-export async function fetchHabitHistory(params?: {
-  habitId?: string;
-  startDate?: string;
-  endDate?: string;
-  days?: number;
-}): Promise<HabitCompletionRecord[]> {
-  const search = new URLSearchParams();
-  if (params?.habitId) search.set("habitId", params.habitId);
-  if (params?.startDate) search.set("startDate", params.startDate);
-  if (params?.endDate) search.set("endDate", params.endDate);
-  if (params?.days != null) search.set("days", String(params.days));
-  const qs = search.toString();
-  const data = await apiRequest<{ history: HabitCompletionRecord[] }>(`/habits/history${qs ? `?${qs}` : ""}`, "GET");
-  return data.history;
 }
 
 export async function completeHabit(habitId: string, date?: string): Promise<Habit> {
@@ -254,4 +230,17 @@ export async function startHabitTimer(habitId: string, date?: string): Promise<H
 export async function pauseHabitTimer(habitId: string, date?: string): Promise<Habit> {
   const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}/pause`, "POST", date ? { date } : {});
   return data.habit;
+}
+
+export type SyncPullResponse = {
+  tasks: Task[];
+  categories: Category[];
+  habits: Habit[];
+  habitCompletions: HabitCompletionRecord[];
+  serverTime: string;
+};
+
+export async function fetchSyncPull(since?: string | null): Promise<SyncPullResponse> {
+  const qs = since ? `?since=${encodeURIComponent(since)}` : '';
+  return apiRequest<SyncPullResponse>(`/sync/pull${qs}`, 'GET');
 }

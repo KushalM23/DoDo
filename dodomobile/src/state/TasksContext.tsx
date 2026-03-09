@@ -1,8 +1,21 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { createTask, deleteTask, fetchTasks, updateTask } from "../services/api";
-import { useAuth } from "./AuthContext";
-import type { CreateTaskInput, Task } from "../types/task";
-import { sortTasks, type SortMode } from "../utils/taskSort";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import {
+  createTaskLocal,
+  listTasksLocal,
+  softDeleteTaskLocal,
+  updateTaskLocal,
+} from '../lib/local/repository';
+import {runSync} from '../lib/local/syncEngine';
+import {useAuth} from './AuthContext';
+import type {CreateTaskInput, Task} from '../types/task';
+import {sortTasks, type SortMode} from '../utils/taskSort';
 
 type TasksContextValue = {
   tasks: Task[];
@@ -29,13 +42,13 @@ type TasksContextValue = {
 
 const TasksContext = createContext<TasksContextValue | undefined>(undefined);
 
-export function TasksProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+export function TasksProvider({children}: {children: React.ReactNode}) {
+  const {user} = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sortMode, setSortMode] = useState<SortMode>("smart");
+  const [sortMode, setSortMode] = useState<SortMode>('smart');
 
   const refresh = useCallback(
     async (_date?: string) => {
@@ -44,14 +57,22 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         setInitialized(true);
         return;
       }
-
       setLoading(true);
       setError(null);
       try {
-        const nextTasks = await fetchTasks();
+        const nextTasks = await listTasksLocal(user.id);
         setTasks(sortTasks(nextTasks, sortMode));
+
+        // Sync in background, then reconcile local state silently.
+        void runSync(user.id, 'manual').then(async didPushAndPull => {
+          if (!didPushAndPull) {
+            return;
+          }
+          const reconciled = await listTasksLocal(user.id);
+          setTasks(sortTasks(reconciled, sortMode));
+        });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load tasks.");
+        setError(err instanceof Error ? err.message : 'Failed to load tasks.');
       } finally {
         setLoading(false);
         setInitialized(true);
@@ -66,88 +87,77 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
 
   const addTask = useCallback(
     async (input: CreateTaskInput) => {
-      const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      const optimisticTask: Task = {
-        id: tempId,
-        title: input.title,
-        description: input.description,
-        categoryId: input.categoryId,
-        scheduledAt: input.scheduledAt,
-        deadline: input.deadline,
-        durationMinutes: input.durationMinutes,
-        priority: input.priority,
-        completed: false,
-        completedAt: null,
-        timerStartedAt: null,
-        actualDurationMinutes: 0,
-        completionXp: 0,
-        createdAt: new Date().toISOString(),
-      };
-
-      setTasks((prev) => sortTasks([optimisticTask, ...prev], sortMode));
-
-      try {
-        const created = await createTask(input);
-        setTasks((prev) =>
-          sortTasks(prev.map((t) => (t.id === tempId ? created : t)), sortMode),
-        );
-      } catch (err) {
-        setTasks((prev) => sortTasks(prev.filter((t) => t.id !== tempId), sortMode));
-        throw err;
+      if (!user?.id) {
+        return;
       }
+      const created = await createTaskLocal(user.id, input);
+      setTasks(prev => sortTasks([created, ...prev], sortMode));
+      void runSync(user.id, 'manual');
     },
-    [sortMode],
+    [sortMode, user?.id],
   );
 
   const toggleTaskCompletion = useCallback(
     async (task: Task) => {
+      if (!user?.id) {
+        return;
+      }
       const newCompleted = !task.completed;
       const optimistic: Task = {
         ...task,
         completed: newCompleted,
         completedAt: newCompleted ? new Date().toISOString() : null,
       };
-      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? optimistic : t)), sortMode));
+      setTasks(prev =>
+        sortTasks(
+          prev.map(t => (t.id === task.id ? optimistic : t)),
+          sortMode,
+        ),
+      );
 
-      try {
-        const updated = await updateTask(task.id, { completed: newCompleted });
-        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? updated : t)), sortMode));
-      } catch {
-        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? task : t)), sortMode));
-      }
+      await updateTaskLocal(user.id, task.id, {completed: newCompleted});
+      void runSync(user.id, 'manual');
     },
-    [sortMode],
+    [sortMode, user?.id],
   );
 
   const startTimer = useCallback(
     async (task: Task) => {
-      const now = new Date().toISOString();
-      const optimistic: Task = { ...task, timerStartedAt: now };
-      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? optimistic : t)), sortMode));
-
-      try {
-        const updated = await updateTask(task.id, { timerStartedAt: now });
-        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? updated : t)), sortMode));
-      } catch {
-        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? task : t)), sortMode));
+      if (!user?.id) {
+        return;
       }
+      const now = new Date().toISOString();
+      const optimistic: Task = {...task, timerStartedAt: now};
+      setTasks(prev =>
+        sortTasks(
+          prev.map(t => (t.id === task.id ? optimistic : t)),
+          sortMode,
+        ),
+      );
+
+      await updateTaskLocal(user.id, task.id, {timerStartedAt: now});
+      void runSync(user.id, 'manual');
     },
-    [sortMode],
+    [sortMode, user?.id],
   );
 
   const pauseTimer = useCallback(
     async (task: Task) => {
-      const optimistic: Task = { ...task, timerStartedAt: null };
-      setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? optimistic : t)), sortMode));
-
-      try {
-        const updated = await updateTask(task.id, { timerStartedAt: null });
-        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? updated : t)), sortMode));
-      } catch {
-        setTasks((prev) => sortTasks(prev.map((t) => (t.id === task.id ? task : t)), sortMode));
+      if (!user?.id) {
+        return;
       }
+      const optimistic: Task = {...task, timerStartedAt: null};
+      setTasks(prev =>
+        sortTasks(
+          prev.map(t => (t.id === task.id ? optimistic : t)),
+          sortMode,
+        ),
+      );
+
+      await updateTaskLocal(user.id, task.id, {timerStartedAt: null});
+      void runSync(user.id, 'manual');
     },
-    [sortMode],
+    [sortMode, user?.id],
   );
 
   const updateTaskDetails = useCallback(
@@ -159,30 +169,34 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         actualDurationMinutes?: number;
       },
     ) => {
-      const updated = await updateTask(taskId, updates);
-      setTasks((prev) => sortTasks(prev.map((t) => (t.id === taskId ? updated : t)), sortMode));
+      if (!user?.id) {
+        return;
+      }
+      const updated = await updateTaskLocal(user.id, taskId, updates);
+      if (!updated) {
+        return;
+      }
+      setTasks(prev =>
+        sortTasks(
+          prev.map(t => (t.id === taskId ? updated : t)),
+          sortMode,
+        ),
+      );
+      void runSync(user.id, 'manual');
     },
-    [sortMode],
+    [sortMode, user?.id],
   );
 
   const removeTask = useCallback(
     async (taskId: string) => {
-      let removedTask: Task | null = null;
-      setTasks((prev) => {
-        removedTask = prev.find((t) => t.id === taskId) ?? null;
-        return sortTasks(prev.filter((t) => t.id !== taskId), sortMode);
-      });
-
-      try {
-        await deleteTask(taskId);
-      } catch (err) {
-        if (removedTask) {
-          setTasks((prev) => sortTasks([removedTask as Task, ...prev], sortMode));
-        }
-        throw err;
+      if (!user?.id) {
+        return;
       }
+      await softDeleteTaskLocal(user.id, taskId);
+      setTasks(prev => sortTasks(prev.filter(t => t.id !== taskId), sortMode));
+      void runSync(user.id, 'manual');
     },
-    [sortMode],
+    [sortMode, user?.id],
   );
 
   useEffect(() => {
@@ -190,7 +204,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   useEffect(() => {
-    setTasks((prev) => sortTasks([...prev], sortMode));
+    setTasks(prev => sortTasks([...prev], sortMode));
   }, [sortMode]);
 
   const value = useMemo<TasksContextValue>(
@@ -209,16 +223,31 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       removeTask,
       updateTaskDetails,
     }),
-    [addTask, error, initialized, loading, pauseTimer, refresh, removeTask, sortMode, startTimer, tasks, toggleTaskCompletion, updateTaskDetails],
+    [
+      addTask,
+      error,
+      initialized,
+      loading,
+      pauseTimer,
+      refresh,
+      removeTask,
+      sortMode,
+      startTimer,
+      tasks,
+      toggleTaskCompletion,
+      updateTaskDetails,
+    ],
   );
 
-  return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
+  return (
+    <TasksContext.Provider value={value}>{children}</TasksContext.Provider>
+  );
 }
 
 export function useTasks(): TasksContextValue {
   const context = useContext(TasksContext);
   if (!context) {
-    throw new Error("useTasks must be used inside TasksProvider");
+    throw new Error('useTasks must be used inside TasksProvider');
   }
   return context;
 }
