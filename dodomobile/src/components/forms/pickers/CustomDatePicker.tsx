@@ -191,7 +191,6 @@ const createStyles = (colors: ThemeColors) =>
     monthLabel: {
       color: colors.text,
       fontSize: 28,
-      fontWeight: '700',
       fontFamily: fonts.heading,
       letterSpacing: -0.5,
     },
@@ -207,7 +206,7 @@ const createStyles = (colors: ThemeColors) =>
     dayHeaderText: {
       color: colors.mutedText,
       fontSize: 10,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
       lineHeight: 13,
       textTransform: 'uppercase',
     },
@@ -224,23 +223,18 @@ const createStyles = (colors: ThemeColors) =>
     },
     dayCellSelected: {
       backgroundColor: colors.text,
-      shadowColor: 'rgba(0,0,0,0.4)',
-      shadowOffset: {width: 0, height: 4},
-      shadowOpacity: 1,
-      shadowRadius: 8,
-      elevation: 4,
     },
     dayText: {
       color: colors.text,
       fontSize: fontSize.sm,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
     },
     dayTextSelected: {
       color: colors.background,
-      fontWeight: '800',
+      fontFamily: fonts.bodyBold,
     },
     dayTextToday: {
       color: colors.accent,
-      fontWeight: '700',
+      fontFamily: fonts.bodyBold,
     },
   });

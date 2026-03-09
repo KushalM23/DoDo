@@ -254,7 +254,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     overlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.6)',
+      backgroundColor: 'rgba(0,0,0,0.9)',
       justifyContent: 'center',
       paddingHorizontal: spacing.sm,
       paddingBottom: spacing.sm,
@@ -321,8 +321,7 @@ const createStyles = (colors: ThemeColors) =>
       height: 50,
       color: colors.text,
       fontSize: fontSize.lg,
-      fontFamily: fonts.heading,
-      fontWeight: '400' as const,
+      fontFamily: fonts.headingRegular,
       textAlignVertical: 'center' as const,
     },
     notesInput: {

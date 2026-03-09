@@ -453,7 +453,7 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.7)',
+      backgroundColor: 'rgba(0,0,0,0.9)',
       justifyContent: 'center',
       alignItems: 'center',
       padding: spacing.sm,
@@ -472,7 +472,6 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: fontSize.xl,
       letterSpacing: -0.5,
       marginBottom: 16,
-      fontWeight: '700',
     },
     modalInput: {
       backgroundColor: colors.surfaceLight,
@@ -526,7 +525,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     modalCancelText: {
       color: colors.mutedText,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
     },
     modalSubmit: {
       paddingVertical: 10,
@@ -541,7 +540,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     modalSubmitText: {
       color: '#fff',
-      fontWeight: '700',
+      fontFamily: fonts.bodyBold,
     },
     disabled: {
       opacity: 0.6,
@@ -582,7 +581,7 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
       color: colors.text,
       fontSize: fontSize.md,
-      fontWeight: '500',
+      fontFamily: fonts.bodyMedium,
     },
     iconBtn: {
       width: 36,
@@ -609,7 +608,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     addButtonText: {
       color: '#fff',
-      fontWeight: '700',
+      fontFamily: fonts.bodyBold,
       fontSize: fontSize.md,
     },
   });

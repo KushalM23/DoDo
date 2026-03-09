@@ -20,7 +20,9 @@ import {
   CalendarCell,
   parseDateKey,
   localDateKey,
+  shiftCalendarMonth,
 } from './utils';
+import {formatCalendarTriggerLabel} from '../../components/overlays/dateWheelPickerUtils';
 
 // ── Memoized day cell to avoid re-rendering all 35-42 cells ──
 const DayCell = React.memo(
@@ -107,7 +109,7 @@ interface CalendarGridProps {
   setSelectedDate: (dateKey: string) => void;
   statusMap: Record<string, 'none' | 'partial' | 'done'>;
   habitStatusMap: Record<string, 'none' | 'partial' | 'done'>;
-  isLandscape: boolean;
+  onOpenMonthPicker: () => void;
 }
 
 export function CalendarGrid({
@@ -119,7 +121,7 @@ export function CalendarGrid({
   setSelectedDate,
   statusMap,
   habitStatusMap,
-  isLandscape,
+  onOpenMonthPicker,
 }: CalendarGridProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -127,8 +129,7 @@ export function CalendarGrid({
   const {width} = useWindowDimensions();
 
   const SCREEN_WIDTH = width;
-  const calendarWidth = isLandscape ? Math.floor(width * 0.45) : SCREEN_WIDTH;
-  const CELL_SIZE = Math.floor((calendarWidth - spacing.lg * 2) / 7);
+  const CELL_SIZE = Math.floor((SCREEN_WIDTH - spacing.lg * 2) / 7);
 
   const dayNames = useMemo(
     () => getWeekdayLabels(preferences.weekStart),
@@ -149,22 +150,11 @@ export function CalendarGrid({
    *  - Otherwise → select the 1st of that month
    */
   const shiftMonth = (delta: number) => {
-    const today = new Date();
-    const cur = stateRef.current.currentDate;
-
-    // Always navigate by month from the 1st of the current month
-    const targetMonth = new Date(cur.getFullYear(), cur.getMonth() + delta, 1);
-
-    const isTodaysMonth =
-      targetMonth.getMonth() === today.getMonth() &&
-      targetMonth.getFullYear() === today.getFullYear();
-
-    const nextDate = isTodaysMonth ? today : targetMonth;
-    const nextSelectedKey = localDateKey(nextDate);
+    const nextSelection = shiftCalendarMonth(stateRef.current.currentDate, delta);
 
     unstable_batchedUpdates(() => {
-      setCurrentDate(nextDate);
-      setSelectedDate(nextSelectedKey);
+      setCurrentDate(nextSelection.currentDate);
+      setSelectedDate(nextSelection.selectedDate);
     });
   };
 
@@ -323,8 +313,7 @@ export function CalendarGrid({
   }, [mode, currentRowIndex, numWeeks, CELL_SIZE, heightAnim, translateYAnim]);
 
   const monthLabel = useMemo(
-    () =>
-      currentDate.toLocaleString('default', {month: 'long', year: 'numeric'}),
+    () => formatCalendarTriggerLabel(currentDate),
     [currentDate],
   );
 
@@ -344,14 +333,14 @@ export function CalendarGrid({
   );
 
   return (
-    <View
-      style={[styles.calendarSection, isLandscape && {flex: 1}]}
-      {...panResponder.panHandlers}>
+    <View style={styles.calendarSection} {...panResponder.panHandlers}>
       {/* Wrap month label + week headers + grid in the fade animation
           so everything fades together during month transitions. */}
       <Animated.View style={{opacity: fadeAnim}}>
         <View style={styles.monthControls}>
-          <Text style={styles.monthLabel}>{monthLabel}</Text>
+          <Pressable onPress={onOpenMonthPicker} hitSlop={12}>
+            <Text style={styles.monthLabel}>{monthLabel}</Text>
+          </Pressable>
         </View>
 
         <View style={styles.weekRow}>
@@ -408,7 +397,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     monthLabel: {
       fontSize: 36,
-      fontWeight: '700',
       fontFamily: fonts.heading,
       color: colors.text,
     },
@@ -423,7 +411,7 @@ const createStyles = (colors: ThemeColors) =>
     dayHeader: {
       color: colors.mutedText,
       fontSize: 10,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
       lineHeight: 13,
     },
     gridViewport: {
@@ -440,25 +428,20 @@ const createStyles = (colors: ThemeColors) =>
       position: 'relative',
     },
     daySelected: {
-      shadowColor: 'rgba(0,0,0,0.4)',
-      shadowOffset: {width: 0, height: 4},
-      shadowOpacity: 1,
-      shadowRadius: 8,
-      elevation: 4,
       backgroundColor: colors.text,
     },
     dayNum: {
       color: colors.text,
       fontSize: fontSize.sm,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
     },
     selectedDayNum: {
-      fontWeight: '800',
+      fontFamily: fonts.bodyBold,
       color: colors.background,
     },
     todayNum: {
       color: colors.accent,
-      fontWeight: '700',
+      fontFamily: fonts.bodyBold,
     },
     indicatorRow: {
       flexDirection: 'row',

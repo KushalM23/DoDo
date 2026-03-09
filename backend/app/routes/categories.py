@@ -12,6 +12,7 @@ from app.contracts import (
     CATEGORY_ICON_OPTIONS,
     DEFAULT_CATEGORY_COLOR,
     DEFAULT_CATEGORY_ICON,
+    normalize_category_color,
     to_category_dto,
 )
 
@@ -33,7 +34,11 @@ class CreateCategory(BaseModel):
     @field_validator("color")
     @classmethod
     def validate_color(cls, value: str) -> str:
-        return _validate_choice(value, CATEGORY_COLOR_OPTIONS, "category color")
+        return _validate_choice(
+            normalize_category_color(value, fallback=False),
+            CATEGORY_COLOR_OPTIONS,
+            "category color",
+        )
 
     @field_validator("icon")
     @classmethod
@@ -49,7 +54,11 @@ class UpdateCategory(BaseModel):
     @field_validator("color")
     @classmethod
     def validate_color(cls, value: str) -> str:
-        return _validate_choice(value, CATEGORY_COLOR_OPTIONS, "category color")
+        return _validate_choice(
+            normalize_category_color(value, fallback=False),
+            CATEGORY_COLOR_OPTIONS,
+            "category color",
+        )
 
     @field_validator("icon")
     @classmethod

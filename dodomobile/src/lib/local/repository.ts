@@ -1,10 +1,16 @@
-import type {CreateCategoryInput, Category} from '../../types/category';
+import {
+  DEFAULT_CATEGORY_ICON,
+  normalizeCategoryColor,
+  type CreateCategoryInput,
+  type Category,
+} from '../../types/category';
 import type {
   CreateHabitInput,
   Habit,
   HabitCompletionRecord,
 } from '../../types/habit';
 import type {CreateTaskInput, Task} from '../../types/task';
+import {calculateHabitStreaks} from '../../utils/habits';
 import {query, initializeLocalDb} from './db';
 import {generateId, generateUuid, nowIso} from './id';
 import type {SyncAction, SyncEntity, SyncQueueItem} from './types';
@@ -51,8 +57,8 @@ function toCategory(row: any): Category {
   return {
     id: row.id,
     name: row.name,
-    color: row.color,
-    icon: row.icon,
+    color: normalizeCategoryColor(row.color),
+    icon: row.icon || DEFAULT_CATEGORY_ICON,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -100,6 +106,55 @@ function toSyncQueueItem(row: any): SyncQueueItem {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+async function recalculateHabitDerivedFields(
+  userId: string,
+  habitOrId: Habit | string,
+): Promise<void> {
+  await initializeLocalDb();
+
+  const habit =
+    typeof habitOrId === 'string'
+      ? await query<any>(
+          'SELECT * FROM habits_local WHERE user_id = ? AND id = ? LIMIT 1',
+          [userId, habitOrId],
+        ).then(rows => (rows[0] ? toHabit(rows[0]) : null))
+      : habitOrId;
+
+  if (!habit) {
+    return;
+  }
+
+  const rows = await query<{completed_on: string}>(
+    `SELECT completed_on
+     FROM habit_completions_local
+     WHERE user_id = ? AND habit_id = ? AND completed = 1`,
+    [userId, habit.id],
+  );
+
+  const streaks = calculateHabitStreaks(
+    habit,
+    rows.map(row => row.completed_on),
+    toDateKey(new Date()),
+  );
+
+  await query(
+    `UPDATE habits_local
+     SET current_streak = ?,
+         best_streak = ?,
+         last_completed_on = ?,
+         next_occurrence_on = ?
+     WHERE user_id = ? AND id = ?`,
+    [
+      streaks.currentStreak,
+      streaks.bestStreak,
+      streaks.lastCompletedOn,
+      streaks.nextOccurrenceOn,
+      userId,
+      habit.id,
+    ],
+  );
 }
 
 async function enqueueSyncOp(params: {
@@ -420,6 +475,7 @@ export async function listCategoriesLocal(userId: string): Promise<Category[]> {
 
 export async function upsertCategoryFromRemote(userId: string, category: Category): Promise<void> {
   const now = nowIso();
+  const color = normalizeCategoryColor(category.color);
   await query(
     `INSERT OR REPLACE INTO categories_local (
       id, user_id, name, color, icon, created_at, updated_at, deleted_at,
@@ -429,8 +485,8 @@ export async function upsertCategoryFromRemote(userId: string, category: Categor
       category.id,
       userId,
       category.name,
-      category.color,
-      category.icon,
+      color,
+      category.icon || DEFAULT_CATEGORY_ICON,
       category.createdAt,
       category.updatedAt ?? now,
       category.deletedAt ?? null,
@@ -444,11 +500,12 @@ export async function createCategoryLocal(
   input: CreateCategoryInput,
 ): Promise<Category> {
   const now = nowIso();
+  const color = normalizeCategoryColor(input.color);
   const category: Category = {
     id: generateUuid(),
     name: input.name,
-    color: input.color,
-    icon: input.icon,
+    color,
+    icon: input.icon || DEFAULT_CATEGORY_ICON,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,
@@ -480,7 +537,12 @@ export async function createCategoryLocal(
     entity: 'category',
     entityId: category.id,
     action: 'create',
-    payload: {id: category.id, ...input},
+    payload: {
+      id: category.id,
+      ...input,
+      color,
+      icon: input.icon || DEFAULT_CATEGORY_ICON,
+    },
   });
 
   return category;
@@ -500,12 +562,13 @@ export async function updateCategoryLocal(
   }
 
   const now = nowIso();
+  const color = normalizeCategoryColor(input.color);
   await query(
     `UPDATE categories_local
      SET name = ?, color = ?, icon = ?, updated_at = ?,
          last_modified_device_at = ?, sync_state = 'pending'
      WHERE user_id = ? AND id = ?`,
-    [input.name, input.color, input.icon, now, now, userId, categoryId],
+    [input.name, color, input.icon || DEFAULT_CATEGORY_ICON, now, now, userId, categoryId],
   );
 
   await enqueueSyncOp({
@@ -513,7 +576,7 @@ export async function updateCategoryLocal(
     entity: 'category',
     entityId: categoryId,
     action: 'update',
-    payload: input,
+    payload: {...input, color, icon: input.icon || DEFAULT_CATEGORY_ICON},
   });
 
   const [row] = await query<any>(
@@ -596,6 +659,7 @@ export async function upsertHabitFromRemote(userId: string, habit: Habit): Promi
       now,
     ],
   );
+
 }
 
 export async function createHabitLocal(
@@ -732,7 +796,13 @@ export async function updateHabitLocal(
     payload: updates as QueuePayload,
   });
 
-  return next;
+  await recalculateHabitDerivedFields(userId, next);
+
+  const [row] = await query<any>(
+    'SELECT * FROM habits_local WHERE user_id = ? AND id = ? LIMIT 1',
+    [userId, habitId],
+  );
+  return row ? toHabit(row) : next;
 }
 
 export async function softDeleteHabitLocal(userId: string, habitId: string): Promise<void> {
@@ -766,6 +836,7 @@ export async function upsertHabitHistoryFromRemote(
   rows: HabitCompletionRecord[],
 ): Promise<void> {
   const now = nowIso();
+  const affectedHabitIds = new Set<string>();
   for (const row of rows) {
     await query(
       `INSERT OR REPLACE INTO habit_completions_local (
@@ -781,7 +852,19 @@ export async function upsertHabitHistoryFromRemote(
         now,
       ],
     );
+    affectedHabitIds.add(row.habitId);
   }
+
+  for (const habitId of affectedHabitIds) {
+    await recalculateHabitDerivedFields(userId, habitId);
+  }
+}
+
+function toDateKey(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export async function listHabitCompletionMapLocal(
@@ -850,6 +933,8 @@ export async function setHabitCompletedLocal(params: {
     action: params.completed ? 'complete' : 'uncomplete',
     payload: {habitId: params.habitId, date: params.date},
   });
+
+  await recalculateHabitDerivedFields(params.userId, params.habitId);
 }
 
 export async function setHabitTimerLocal(params: {

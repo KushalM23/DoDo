@@ -31,7 +31,6 @@ import {
 
 interface TimelineProps {
   mode: 'week' | 'month';
-  isLandscape: boolean;
   tasksForSelectedDate: TimelineEvent[];
 }
 
@@ -47,7 +46,6 @@ function touchDistance(event: GestureResponderEvent): number {
 
 export function Timeline({
   mode,
-  isLandscape,
   tasksForSelectedDate,
 }: TimelineProps) {
   const colors = useThemeColors();
@@ -221,11 +219,7 @@ export function Timeline({
   }
 
   return (
-    <View
-      style={[
-        styles.timelineSection,
-        isLandscape && styles.timelineSectionLandscape,
-      ]}>
+    <View style={styles.timelineSection}>
       <Text style={styles.timelineTitle}>Timeline</Text>
       <View
         style={styles.timelineShell}
@@ -492,13 +486,8 @@ const createStyles = (colors: ThemeColors) =>
       paddingTop: 4,
       marginBottom: 80,
     },
-    timelineSectionLandscape: {
-      borderTopWidth: 0,
-      flex: 1,
-    },
     timelineTitle: {
       fontSize: 28,
-      fontWeight: '700',
       fontFamily: fonts.heading,
       color: colors.text,
       marginTop: 4,
@@ -539,7 +528,7 @@ const createStyles = (colors: ThemeColors) =>
     timeTickLabel: {
       color: colors.mutedText,
       fontSize: 9,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
     },
     timelineBody: {
       position: 'absolute',
@@ -587,7 +576,6 @@ const createStyles = (colors: ThemeColors) =>
     eventTitle: {
       color: colors.text,
       fontSize: 12,
-      fontWeight: '800',
       fontFamily: fonts.bodyBold,
       lineHeight: 13,
     },
@@ -598,12 +586,11 @@ const createStyles = (colors: ThemeColors) =>
     eventMeta: {
       color: colors.mutedText,
       fontSize: 8,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
       marginTop: 1,
     },
     taskEventTitleOnAccent: {
       color: 'white',
-      fontWeight: '800',
     },
     taskEventMetaOnAccent: {
       color: 'white',
@@ -611,7 +598,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     habitEventTitleOnAccent: {
       color: 'white',
-      fontWeight: '800',
     },
     habitEventMetaOnAccent: {
       color: 'white',

@@ -64,16 +64,10 @@ export function FocusModeScreen({
 
           <View style={styles.infoBlock}>
             {infoIconName ? (
-              <View
-                style={[
-                  styles.iconPill,
-                  {
-                    backgroundColor: infoIconBackgroundColor ?? colors.surface,
-                  },
-                ]}>
+              <View>
                 <AppIcon
                   name={infoIconName}
-                  size={18}
+                  size={24}
                   color={infoIconColor ?? colors.text}
                 />
               </View>
@@ -161,6 +155,7 @@ const createStyles = (colors: ThemeColors) =>
       includeFontPadding: false,
     },
     infoBlock: {
+      marginTop: spacing.lg,
       alignItems: 'center',
       gap: spacing.xs,
       paddingHorizontal: spacing.md,
@@ -176,7 +171,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     title: {
       color: colors.text,
-      fontSize: fontSize.xl,
+      fontSize: fontSize.xxl,
       fontFamily: fonts.headingSemiBold,
       textAlign: 'center',
       letterSpacing: -0.3,
@@ -188,7 +183,7 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.body,
     },
     exitBtn: {
-      marginBottom: 20,
+      marginBottom: 8,
       alignSelf: 'center',
     },
     floatingActions: {

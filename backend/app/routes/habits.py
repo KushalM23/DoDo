@@ -90,6 +90,17 @@ def _first_applicable_on_or_after(
     return None
 
 
+def _last_applicable_on_or_before(
+    row: dict, start: date_type, minimum: date_type
+) -> date_type | None:
+    cursor = start
+    while cursor >= minimum:
+        if _habit_applies_on(row, cursor):
+            return cursor
+        cursor -= timedelta(days=1)
+    return None
+
+
 def _habit_runtime_for_date(
     auth: AuthState, habit_ids: list[str], day: date_type
 ) -> tuple[dict[str, str], dict[str, int]]:
@@ -151,7 +162,6 @@ def _recalculate_streaks(auth: AuthState, habit_row: dict) -> dict:
     best = 0
     run = 0
     current = 0
-    last_applicable_completed: date_type | None = None
 
     if completed_days:
         earliest = min(completed_days)
@@ -162,29 +172,27 @@ def _recalculate_streaks(auth: AuthState, habit_row: dict) -> dict:
                 if cursor in completed_days:
                     run += 1
                     best = max(best, run)
-                    last_applicable_completed = cursor
                 else:
                     run = 0
             cursor += timedelta(days=1)
 
-        if last_applicable_completed is not None:
-            cursor = last_applicable_completed
-            while cursor >= earliest and _habit_applies_on(habit_row, cursor):
-                if cursor in completed_days:
-                    current += 1
-                    cursor -= timedelta(days=1)
-                    while cursor >= earliest and not _habit_applies_on(habit_row, cursor):
-                        cursor -= timedelta(days=1)
-                else:
-                    break
+        last_due_day = _last_applicable_on_or_before(habit_row, today, earliest)
+        cursor = last_due_day
+        while cursor is not None and cursor >= earliest:
+            if cursor not in completed_days:
+                break
+            current += 1
+            cursor = _last_applicable_on_or_before(
+                habit_row, cursor - timedelta(days=1), earliest
+            )
 
     next_occurrence = _first_applicable_on_or_after(habit_row, today)
 
     updates = {
         "current_streak": current,
         "best_streak": best,
-        "last_completed_on": last_applicable_completed.isoformat()
-        if last_applicable_completed
+        "last_completed_on": latest_completed.isoformat()
+        if latest_completed
         else None,
         "next_occurrence_on": next_occurrence.isoformat() if next_occurrence else None,
         "updated_at": datetime.now(timezone.utc).isoformat(),

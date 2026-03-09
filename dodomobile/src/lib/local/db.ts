@@ -4,6 +4,16 @@ const DB_NAME = 'dodo_local.db';
 let db: QuickSQLiteConnection | null = null;
 let initialized = false;
 
+const LEGACY_CATEGORY_COLOR_MIGRATIONS = [
+  ['#A855F7', '#F97316'],
+  ['#8B5CF6', '#0EA5E9'],
+  ['#6366F1', '#3B82F6'],
+  ['#E8651A', '#14B8A6'],
+  ['#D85A12', '#14B8A6'],
+  ['#30A46C', '#10B981'],
+  ['#F5A623', '#F59E0B'],
+] as const;
+
 function getDb(): QuickSQLiteConnection {
   if (!db) {
     db = open({name: DB_NAME});
@@ -156,6 +166,19 @@ export async function initializeLocalDb(): Promise<void> {
   await exec('CREATE INDEX IF NOT EXISTS idx_habits_local_user_deleted ON habits_local(user_id, deleted_at)');
   await exec('CREATE INDEX IF NOT EXISTS idx_habit_completions_local_user_date ON habit_completions_local(user_id, completed_on)');
   await exec('CREATE INDEX IF NOT EXISTS idx_sync_queue_schedule ON sync_queue(user_id, status, next_retry_at, created_at)');
+
+  for (const [fromColor, toColor] of LEGACY_CATEGORY_COLOR_MIGRATIONS) {
+    await exec(
+      'UPDATE categories_local SET color = ? WHERE color = ?',
+      [toColor, fromColor],
+    );
+    await exec(
+      `UPDATE sync_queue
+       SET payload_json = REPLACE(payload_json, ?, ?)
+       WHERE entity = 'category' AND payload_json LIKE ?`,
+      [fromColor, toColor, `%${fromColor}%`],
+    );
+  }
 
   initialized = true;
 }

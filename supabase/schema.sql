@@ -116,15 +116,31 @@ alter table public.habit_completions add column if not exists updated_at timesta
 alter table public.habit_completions add column if not exists completed_at timestamptz;
 alter table public.habit_completions add column if not exists xp_awarded integer;
 
+alter table public.profiles drop constraint if exists profiles_progress_values_check;
+alter table public.categories drop constraint if exists categories_color_check;
+alter table public.categories drop constraint if exists categories_icon_check;
+alter table public.habits drop constraint if exists habits_frequency_type_check;
+alter table public.habits drop constraint if exists habits_interval_days_check;
+alter table public.habits drop constraint if exists habits_custom_days_check;
+alter table public.habits drop constraint if exists habits_time_minute_check;
+alter table public.habits drop constraint if exists habits_duration_minutes_check;
+alter table public.habits drop constraint if exists habits_streak_values_check;
+alter table public.habits drop constraint if exists habits_frequency_payload_check;
+alter table public.habits drop constraint if exists habits_icon_check;
+
 update public.profiles
 set experience_points = coalesce(experience_points, 0),
     current_level = coalesce(current_level, 1);
 
 update public.categories
 set color = case
-      when color in ('#E5484D', '#EC4899', '#A855F7', '#8B5CF6', '#6366F1', '#3B82F6', '#0EA5E9', '#06B6D4', '#14B8A6', '#10B981', '#84CC16', '#EAB308') then color
+      when color in ('#E5484D', '#EC4899', '#F97316', '#F59E0B', '#EAB308', '#84CC16', '#10B981', '#14B8A6', '#06B6D4', '#0EA5E9', '#3B82F6', '#64748B') then color
+      when color = '#A855F7' then '#F97316'
+      when color = '#8B5CF6' then '#0EA5E9'
+      when color = '#6366F1' then '#3B82F6'
+      when color in ('#E8651A', '#D85A12') then '#14B8A6'
       when color = '#30A46C' then '#10B981'
-      when color = '#F5A623' then '#EAB308'
+      when color = '#F5A623' then '#F59E0B'
       else '#E5484D'
     end,
     icon = case
@@ -209,45 +225,34 @@ alter table public.habit_completions alter column updated_at set not null;
 alter table public.habit_completions alter column xp_awarded set default 0;
 alter table public.habit_completions alter column xp_awarded set not null;
 
-alter table public.profiles drop constraint if exists profiles_progress_values_check;
 alter table public.profiles add constraint profiles_progress_values_check
   check (experience_points >= 0 and current_level >= 1);
 
-alter table public.categories drop constraint if exists categories_color_check;
 alter table public.categories add constraint categories_color_check
-  check (color in ('#E5484D', '#EC4899', '#A855F7', '#8B5CF6', '#6366F1', '#3B82F6', '#0EA5E9', '#06B6D4', '#14B8A6', '#10B981', '#84CC16', '#EAB308'));
-alter table public.categories drop constraint if exists categories_icon_check;
+  check (color in ('#E5484D', '#EC4899', '#F97316', '#F59E0B', '#EAB308', '#84CC16', '#10B981', '#14B8A6', '#06B6D4', '#0EA5E9', '#3B82F6', '#64748B'));
 alter table public.categories add constraint categories_icon_check
   check (icon in ('briefcase', 'heart', 'user', 'book-open', 'dumbbell', 'droplets', 'utensils', 'bed', 'brain', 'music', 'sun', 'moon', 'coffee', 'shopping-cart'));
 
-alter table public.habits drop constraint if exists habits_frequency_type_check;
 alter table public.habits add constraint habits_frequency_type_check
   check (frequency_type in ('daily', 'interval', 'custom_days'));
-alter table public.habits drop constraint if exists habits_interval_days_check;
 alter table public.habits add constraint habits_interval_days_check
   check (interval_days is null or interval_days between 2 and 365);
-alter table public.habits drop constraint if exists habits_custom_days_check;
 alter table public.habits add constraint habits_custom_days_check
   check (
     custom_days <@ array[0,1,2,3,4,5,6]::smallint[]
   );
-alter table public.habits drop constraint if exists habits_time_minute_check;
 alter table public.habits add constraint habits_time_minute_check
   check (time_minute is null or time_minute between 0 and 1439);
-alter table public.habits drop constraint if exists habits_duration_minutes_check;
 alter table public.habits add constraint habits_duration_minutes_check
   check (duration_minutes is null or duration_minutes between 1 and 720);
-alter table public.habits drop constraint if exists habits_streak_values_check;
 alter table public.habits add constraint habits_streak_values_check
   check (current_streak >= 0 and best_streak >= 0);
-alter table public.habits drop constraint if exists habits_frequency_payload_check;
 alter table public.habits add constraint habits_frequency_payload_check
   check (
     (frequency_type = 'daily' and interval_days is null and cardinality(custom_days) = 0)
     or (frequency_type = 'interval' and interval_days is not null and cardinality(custom_days) = 0)
     or (frequency_type = 'custom_days' and interval_days is null and cardinality(custom_days) > 0)
   );
-alter table public.habits drop constraint if exists habits_icon_check;
 alter table public.habits add constraint habits_icon_check
   check (icon in ('briefcase', 'heart', 'user', 'book-open', 'dumbbell', 'droplets', 'utensils', 'bed', 'brain', 'music', 'sun', 'moon', 'coffee', 'shopping-cart'));
 

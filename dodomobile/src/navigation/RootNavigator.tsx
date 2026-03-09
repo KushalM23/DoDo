@@ -1,4 +1,5 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
+import {StyleSheet, View} from 'react-native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {useAuth} from '../state/AuthContext';
 import {useTasks} from '../state/TasksContext';
@@ -28,60 +29,83 @@ export function RootNavigator() {
   const {initialized: tasksInitialized} = useTasks();
   const {initialized: habitsInitialized} = useHabits();
   const {initialized: categoriesInitialized} = useCategories();
+  const [showStartupOverlay, setShowStartupOverlay] = useState(true);
+  const [overlayExiting, setOverlayExiting] = useState(false);
 
   const startupLoading =
     authLoading ||
     (Boolean(user) &&
       (!tasksInitialized || !habitsInitialized || !categoriesInitialized));
 
-  if (startupLoading) {
-    return <LoadingScreen variant="app" title="Dodo" />;
-  }
+  useEffect(() => {
+    if (!startupLoading && showStartupOverlay && !overlayExiting) {
+      setOverlayExiting(true);
+    }
+  }, [overlayExiting, showStartupOverlay, startupLoading]);
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-        gestureEnabled: true,
-      }}>
-      {user ? (
-        <>
-          <Stack.Screen
-            name="Main"
-            component={MainTabs}
-            options={{animation: 'fade'}}
-          />
-          <Stack.Screen
-            name="TaskDetail"
-            component={TaskDetailScreen}
-            options={{animation: 'slide_from_bottom'}}
-          />
-          <Stack.Screen
-            name="HabitDetail"
-            component={HabitDetailScreen}
-            options={{animation: 'slide_from_bottom'}}
-          />
-          <Stack.Screen
-            name="Settings"
-            component={SettingsScreen}
-            options={{animation: 'slide_from_right'}}
-          />
-        </>
-      ) : (
-        <>
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{title: 'Welcome Back', animation: 'fade'}}
-          />
-          <Stack.Screen
-            name="Register"
-            component={RegisterScreen}
-            options={{title: 'Create Account', animation: 'slide_from_right'}}
-          />
-        </>
-      )}
-    </Stack.Navigator>
+    <View style={styles.container}>
+      {!startupLoading ? (
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+          }}>
+          {user ? (
+            <>
+              <Stack.Screen
+                name="Main"
+                component={MainTabs}
+                options={{animation: 'fade'}}
+              />
+              <Stack.Screen
+                name="TaskDetail"
+                component={TaskDetailScreen}
+                options={{animation: 'slide_from_bottom'}}
+              />
+              <Stack.Screen
+                name="HabitDetail"
+                component={HabitDetailScreen}
+                options={{animation: 'slide_from_bottom'}}
+              />
+              <Stack.Screen
+                name="Settings"
+                component={SettingsScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+            </>
+          ) : (
+            <>
+              <Stack.Screen
+                name="Login"
+                component={LoginScreen}
+                options={{title: 'Welcome Back', animation: 'fade'}}
+              />
+              <Stack.Screen
+                name="Register"
+                component={RegisterScreen}
+                options={{title: 'Create Account', animation: 'slide_from_right'}}
+              />
+            </>
+          )}
+        </Stack.Navigator>
+      ) : null}
+
+      {showStartupOverlay ? (
+        <LoadingScreen
+          variant="app"
+          title="DODO"
+          exiting={overlayExiting}
+          onExitComplete={() => setShowStartupOverlay(false)}
+        />
+      ) : null}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

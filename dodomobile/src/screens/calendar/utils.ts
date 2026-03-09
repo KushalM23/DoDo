@@ -1,4 +1,8 @@
 import {getCalendarOffset, toLocalDateKey} from '../../utils/dateTime';
+import {
+  resolveCalendarMonthSelection,
+  shiftCalendarMonth,
+} from '../../components/overlays/dateWheelPickerUtils';
 import {habitAppliesToDate} from '../../utils/habits';
 import type {Habit} from '../../types/habit';
 import type {Task} from '../../types/task';
@@ -46,6 +50,8 @@ export function localDateKey(value: Date): string {
 export function parseDateKey(dateKey: string): Date {
   return new Date(`${dateKey}T00:00:00`);
 }
+
+export {resolveCalendarMonthSelection, shiftCalendarMonth};
 
 export function startOfMonth(value: Date): Date {
   return new Date(value.getFullYear(), value.getMonth(), 1);
