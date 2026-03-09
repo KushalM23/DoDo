@@ -421,6 +421,12 @@ begin
   on conflict (id) do update
     set display_name = excluded.display_name;
 
+  insert into public.categories (user_id, name, color, icon)
+  values
+    (new.id, 'Personal', '#14B8A6', 'user'),
+    (new.id, 'Work', '#3B82F6', 'briefcase')
+  on conflict do nothing;
+
   return new;
 end;
 $$;
@@ -436,3 +442,18 @@ select
   coalesce(nullif(trim(u.raw_user_meta_data ->> 'display_name'), ''), split_part(u.email, '@', 1), 'User')
 from auth.users u
 on conflict (id) do nothing;
+
+insert into public.categories (user_id, name, color, icon)
+select u.id, seed.name, seed.color, seed.icon
+from auth.users u
+cross join (
+  values
+    ('Personal', '#14B8A6', 'user'),
+    ('Work', '#3B82F6', 'briefcase')
+) as seed(name, color, icon)
+where not exists (
+  select 1
+  from public.categories c
+  where c.user_id = u.id
+)
+on conflict do nothing;
