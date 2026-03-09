@@ -1,11 +1,16 @@
-import React, {useMemo} from 'react';
+import React, {useEffect, useMemo, useRef} from 'react';
 import {Pressable, StatusBar, StyleSheet, Text, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {AppIcon, type AppIconName} from '../AppIcon';
 import {HoldToConfirmButton} from './HoldToConfirmButton';
+import {useAlert} from '../../state/AlertContext';
 import {fontSize, radii, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {darkColors, type ThemeColors} from '../../theme/ThemeProvider';
+import {
+  enableFocusModeSilence,
+  openFocusModeSilenceSettings,
+} from '../../utils/focusModeSilencer';
 
 type FocusModeScreenProps = {
   now: Date;
@@ -48,9 +53,45 @@ export function FocusModeScreen({
 }: FocusModeScreenProps) {
   const colors = darkColors;
   const styles = useMemo(() => createStyles(colors), []);
+  const {showAlert} = useAlert();
+  const didPromptForSilenceAccess = useRef(false);
 
   const hour24 = now.getHours();
   const hour = timeFormat === '24h' ? hour24 : ((hour24 + 11) % 12) + 1;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const result = await enableFocusModeSilence();
+      if (
+        cancelled ||
+        result !== 'permission_required' ||
+        didPromptForSilenceAccess.current
+      ) {
+        return;
+      }
+
+      didPromptForSilenceAccess.current = true;
+      showAlert(
+        'Allow Do Not Disturb',
+        'Android needs Do Not Disturb access to silence the device automatically when focus mode starts.',
+        [
+          {text: 'Not now', style: 'cancel'},
+          {
+            text: 'Open settings',
+            onPress: () => {
+              void openFocusModeSilenceSettings();
+            },
+          },
+        ],
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showAlert]);
 
   return (
     <>

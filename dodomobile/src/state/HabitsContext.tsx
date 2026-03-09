@@ -61,7 +61,7 @@ type HabitsContextValue = {
 const HabitsContext = createContext<HabitsContextValue | undefined>(undefined);
 
 export function HabitsProvider({children}: {children: React.ReactNode}) {
-  const {user} = useAuth();
+  const {user, refreshUser} = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completionMap, setCompletionMap] = useState<
     Record<string, Record<string, boolean>>
@@ -79,16 +79,19 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
   }, []);
 
   const syncAndReconcile = useCallback(
-    async (userId: string) => {
+    async (userId: string, refreshProgress = false) => {
       const didSync = await runSync(userId, 'manual');
       if (!didSync) {
         return false;
       }
 
       await reconcileLocalState(userId);
+      if (refreshProgress) {
+        await refreshUser();
+      }
       return true;
     },
-    [reconcileLocalState],
+    [reconcileLocalState, refreshUser],
   );
 
   const refresh = useCallback(async () => {
@@ -249,9 +252,9 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
         date,
         completed,
       });
-      await syncAndReconcile(user.id);
+      await syncAndReconcile(user.id, true);
     },
-    [syncAndReconcile, user?.id],
+    [refreshUser, syncAndReconcile, user?.id],
   );
 
   const startHabitTimer = useCallback(
