@@ -67,7 +67,7 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
   const [busy, setBusy] = useState(false);
 
   const ITEM_HEIGHT = 65; // row height 57 + 8 gap
-  const [data, setData] = useState<Category[]>(categories);
+  const [data, setData] = useState<Category[]>([]);
   const draggingIdRef = useRef<string | null>(null);
   const initialIndexRef = useRef<number>(0);
   const pan = useRef(new Animated.ValueXY()).current;
@@ -77,10 +77,18 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!draggingIdRef.current) {
+    if (visible && !draggingIdRef.current) {
       setData(categories);
     }
-  }, [categories]);
+  }, [categories, visible]);
+
+  useEffect(() => {
+    if (!visible && draggingIdRef.current) {
+      draggingIdRef.current = null;
+      setDraggingId(null);
+      pan.setValue({x: 0, y: 0});
+    }
+  }, [pan, visible]);
 
   function handleAdd() {
     setAddInputValue('');
@@ -166,14 +174,14 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
     draggingIdRef.current = id;
     initialIndexRef.current = index;
     setDraggingId(id);
-    pan.setValue({ x: 0, y: 0 });
+    pan.setValue({x: 0, y: 0});
   };
 
   const endDrag = () => {
     if (!draggingIdRef.current) return;
     draggingIdRef.current = null;
     setDraggingId(null);
-    pan.setValue({ x: 0, y: 0 });
+    pan.setValue({x: 0, y: 0});
     
     const nextOrder = dataRef.current.map(c => c.id);
     setCategoryOrder(nextOrder).catch(err => {
@@ -183,11 +191,14 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
 
   const panResponder = useRef(
     PanResponder.create({
+      onStartShouldSetPanResponder: () => draggingIdRef.current !== null,
+      onStartShouldSetPanResponderCapture: () => draggingIdRef.current !== null,
       onMoveShouldSetPanResponderCapture: () => draggingIdRef.current !== null,
+      onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (event, gestureState) => {
         void event;
         if (!draggingIdRef.current) return;
-        pan.setValue({ x: 0, y: gestureState.dy });
+        pan.setValue({x: 0, y: gestureState.dy});
         
         const dragId = draggingIdRef.current;
         const newIndex = Math.max(
@@ -231,13 +242,19 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
               </Pressable>
             </View>
 
-            <ScrollView style={{maxHeight: 400}} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={{maxHeight: 400}}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={draggingId == null}>
               {data.length === 0 ? (
                 <Text style={styles.emptyText}>No categories yet.</Text>
               ) : (
-                <View {...panResponder.panHandlers} style={{ height: data.length * ITEM_HEIGHT, position: 'relative' }}>
+                <View
+                  {...panResponder.panHandlers}
+                  style={{height: data.length * ITEM_HEIGHT, position: 'relative'}}>
                   {data.map((category, index) => {
                     const isDragging = draggingId === category.id;
+                    const disableRowActions = draggingId !== null;
                     const top = (isDragging ? initialIndexRef.current : index) * ITEM_HEIGHT;
 
                     return (
@@ -250,11 +267,12 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                             zIndex: 10,
                             transform: [{ translateY: pan.y }],
                             ...styles.draggingItem,
-                          }
+                          },
                         ]}>
                         <Pressable
                           style={styles.manageLabelWrap}
                           delayLongPress={200}
+                          disabled={disableRowActions}
                           onLongPress={() => handleLongPress(category.id, index)}>
                           <AppIcon
                             name={category.icon as any}
@@ -267,11 +285,13 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                         </Pressable>
                         <Pressable
                           style={styles.iconBtn}
+                          disabled={disableRowActions}
                           onPress={() => openEditModal(category)}>
                           <AppIcon name="edit" size={14} color={colors.mutedText} />
                         </Pressable>
                         <Pressable
                           style={styles.iconBtn}
+                          disabled={disableRowActions}
                           onPress={() => handleDelete(category)}>
                           <AppIcon name="trash-2" size={14} color={colors.danger} />
                         </Pressable>
@@ -480,7 +500,8 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: spacing.md,
       color: colors.text,
       marginBottom: spacing.sm,
-      fontSize: fontSize.md,
+      fontSize: fontSize.lg,
+      fontFamily: fonts.bodyBold,
     },
     fieldLabel: {
       color: colors.mutedText,

@@ -545,6 +545,7 @@ export function TasksScreen() {
   const [manageCategoriesVisible, setManageCategoriesVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => toLocalDateKey(new Date()));
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
   // FAB animations
   const addBtnScale = useRef(new Animated.Value(1)).current;
@@ -598,6 +599,13 @@ export function TasksScreen() {
     return [overviewPage, ...categoryPages];
   }, [allFilteredTasks, completedTasks, categories, selectedDate]);
 
+  useEffect(() => {
+    setCurrentPageIndex(prev => Math.min(prev, Math.max(pages.length - 1, 0)));
+  }, [pages.length]);
+
+  const defaultCategoryId =
+    currentPageIndex > 0 ? pages[currentPageIndex]?.key ?? null : null;
+
   async function handleCreateTask(input: CreateTaskInput) {
     await addTask(input);
   }
@@ -630,6 +638,14 @@ export function TasksScreen() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={event => {
+          const nextIndex = Math.round(
+            event.nativeEvent.contentOffset.x / SCREEN_WIDTH,
+          );
+          setCurrentPageIndex(
+            Math.max(0, Math.min(nextIndex, pages.length - 1)),
+          );
+        }}
         onScroll={Animated.event(
           [{nativeEvent: {contentOffset: {x: scrollX}}}],
           {useNativeDriver: false},
@@ -693,7 +709,7 @@ export function TasksScreen() {
         visible={formVisible}
         categories={categories}
         defaultDate={selectedDate}
-        defaultCategoryId={null}
+        defaultCategoryId={defaultCategoryId}
         onCancel={() => setFormVisible(false)}
         onSubmit={handleCreateTask}
       />

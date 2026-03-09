@@ -173,11 +173,6 @@ const createStyles = (c: ThemeColors) =>
     panel: {
       padding: spacing.lg,
       gap: spacing.lg,
-      shadowColor: c.shadow,
-      shadowOffset: {width: 0, height: 12},
-      shadowOpacity: 0.35,
-      shadowRadius: 24,
-      elevation: 10,
     },
     fields: {gap: spacing.md},
     fieldGroup: {
@@ -234,11 +229,6 @@ const createStyles = (c: ThemeColors) =>
       minHeight: 52,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: c.accent,
-      shadowOffset: {width: 0, height: 10},
-      shadowOpacity: 0.3,
-      shadowRadius: 18,
-      elevation: 8,
     },
     primaryButtonText: {
       color: '#fff',
