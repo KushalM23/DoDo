@@ -20,7 +20,6 @@ import {
   DEFAULT_CATEGORY_ICON,
   normalizeCategoryColor,
   type Category,
-  type CategoryIcon,
   type CreateCategoryInput,
 } from '../types/category';
 
@@ -39,14 +38,6 @@ const CategoriesContext = createContext<CategoriesContextValue | undefined>(
   undefined,
 );
 
-const DEFAULT_CATEGORIES: Array<{
-  name: string;
-  color: string;
-  icon: CategoryIcon;
-}> = [
-  {name: 'Personal', color: '#14B8A6', icon: 'user'},
-  {name: 'Work', color: '#3B82F6', icon: 'briefcase'},
-];
 const CATEGORY_ORDER_KEY_PREFIX = 'dodo.categoryOrder';
 
 function orderKey(userId: string): string {
@@ -120,18 +111,13 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
 
     try {
       let nextCategories = await listCategoriesLocal(user.id);
-      if (nextCategories.length === 0) {
-        const seeded: Category[] = [];
-        for (const category of DEFAULT_CATEGORIES) {
-          seeded.push(
-            await createCategoryLocal(user.id, {
-              name: category.name,
-              color: category.color,
-              icon: category.icon,
-            }),
-          );
+      const hadLocalCategories = nextCategories.length > 0;
+
+      if (!hadLocalCategories) {
+        const didSync = await runSync(user.id, 'manual');
+        if (didSync) {
+          nextCategories = await listCategoriesLocal(user.id);
         }
-        nextCategories = seeded;
       }
 
       nextCategories = nextCategories.map(category => ({
@@ -161,15 +147,17 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
         await persistOrder(normalizedOrder);
       }
 
-      void runSync(user.id, 'manual').then(async didSync => {
-        if (!didSync) {
-          return;
-        }
-        const reconciled = await listCategoriesLocal(user.id);
-        const normalized = normalizeOrder(reconciled, normalizedOrder);
-        setOrderedIds(normalized);
-        setCategories(orderCategories(reconciled, normalized));
-      });
+      if (hadLocalCategories) {
+        void runSync(user.id, 'manual').then(async didSync => {
+          if (!didSync) {
+            return;
+          }
+          const reconciled = await listCategoriesLocal(user.id);
+          const normalized = normalizeOrder(reconciled, normalizedOrder);
+          setOrderedIds(normalized);
+          setCategories(orderCategories(reconciled, normalized));
+        });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (

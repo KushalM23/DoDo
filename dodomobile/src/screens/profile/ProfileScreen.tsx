@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useAuth} from '../../state/AuthContext';
 import {useTasks} from '../../state/TasksContext';
@@ -152,12 +152,13 @@ export function ProfileScreen() {
   const xpFade = useRef(new Animated.Value(0)).current;
   const statsFade = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    void refreshUser();
-  }, [refreshUser]);
-  useEffect(() => {
-    void loadHistory({days: 30}).catch(() => {});
-  }, [loadHistory]);
+  useFocusEffect(
+    React.useCallback(() => {
+      void refreshUser();
+      void loadHistory({}).catch(() => {});
+      return undefined;
+    }, [loadHistory, refreshUser]),
+  );
 
   // Stagger entrance animations
   useEffect(() => {
@@ -185,10 +186,21 @@ export function ProfileScreen() {
 
   /* ── Derived stats ── */
   const completedTasks = useMemo(() => tasks.filter(t => t.completed), [tasks]);
+  const completedHabitDateKeys = useMemo(
+    () =>
+      Object.values(completionMap).flatMap(days =>
+        Object.entries(days)
+          .filter(([, completed]) => completed)
+          .map(([date]) => date),
+      ),
+    [completionMap],
+  );
   const completedDateKeys = useMemo(
     () =>
-      completedTasks.map(t => toLocalDateKey(t.completedAt ?? t.scheduledAt)),
-    [completedTasks],
+      completedTasks
+        .map(t => toLocalDateKey(t.completedAt ?? t.scheduledAt))
+        .concat(completedHabitDateKeys),
+    [completedHabitDateKeys, completedTasks],
   );
 
   const {currentStreak, bestStreak} = useMemo(

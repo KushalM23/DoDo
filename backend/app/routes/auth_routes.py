@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -6,6 +8,12 @@ from app.progression import progress_from_experience
 from app.supabase_client import get_client_for_token, get_public_client, get_service_client
 
 router = APIRouter(prefix="/auth")
+
+
+DEFAULT_REGISTER_CATEGORIES = (
+    {"name": "Personal", "color": "#14B8A6", "icon": "user"},
+    {"name": "Work", "color": "#3B82F6", "icon": "briefcase"},
+)
 
 
 class Credentials(BaseModel):
@@ -38,6 +46,34 @@ def _fetch_profile_progress(client, user_id: str) -> dict:
     if resp.data:
         xp = int(resp.data[0].get("experience_points") or 0)
     return progress_from_experience(xp)
+
+
+def _ensure_default_categories(client, user_id: str) -> None:
+    existing = (
+        client.table("categories")
+        .select("id")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+
+    if existing.data:
+        return
+
+    now = datetime.now(timezone.utc).isoformat()
+    client.table("categories").insert(
+        [
+            {
+                "user_id": user_id,
+                "name": category["name"],
+                "color": category["color"],
+                "icon": category["icon"],
+                "updated_at": now,
+                "deleted_at": None,
+            }
+            for category in DEFAULT_REGISTER_CATEGORIES
+        ]
+    ).execute()
 
 
 def _to_auth_user(user, profile_progress: dict | None = None) -> dict:
@@ -124,6 +160,7 @@ async def register(body: RegisterPayload):
     progress = progress_from_experience(0)
     try:
         client_for_user = get_client_for_token(session_payload["token"])
+        _ensure_default_categories(client_for_user, user.id)
         progress = _fetch_profile_progress(client_for_user, user.id)
     except Exception:
         pass

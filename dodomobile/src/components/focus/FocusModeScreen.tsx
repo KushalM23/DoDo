@@ -1,11 +1,17 @@
-import React, {useMemo} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef} from 'react';
 import {Pressable, StatusBar, StyleSheet, Text, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {AppIcon, type AppIconName} from '../AppIcon';
 import {HoldToConfirmButton} from './HoldToConfirmButton';
+import {useAlert} from '../../state/AlertContext';
 import {fontSize, radii, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {darkColors, type ThemeColors} from '../../theme/ThemeProvider';
+import {
+  disableFocusModeSilence,
+  enableFocusModeSilence,
+  openFocusModeSilenceSettings,
+} from '../../utils/focusModeSilencer';
 
 type FocusModeScreenProps = {
   now: Date;
@@ -48,9 +54,64 @@ export function FocusModeScreen({
 }: FocusModeScreenProps) {
   const colors = darkColors;
   const styles = useMemo(() => createStyles(colors), []);
+  const {showAlert} = useAlert();
+  const didPromptForSilenceAccess = useRef(false);
+  const focusSilenceEnabled = useRef(false);
 
   const hour24 = now.getHours();
   const hour = timeFormat === '24h' ? hour24 : ((hour24 + 11) % 12) + 1;
+
+  const releaseFocusModeSilence = useCallback(async () => {
+    if (!focusSilenceEnabled.current) {
+      return;
+    }
+
+    focusSilenceEnabled.current = false;
+    await disableFocusModeSilence();
+  }, []);
+
+  const handleExitFocus = useCallback(() => {
+    void releaseFocusModeSilence();
+    onExitFocus();
+  }, [onExitFocus, releaseFocusModeSilence]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const result = await enableFocusModeSilence();
+      if (result === 'enabled') {
+        focusSilenceEnabled.current = true;
+      }
+      if (
+        cancelled ||
+        result !== 'permission_required' ||
+        didPromptForSilenceAccess.current
+      ) {
+        return;
+      }
+
+      didPromptForSilenceAccess.current = true;
+      showAlert(
+        'Allow Do Not Disturb',
+        'Android needs Do Not Disturb access to silence the device automatically when focus mode starts.',
+        [
+          {text: 'Not now', style: 'cancel'},
+          {
+            text: 'Open settings',
+            onPress: () => {
+              void openFocusModeSilenceSettings();
+            },
+          },
+        ],
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+      void releaseFocusModeSilence();
+    };
+  }, [releaseFocusModeSilence, showAlert]);
 
   return (
     <>
@@ -84,7 +145,7 @@ export function FocusModeScreen({
         <View style={styles.floatingActions}>
           <HoldToConfirmButton
             iconName="lock-open"
-            onHoldComplete={onExitFocus}
+            onHoldComplete={handleExitFocus}
             holdDurationMs={3000}
             size={84}
             backgroundColor={colors.surface}

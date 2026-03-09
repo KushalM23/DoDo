@@ -43,7 +43,7 @@ type TasksContextValue = {
 const TasksContext = createContext<TasksContextValue | undefined>(undefined);
 
 export function TasksProvider({children}: {children: React.ReactNode}) {
-  const {user} = useAuth();
+  const {user, refreshUser} = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -116,9 +116,17 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
       );
 
       await updateTaskLocal(user.id, task.id, {completed: newCompleted});
-      void runSync(user.id, 'manual');
+
+      const didSync = await runSync(user.id, 'manual');
+      if (!didSync) {
+        return;
+      }
+
+      const reconciled = await listTasksLocal(user.id);
+      setTasks(sortTasks(reconciled, sortMode));
+      await refreshUser();
     },
-    [sortMode, user?.id],
+    [refreshUser, sortMode, user?.id],
   );
 
   const startTimer = useCallback(
@@ -182,9 +190,20 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
           sortMode,
         ),
       );
-      void runSync(user.id, 'manual');
+
+      const shouldRefreshProgress = updates.completed !== undefined;
+      const didSync = await runSync(user.id, 'manual');
+      if (!didSync) {
+        return;
+      }
+
+      const reconciled = await listTasksLocal(user.id);
+      setTasks(sortTasks(reconciled, sortMode));
+      if (shouldRefreshProgress) {
+        await refreshUser();
+      }
     },
-    [sortMode, user?.id],
+    [refreshUser, sortMode, user?.id],
   );
 
   const removeTask = useCallback(
