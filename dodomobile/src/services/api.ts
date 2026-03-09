@@ -1,7 +1,12 @@
 import { env } from "../config/env";
 import type { AuthUser } from "../types/auth";
 import type { CreateTaskInput, Task } from "../types/task";
-import type { Category, CreateCategoryInput } from "../types/category";
+import {
+  DEFAULT_CATEGORY_ICON,
+  normalizeCategoryColor,
+  type Category,
+  type CreateCategoryInput,
+} from "../types/category";
 import type { CreateHabitInput, Habit, HabitCompletionRecord } from "../types/habit";
 
 type ApiMethod = "GET" | "POST" | "PATCH" | "DELETE";
@@ -181,12 +186,20 @@ export async function deleteTask(taskId: string): Promise<void> {
 }
 
 export async function createCategory(input: CreateCategoryInput & { id?: string }): Promise<Category> {
-  const data = await apiRequest<{ category: Category }>("/categories", "POST", input);
+  const data = await apiRequest<{ category: Category }>("/categories", "POST", {
+    ...input,
+    color: normalizeCategoryColor(input.color),
+    icon: input.icon || DEFAULT_CATEGORY_ICON,
+  });
   return data.category;
 }
 
 export async function updateCategory(categoryId: string, input: CreateCategoryInput): Promise<Category> {
-  const data = await apiRequest<{ category: Category }>(`/categories/${categoryId}`, "PATCH", input);
+  const data = await apiRequest<{ category: Category }>(`/categories/${categoryId}`, "PATCH", {
+    ...input,
+    color: normalizeCategoryColor(input.color),
+    icon: input.icon || DEFAULT_CATEGORY_ICON,
+  });
   return data.category;
 }
 

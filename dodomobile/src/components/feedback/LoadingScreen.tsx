@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useRef} from 'react';
 import {Animated, StyleSheet, Text, View} from 'react-native';
+import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 
 type Props = {variant?: 'app' | 'screen'; title?: string};
@@ -123,7 +124,7 @@ const createStyles = (c: ThemeColors) =>
     },
     brandName: {
       fontSize: 32,
-      fontWeight: '900',
+      fontFamily: fonts.heading,
       color: c.text,
       letterSpacing: -1.5,
     },
@@ -147,7 +148,7 @@ const createStyles = (c: ThemeColors) =>
     },
     inlineLabel: {
       fontSize: 13,
-      fontWeight: '700',
+      fontFamily: fonts.bodyBold,
       color: c.mutedText,
       textTransform: 'uppercase',
       letterSpacing: 1.5,

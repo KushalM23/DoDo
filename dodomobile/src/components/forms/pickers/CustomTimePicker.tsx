@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import {spacing, fontSize} from '../../../theme/colors';
+import {fonts} from '../../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../../theme/ThemeProvider';
 import type {TimeFormatPreference} from '../../../state/PreferencesContext';
 
@@ -181,13 +182,13 @@ const createStyles = (colors: ThemeColors) =>
       minWidth: 48,
       color: colors.text,
       fontSize: fontSize.lg,
-      fontWeight: '700',
+      fontFamily: fonts.bodyBold,
       paddingVertical: spacing.xs,
     },
     timeColon: {
       color: colors.text,
       fontSize: fontSize.lg,
-      fontWeight: '700',
+      fontFamily: fonts.bodyBold,
       marginHorizontal: spacing.xs,
     },
     ampmGroup: {
@@ -206,7 +207,7 @@ const createStyles = (colors: ThemeColors) =>
     ampmText: {
       color: colors.mutedText,
       fontSize: fontSize.sm,
-      fontWeight: '700',
+      fontFamily: fonts.bodyBold,
     },
     ampmTextActive: {
       color: colors.text,

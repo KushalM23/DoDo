@@ -408,7 +408,6 @@ const createStyles = (colors: ThemeColors) =>
     },
     monthLabel: {
       fontSize: 36,
-      fontWeight: '700',
       fontFamily: fonts.heading,
       color: colors.text,
     },
@@ -423,7 +422,7 @@ const createStyles = (colors: ThemeColors) =>
     dayHeader: {
       color: colors.mutedText,
       fontSize: 10,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
       lineHeight: 13,
     },
     gridViewport: {
@@ -450,15 +449,15 @@ const createStyles = (colors: ThemeColors) =>
     dayNum: {
       color: colors.text,
       fontSize: fontSize.sm,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
     },
     selectedDayNum: {
-      fontWeight: '800',
+      fontFamily: fonts.bodyBold,
       color: colors.background,
     },
     todayNum: {
       color: colors.accent,
-      fontWeight: '700',
+      fontFamily: fonts.bodyBold,
     },
     indicatorRow: {
       flexDirection: 'row',

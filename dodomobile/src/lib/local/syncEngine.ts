@@ -14,7 +14,12 @@ import {
   updateHabit,
   updateTask,
 } from '../../services/api';
-import type {Category, CreateCategoryInput} from '../../types/category';
+import {
+  DEFAULT_CATEGORY_ICON,
+  normalizeCategoryColor,
+  type Category,
+  type CreateCategoryInput,
+} from '../../types/category';
 import type {CreateHabitInput, Habit, HabitCompletionRecord} from '../../types/habit';
 import type {CreateTaskInput, Task} from '../../types/task';
 import {initializeLocalDb} from './db';
@@ -57,7 +62,12 @@ function asTaskUpdate(payload: unknown): Partial<CreateTaskInput> & {
 }
 
 function asCategoryCreate(payload: unknown): CreateCategoryInput {
-  return payload as CreateCategoryInput;
+  const category = payload as CreateCategoryInput;
+  return {
+    ...category,
+    color: normalizeCategoryColor(category?.color),
+    icon: category?.icon || DEFAULT_CATEGORY_ICON,
+  };
 }
 
 function asHabitCreate(payload: unknown): CreateHabitInput {

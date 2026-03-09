@@ -191,7 +191,6 @@ const createStyles = (colors: ThemeColors) =>
     monthLabel: {
       color: colors.text,
       fontSize: 28,
-      fontWeight: '700',
       fontFamily: fonts.heading,
       letterSpacing: -0.5,
     },
@@ -207,7 +206,7 @@ const createStyles = (colors: ThemeColors) =>
     dayHeaderText: {
       color: colors.mutedText,
       fontSize: 10,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
       lineHeight: 13,
       textTransform: 'uppercase',
     },
@@ -233,14 +232,14 @@ const createStyles = (colors: ThemeColors) =>
     dayText: {
       color: colors.text,
       fontSize: fontSize.sm,
-      fontWeight: '600',
+      fontFamily: fonts.bodySemiBold,
     },
     dayTextSelected: {
       color: colors.background,
-      fontWeight: '800',
+      fontFamily: fonts.bodyBold,
     },
     dayTextToday: {
       color: colors.accent,
-      fontWeight: '700',
+      fontFamily: fonts.bodyBold,
     },
   });

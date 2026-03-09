@@ -18,6 +18,7 @@ import {useAuth} from './AuthContext';
 import {
   DEFAULT_CATEGORY_COLOR,
   DEFAULT_CATEGORY_ICON,
+  normalizeCategoryColor,
   type Category,
   type CategoryIcon,
   type CreateCategoryInput,
@@ -43,7 +44,7 @@ const DEFAULT_CATEGORIES: Array<{
   color: string;
   icon: CategoryIcon;
 }> = [
-  {name: 'Personal', color: '#E8651A', icon: 'user'},
+  {name: 'Personal', color: '#14B8A6', icon: 'user'},
   {name: 'Work', color: '#3B82F6', icon: 'briefcase'},
 ];
 const CATEGORY_ORDER_KEY_PREFIX = 'dodo.categoryOrder';
@@ -135,7 +136,7 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
 
       nextCategories = nextCategories.map(category => ({
         ...category,
-        color: category.color || DEFAULT_CATEGORY_COLOR,
+        color: normalizeCategoryColor(category.color),
         icon: category.icon || DEFAULT_CATEGORY_ICON,
       }));
 
@@ -199,7 +200,7 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
 
       const created = await createCategoryLocal(user.id, {
         name,
-        color: input.color || DEFAULT_CATEGORY_COLOR,
+        color: normalizeCategoryColor(input.color || DEFAULT_CATEGORY_COLOR),
         icon: input.icon || DEFAULT_CATEGORY_ICON,
       });
 
@@ -229,7 +230,7 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
 
       const updated = await updateCategoryLocal(user.id, id, {
         name,
-        color: input.color || DEFAULT_CATEGORY_COLOR,
+        color: normalizeCategoryColor(input.color || DEFAULT_CATEGORY_COLOR),
         icon: input.icon || DEFAULT_CATEGORY_ICON,
       });
       if (!updated) {

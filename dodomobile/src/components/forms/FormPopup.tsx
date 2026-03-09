@@ -321,8 +321,7 @@ const createStyles = (colors: ThemeColors) =>
       height: 50,
       color: colors.text,
       fontSize: fontSize.lg,
-      fontFamily: fonts.heading,
-      fontWeight: '400' as const,
+      fontFamily: fonts.headingRegular,
       textAlignVertical: 'center' as const,
     },
     notesInput: {

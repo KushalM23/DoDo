@@ -6,17 +6,27 @@ from typing import Any
 CATEGORY_COLOR_OPTIONS = (
     "#E5484D",
     "#EC4899",
-    "#A855F7",
-    "#8B5CF6",
-    "#6366F1",
-    "#3B82F6",
-    "#0EA5E9",
-    "#06B6D4",
-    "#14B8A6",
-    "#10B981",
-    "#84CC16",
+    "#F97316",
+    "#F59E0B",
     "#EAB308",
+    "#84CC16",
+    "#10B981",
+    "#14B8A6",
+    "#06B6D4",
+    "#0EA5E9",
+    "#3B82F6",
+    "#64748B",
 )
+
+LEGACY_CATEGORY_COLOR_MAP = {
+    "#A855F7": "#F97316",
+    "#8B5CF6": "#0EA5E9",
+    "#6366F1": "#3B82F6",
+    "#E8651A": "#14B8A6",
+    "#D85A12": "#14B8A6",
+    "#30A46C": "#10B981",
+    "#F5A623": "#F59E0B",
+}
 
 CATEGORY_ICON_OPTIONS = (
     "briefcase",
@@ -40,6 +50,16 @@ HABIT_ICON_OPTIONS = CATEGORY_ICON_OPTIONS
 DEFAULT_CATEGORY_COLOR = CATEGORY_COLOR_OPTIONS[0]
 DEFAULT_CATEGORY_ICON = "user"
 DEFAULT_HABIT_ICON = "book-open"
+
+
+def normalize_category_color(color: str | None, *, fallback: bool = True) -> str:
+    if not color:
+        return DEFAULT_CATEGORY_COLOR
+    if color in CATEGORY_COLOR_OPTIONS:
+        return color
+    if color in LEGACY_CATEGORY_COLOR_MAP:
+        return LEGACY_CATEGORY_COLOR_MAP[color]
+    return DEFAULT_CATEGORY_COLOR if fallback else color
 
 
 def to_task_dto(row: dict[str, Any]) -> dict[str, Any]:
@@ -67,7 +87,7 @@ def to_category_dto(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": row["id"],
         "name": row["name"],
-        "color": row.get("color") or DEFAULT_CATEGORY_COLOR,
+        "color": normalize_category_color(row.get("color")),
         "icon": row.get("icon") or DEFAULT_CATEGORY_ICON,
         "createdAt": row["created_at"],
         "updatedAt": row.get("updated_at") or row["created_at"],

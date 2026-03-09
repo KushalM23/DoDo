@@ -1,4 +1,9 @@
-import type {CreateCategoryInput, Category} from '../../types/category';
+import {
+  DEFAULT_CATEGORY_ICON,
+  normalizeCategoryColor,
+  type CreateCategoryInput,
+  type Category,
+} from '../../types/category';
 import type {
   CreateHabitInput,
   Habit,
@@ -51,8 +56,8 @@ function toCategory(row: any): Category {
   return {
     id: row.id,
     name: row.name,
-    color: row.color,
-    icon: row.icon,
+    color: normalizeCategoryColor(row.color),
+    icon: row.icon || DEFAULT_CATEGORY_ICON,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -420,6 +425,7 @@ export async function listCategoriesLocal(userId: string): Promise<Category[]> {
 
 export async function upsertCategoryFromRemote(userId: string, category: Category): Promise<void> {
   const now = nowIso();
+  const color = normalizeCategoryColor(category.color);
   await query(
     `INSERT OR REPLACE INTO categories_local (
       id, user_id, name, color, icon, created_at, updated_at, deleted_at,
@@ -429,8 +435,8 @@ export async function upsertCategoryFromRemote(userId: string, category: Categor
       category.id,
       userId,
       category.name,
-      category.color,
-      category.icon,
+      color,
+      category.icon || DEFAULT_CATEGORY_ICON,
       category.createdAt,
       category.updatedAt ?? now,
       category.deletedAt ?? null,
@@ -444,11 +450,12 @@ export async function createCategoryLocal(
   input: CreateCategoryInput,
 ): Promise<Category> {
   const now = nowIso();
+  const color = normalizeCategoryColor(input.color);
   const category: Category = {
     id: generateUuid(),
     name: input.name,
-    color: input.color,
-    icon: input.icon,
+    color,
+    icon: input.icon || DEFAULT_CATEGORY_ICON,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,
@@ -480,7 +487,12 @@ export async function createCategoryLocal(
     entity: 'category',
     entityId: category.id,
     action: 'create',
-    payload: {id: category.id, ...input},
+    payload: {
+      id: category.id,
+      ...input,
+      color,
+      icon: input.icon || DEFAULT_CATEGORY_ICON,
+    },
   });
 
   return category;
@@ -500,12 +512,13 @@ export async function updateCategoryLocal(
   }
 
   const now = nowIso();
+  const color = normalizeCategoryColor(input.color);
   await query(
     `UPDATE categories_local
      SET name = ?, color = ?, icon = ?, updated_at = ?,
          last_modified_device_at = ?, sync_state = 'pending'
      WHERE user_id = ? AND id = ?`,
-    [input.name, input.color, input.icon, now, now, userId, categoryId],
+    [input.name, color, input.icon || DEFAULT_CATEGORY_ICON, now, now, userId, categoryId],
   );
 
   await enqueueSyncOp({
@@ -513,7 +526,7 @@ export async function updateCategoryLocal(
     entity: 'category',
     entityId: categoryId,
     action: 'update',
-    payload: input,
+    payload: {...input, color, icon: input.icon || DEFAULT_CATEGORY_ICON},
   });
 
   const [row] = await query<any>(

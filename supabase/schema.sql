@@ -134,9 +134,13 @@ set experience_points = coalesce(experience_points, 0),
 
 update public.categories
 set color = case
-      when color in ('#E5484D', '#EC4899', '#A855F7', '#8B5CF6', '#6366F1', '#3B82F6', '#0EA5E9', '#06B6D4', '#14B8A6', '#10B981', '#84CC16', '#EAB308') then color
+      when color in ('#E5484D', '#EC4899', '#F97316', '#F59E0B', '#EAB308', '#84CC16', '#10B981', '#14B8A6', '#06B6D4', '#0EA5E9', '#3B82F6', '#64748B') then color
+      when color = '#A855F7' then '#F97316'
+      when color = '#8B5CF6' then '#0EA5E9'
+      when color = '#6366F1' then '#3B82F6'
+      when color in ('#E8651A', '#D85A12') then '#14B8A6'
       when color = '#30A46C' then '#10B981'
-      when color = '#F5A623' then '#EAB308'
+      when color = '#F5A623' then '#F59E0B'
       else '#E5484D'
     end,
     icon = case
@@ -225,7 +229,7 @@ alter table public.profiles add constraint profiles_progress_values_check
   check (experience_points >= 0 and current_level >= 1);
 
 alter table public.categories add constraint categories_color_check
-  check (color in ('#E5484D', '#EC4899', '#A855F7', '#8B5CF6', '#6366F1', '#3B82F6', '#0EA5E9', '#06B6D4', '#14B8A6', '#10B981', '#84CC16', '#EAB308'));
+  check (color in ('#E5484D', '#EC4899', '#F97316', '#F59E0B', '#EAB308', '#84CC16', '#10B981', '#14B8A6', '#06B6D4', '#0EA5E9', '#3B82F6', '#64748B'));
 alter table public.categories add constraint categories_icon_check
   check (icon in ('briefcase', 'heart', 'user', 'book-open', 'dumbbell', 'droplets', 'utensils', 'bed', 'brain', 'music', 'sun', 'moon', 'coffee', 'shopping-cart'));
 
