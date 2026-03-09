@@ -14,6 +14,11 @@ import com.facebook.react.bridge.ReactMethod
 class FocusModeAudioModule(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
 
+  companion object {
+    private var previousInterruptionFilter: Int? = null
+    private var previousRingerMode: Int? = null
+  }
+
   override fun getName(): String = "FocusModeAudio"
 
   @ReactMethod
@@ -41,10 +46,48 @@ class FocusModeAudioModule(reactContext: ReactApplicationContext) :
         return
       }
 
+      if (previousInterruptionFilter == null) {
+        previousInterruptionFilter = notificationManager.currentInterruptionFilter
+      }
+
       notificationManager.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE)
     }
 
+    if (previousRingerMode == null) {
+      previousRingerMode = audioManager.ringerMode
+    }
+
     audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
+    promise.resolve(true)
+  }
+
+  @ReactMethod
+  fun disableFocusModeSilence(promise: Promise) {
+    val audioManager =
+      reactApplicationContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        ?: run {
+          promise.reject("unavailable", "Audio manager unavailable.")
+          return
+        }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      val notificationManager = reactApplicationContext
+        .getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        ?: run {
+          promise.reject("unavailable", "Notification manager unavailable.")
+          return
+        }
+
+      if (notificationManager.isNotificationPolicyAccessGranted) {
+        notificationManager.setInterruptionFilter(
+          previousInterruptionFilter ?: NotificationManager.INTERRUPTION_FILTER_ALL,
+        )
+      }
+    }
+
+    audioManager.ringerMode = previousRingerMode ?: AudioManager.RINGER_MODE_NORMAL
+    previousInterruptionFilter = null
+    previousRingerMode = null
     promise.resolve(true)
   }
 

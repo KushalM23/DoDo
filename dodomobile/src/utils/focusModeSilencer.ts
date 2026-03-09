@@ -2,6 +2,7 @@ import {NativeModules, Platform} from 'react-native';
 
 type FocusModeAudioModule = {
   enableFocusModeSilence: () => Promise<boolean>;
+  disableFocusModeSilence: () => Promise<boolean>;
   openPolicyAccessSettings: () => Promise<boolean>;
 };
 
@@ -45,5 +46,17 @@ export async function openFocusModeSilenceSettings(): Promise<void> {
     await nativeModule.openPolicyAccessSettings();
   } catch {
     // Ignore navigation failures and leave the user in the current flow.
+  }
+}
+
+export async function disableFocusModeSilence(): Promise<void> {
+  if (Platform.OS !== 'android' || !nativeModule) {
+    return;
+  }
+
+  try {
+    await nativeModule.disableFocusModeSilence();
+  } catch {
+    // Ignore cleanup failures and leave the user in the current flow.
   }
 }
