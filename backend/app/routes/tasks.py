@@ -4,10 +4,11 @@ from datetime import date as date_type
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.auth import AuthState, require_auth
+from app.contracts import to_task_dto
 from app.progression import apply_experience_delta, task_completion_xp
 
 router = APIRouter(prefix="/tasks")
@@ -25,34 +26,6 @@ def _parse_iso_datetime(value: str, field_name: str) -> datetime:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed
-
-
-def _parse_date(value: str) -> date_type:
-    try:
-        return date_type.fromisoformat(value.strip())
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Invalid date value.") from exc
-
-
-def _to_task_dto(row: dict) -> dict:
-    return {
-        "id": row["id"],
-        "title": row["title"],
-        "description": row.get("description") or "",
-        "categoryId": row.get("category_id"),
-        "scheduledAt": row["scheduled_at"],
-        "deadline": row["deadline"],
-        "durationMinutes": row.get("duration_minutes"),
-        "priority": row["priority"],
-        "completed": row["completed"],
-        "completedAt": row.get("completed_at"),
-        "timerStartedAt": row.get("timer_started_at"),
-        "actualDurationMinutes": row.get("actual_duration_minutes") or 0,
-        "completionXp": row.get("completion_xp") or 0,
-        "createdAt": row["created_at"],
-        "updatedAt": row.get("updated_at") or row["created_at"],
-    }
-
 
 def _planned_minutes(task_row: dict) -> int:
     explicit = task_row.get("duration_minutes")
@@ -76,6 +49,7 @@ def _task_completion_streak(auth: AuthState, candidate_day: date_type | None = N
         .select("completed_at")
         .eq("user_id", auth.user_id)
         .eq("completed", True)
+        .is_("deleted_at", "null")
         .order("completed_at", desc=False)
         .execute()
     )
@@ -122,59 +96,6 @@ class CreateTask(BaseModel):
     priority: int = Field(ge=1, le=3)
 
 
-@router.get("")
-async def list_tasks(
-    auth: AuthState = Depends(require_auth),
-    categoryId: Optional[str] = Query(default=None),
-    startAt: Optional[str] = Query(default=None),
-    endAt: Optional[str] = Query(default=None),
-    date: Optional[str] = Query(default=None),
-):
-    if date and (startAt or endAt):
-        raise HTTPException(
-            status_code=400,
-            detail="Use either date or startAt/endAt filters, not both.",
-        )
-
-    query = auth.supabase.table("tasks").select("*").eq("user_id", auth.user_id)
-
-    if categoryId:
-        query = query.eq("category_id", categoryId)
-
-    if date:
-        day_start = datetime.combine(_parse_date(date), datetime.min.time()).replace(
-            tzinfo=timezone.utc
-        )
-        day_end = day_start + timedelta(days=1)
-        query = query.gte("scheduled_at", day_start.isoformat()).lt(
-            "scheduled_at", day_end.isoformat()
-        )
-    elif startAt or endAt:
-        if not startAt or not endAt:
-            raise HTTPException(
-                status_code=400,
-                detail="Both startAt and endAt are required for range filtering.",
-            )
-
-        start_dt = _parse_iso_datetime(startAt, "startAt")
-        end_dt = _parse_iso_datetime(endAt, "endAt")
-        if end_dt <= start_dt:
-            raise HTTPException(status_code=400, detail="endAt must be after startAt.")
-
-        query = query.gte("scheduled_at", start_dt.isoformat()).lt(
-            "scheduled_at", end_dt.isoformat()
-        )
-
-    query = (
-        query.order("completed", desc=False)
-        .order("priority", desc=True)
-        .order("deadline", desc=False)
-    )
-
-    resp = query.execute()
-    return {"tasks": [_to_task_dto(r) for r in resp.data]}
-
-
 @router.post("", status_code=201)
 async def create_task(body: CreateTask, auth: AuthState = Depends(require_auth)):
     now = datetime.now(timezone.utc)
@@ -197,11 +118,12 @@ async def create_task(body: CreateTask, auth: AuthState = Depends(require_auth))
                 "actual_duration_minutes": 0,
                 "completion_xp": 0,
                 "updated_at": now.isoformat(),
+                "deleted_at": None,
             }
         )
         .execute()
     )
-    return {"task": _to_task_dto(resp.data[0])}
+    return {"task": to_task_dto(resp.data[0])}
 
 
 _FIELD_MAP = {
@@ -229,6 +151,7 @@ async def update_task(task_id: str, request: Request, auth: AuthState = Depends(
         .select("*")
         .eq("id", task_id)
         .eq("user_id", auth.user_id)
+        .is_("deleted_at", "null")
         .limit(1)
         .execute()
     )
@@ -301,6 +224,7 @@ async def update_task(task_id: str, request: Request, auth: AuthState = Depends(
         .update(payload)
         .eq("id", task_id)
         .eq("user_id", auth.user_id)
+        .is_("deleted_at", "null")
         .execute()
     )
 
@@ -310,16 +234,18 @@ async def update_task(task_id: str, request: Request, auth: AuthState = Depends(
     if xp_delta != 0:
         apply_experience_delta(auth.supabase, auth.user_id, xp_delta)
 
-    return {"task": _to_task_dto(resp.data[0])}
+    return {"task": to_task_dto(resp.data[0])}
 
 
 @router.delete("/{task_id}", status_code=204)
 async def delete_task(task_id: str, auth: AuthState = Depends(require_auth)):
+    now = datetime.now(timezone.utc).isoformat()
     resp = (
         auth.supabase.table("tasks")
-        .delete()
+        .update({"deleted_at": now, "updated_at": now, "timer_started_at": None})
         .eq("id", task_id)
         .eq("user_id", auth.user_id)
+        .is_("deleted_at", "null")
         .execute()
     )
 

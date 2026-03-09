@@ -70,4 +70,6 @@ export type CreateHabitInput = {
 export type HabitCompletionRecord = {
   habitId: string;
   date: string;
+  completed?: boolean;
+  updatedAt?: string | null;
 };

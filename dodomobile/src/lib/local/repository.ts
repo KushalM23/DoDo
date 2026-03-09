@@ -771,8 +771,15 @@ export async function upsertHabitHistoryFromRemote(
       `INSERT OR REPLACE INTO habit_completions_local (
         habit_id, user_id, completed_on, completed, updated_at,
         last_modified_device_at, sync_state
-      ) VALUES (?, ?, ?, 1, ?, ?, 'synced')`,
-      [row.habitId, userId, row.date, now, now],
+      ) VALUES (?, ?, ?, ?, ?, ?, 'synced')`,
+      [
+        row.habitId,
+        userId,
+        row.date,
+        row.completed === false ? 0 : 1,
+        row.updatedAt ?? now,
+        now,
+      ],
     );
   }
 }

@@ -2,30 +2,19 @@ from __future__ import annotations
 
 from datetime import date as date_type
 from datetime import datetime, timedelta, timezone
-from typing import Literal, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.auth import AuthState, require_auth
+from app.contracts import DEFAULT_HABIT_ICON, HABIT_ICON_OPTIONS, to_habit_dto
 from app.progression import apply_experience_delta, habit_completion_xp
 
 router = APIRouter(prefix="/habits")
 
 
-FrequencyType = Literal["daily", "interval", "custom_days"]
-HabitIcon = Literal[
-    "book-open",
-    "dumbbell",
-    "droplets",
-    "utensils",
-    "bed",
-    "target",
-    "brain",
-    "leaf",
-    "music",
-    "cup-soda",
-]
+FrequencyType = str
 
 
 def _today_utc_date() -> date_type:
@@ -137,62 +126,6 @@ def _habit_runtime_for_date(
     return timer_started_map, tracked_seconds_map
 
 
-def _to_habit_dto(
-    row: dict,
-    *,
-    timer_started_at: str | None = None,
-    tracked_seconds_today: int = 0,
-) -> dict:
-    custom_days = _normalize_custom_days(row.get("custom_days"))
-    frequency_type = row.get("frequency_type") or "daily"
-
-    interval_days = row.get("interval_days")
-    if frequency_type != "interval":
-        interval_days = None
-
-    return {
-        "id": row["id"],
-        "title": row["title"],
-        "icon": row.get("icon") or "target",
-        "frequencyType": frequency_type,
-        "intervalDays": interval_days,
-        "customDays": custom_days,
-        "timeMinute": row.get("time_minute"),
-        "durationMinutes": row.get("duration_minutes"),
-        "anchorDate": row.get("anchor_date"),
-        "currentStreak": row.get("current_streak") or 0,
-        "bestStreak": row.get("best_streak") or 0,
-        "lastCompletedOn": row.get("last_completed_on"),
-        "nextOccurrenceOn": row.get("next_occurrence_on"),
-        "timerStartedAt": timer_started_at,
-        "trackedSecondsToday": max(0, int(tracked_seconds_today)),
-        "createdAt": row["created_at"],
-        "updatedAt": row.get("updated_at") or row["created_at"],
-    }
-
-
-def _habit_history_rows(
-    auth: AuthState,
-    *,
-    start_date: date_type,
-    end_date: date_type,
-    habit_id: str | None,
-) -> list[dict]:
-    query = (
-        auth.supabase.table("habit_completions")
-        .select("habit_id, completed_on")
-        .eq("user_id", auth.user_id)
-        .gte("completed_on", start_date.isoformat())
-        .lte("completed_on", end_date.isoformat())
-    )
-
-    if habit_id:
-        query = query.eq("habit_id", habit_id)
-
-    response = query.execute()
-    return response.data or []
-
-
 def _recalculate_streaks(auth: AuthState, habit_row: dict) -> dict:
     habit_id = habit_row["id"]
     response = (
@@ -200,6 +133,7 @@ def _recalculate_streaks(auth: AuthState, habit_row: dict) -> dict:
         .select("completed_on")
         .eq("user_id", auth.user_id)
         .eq("habit_id", habit_id)
+        .eq("completed", True)
         .order("completed_on", desc=False)
         .execute()
     )
@@ -276,6 +210,7 @@ def _get_habit_or_404(auth: AuthState, habit_id: str) -> dict:
         .select("*")
         .eq("id", habit_id)
         .eq("user_id", auth.user_id)
+        .is_("deleted_at", "null")
         .limit(1)
         .execute()
     )
@@ -349,7 +284,7 @@ def _tracked_seconds_for_day(auth: AuthState, habit_id: str, day: date_type) -> 
 class CreateHabit(BaseModel):
     id: Optional[str] = None
     title: str = Field(min_length=1, max_length=100)
-    icon: HabitIcon = "target"
+    icon: str = DEFAULT_HABIT_ICON
     anchorDate: Optional[str] = None
     frequencyType: FrequencyType = "daily"
     intervalDays: Optional[int] = Field(default=None, ge=2, le=365)
@@ -357,15 +292,47 @@ class CreateHabit(BaseModel):
     timeMinute: Optional[int] = Field(default=None, ge=0, le=1439)
     durationMinutes: Optional[int] = Field(default=None, ge=1, le=720)
 
+    @field_validator("frequencyType")
+    @classmethod
+    def validate_frequency_type(cls, value: str) -> str:
+        if value not in {"daily", "interval", "custom_days"}:
+            raise ValueError("Invalid habit frequency.")
+        return value
+
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, value: str) -> str:
+        if value not in HABIT_ICON_OPTIONS:
+            raise ValueError("Invalid habit icon.")
+        return value
+
 
 class UpdateHabit(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    icon: Optional[HabitIcon] = None
+    icon: Optional[str] = None
     frequencyType: Optional[FrequencyType] = None
     intervalDays: Optional[int] = Field(default=None, ge=2, le=365)
     customDays: Optional[list[int]] = None
     timeMinute: Optional[int] = Field(default=None, ge=0, le=1439)
     durationMinutes: Optional[int] = Field(default=None, ge=1, le=720)
+
+    @field_validator("frequencyType")
+    @classmethod
+    def validate_frequency_type(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if value not in {"daily", "interval", "custom_days"}:
+            raise ValueError("Invalid habit frequency.")
+        return value
+
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if value not in HABIT_ICON_OPTIONS:
+            raise ValueError("Invalid habit icon.")
+        return value
 
 
 class HabitCompletionBody(BaseModel):
@@ -397,33 +364,6 @@ def _validated_frequency_payload(
     if not cleaned_days:
         raise HTTPException(status_code=400, detail="Select at least one custom day.")
     return None, cleaned_days
-
-
-@router.get("")
-async def list_habits(auth: AuthState = Depends(require_auth)):
-    resp = (
-        auth.supabase.table("habits")
-        .select("*")
-        .eq("user_id", auth.user_id)
-        .order("created_at", desc=False)
-        .execute()
-    )
-    rows = resp.data or []
-    today = _today_utc_date()
-    timer_started_map, tracked_seconds_map = _habit_runtime_for_date(
-        auth, [str(r["id"]) for r in rows], today
-    )
-
-    return {
-        "habits": [
-            _to_habit_dto(
-                row,
-                timer_started_at=timer_started_map.get(str(row["id"])),
-                tracked_seconds_today=tracked_seconds_map.get(str(row["id"]), 0),
-            )
-            for row in rows
-        ]
-    }
 
 
 @router.post("", status_code=201)
@@ -464,11 +404,12 @@ async def create_habit(body: CreateHabit, auth: AuthState = Depends(require_auth
                 "last_completed_on": None,
                 "next_occurrence_on": next_occurrence.isoformat() if next_occurrence else None,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
+                "deleted_at": None,
             }
         )
         .execute()
     )
-    return {"habit": _to_habit_dto(resp.data[0])}
+    return {"habit": to_habit_dto(resp.data[0])}
 
 
 @router.patch("/{habit_id}")
@@ -520,6 +461,7 @@ async def update_habit(
         .update(payload)
         .eq("id", habit_id)
         .eq("user_id", auth.user_id)
+        .is_("deleted_at", "null")
         .execute()
     )
 
@@ -527,60 +469,23 @@ async def update_habit(
         raise HTTPException(status_code=404, detail="Habit not found.")
 
     updated = _recalculate_streaks(auth, resp.data[0])
-    return {"habit": _to_habit_dto(updated)}
+    return {"habit": to_habit_dto(updated)}
 
 
 @router.delete("/{habit_id}", status_code=204)
 async def delete_habit(habit_id: str, auth: AuthState = Depends(require_auth)):
+    now = datetime.now(timezone.utc).isoformat()
     resp = (
         auth.supabase.table("habits")
-        .delete()
+        .update({"deleted_at": now, "updated_at": now})
         .eq("id", habit_id)
         .eq("user_id", auth.user_id)
+        .is_("deleted_at", "null")
         .execute()
     )
 
     if not resp.data:
         raise HTTPException(status_code=404, detail="Habit not found.")
-
-
-@router.get("/history")
-async def list_habit_history(
-    auth: AuthState = Depends(require_auth),
-    habitId: Optional[str] = Query(default=None),
-    startDate: Optional[str] = Query(default=None),
-    endDate: Optional[str] = Query(default=None),
-    days: int = Query(default=7, ge=1, le=180),
-):
-    if (startDate and not endDate) or (endDate and not startDate):
-        raise HTTPException(
-            status_code=400, detail="Both startDate and endDate are required together."
-        )
-
-    if startDate and endDate:
-        start_date = _parse_date(startDate)
-        end_date = _parse_date(endDate)
-        if end_date < start_date:
-            raise HTTPException(
-                status_code=400, detail="endDate must be on or after startDate."
-            )
-    else:
-        end_date = _today_utc_date()
-        start_date = end_date - timedelta(days=days - 1)
-
-    history_rows = _habit_history_rows(
-        auth,
-        start_date=start_date,
-        end_date=end_date,
-        habit_id=habitId,
-    )
-
-    return {
-        "history": [
-            {"habitId": row["habit_id"], "date": row["completed_on"]}
-            for row in history_rows
-        ]
-    }
 
 
 @router.post("/{habit_id}/start")
@@ -600,6 +505,7 @@ async def start_habit(
         .eq("user_id", auth.user_id)
         .eq("habit_id", habit_id)
         .eq("completed_on", target_date.isoformat())
+        .eq("completed", True)
         .limit(1)
         .execute()
     )
@@ -626,7 +532,7 @@ async def start_habit(
 
     timer_started_map, tracked_seconds_map = _habit_runtime_for_date(auth, [habit_id], target_date)
     return {
-        "habit": _to_habit_dto(
+        "habit": to_habit_dto(
             row,
             timer_started_at=timer_started_map.get(habit_id),
             tracked_seconds_today=tracked_seconds_map.get(habit_id, 0),
@@ -647,7 +553,7 @@ async def pause_habit(
 
     timer_started_map, tracked_seconds_map = _habit_runtime_for_date(auth, [habit_id], target_date)
     return {
-        "habit": _to_habit_dto(
+        "habit": to_habit_dto(
             row,
             timer_started_at=timer_started_map.get(habit_id),
             tracked_seconds_today=tracked_seconds_map.get(habit_id, 0),
@@ -672,7 +578,7 @@ async def complete_habit(
 
     existing_completion_resp = (
         auth.supabase.table("habit_completions")
-        .select("id, xp_awarded")
+        .select("id, xp_awarded, completed")
         .eq("user_id", auth.user_id)
         .eq("habit_id", habit_id)
         .eq("completed_on", completion_date.isoformat())
@@ -680,8 +586,24 @@ async def complete_habit(
         .execute()
     )
 
-    inserted_now = not bool(existing_completion_resp.data)
-    if inserted_now:
+    existing_completion = existing_completion_resp.data[0] if existing_completion_resp.data else None
+    completion_was_active = bool(existing_completion and existing_completion.get("completed"))
+    if existing_completion:
+        (
+            auth.supabase.table("habit_completions")
+            .update(
+                {
+                    "completed": True,
+                    "completed_at": now.isoformat(),
+                    "updated_at": now.isoformat(),
+                    "xp_awarded": 0,
+                }
+            )
+            .eq("id", existing_completion["id"])
+            .eq("user_id", auth.user_id)
+            .execute()
+        )
+    else:
         (
             auth.supabase.table("habit_completions")
             .insert(
@@ -689,7 +611,9 @@ async def complete_habit(
                     "user_id": auth.user_id,
                     "habit_id": habit_id,
                     "completed_on": completion_date.isoformat(),
+                    "completed": True,
                     "completed_at": now.isoformat(),
+                    "updated_at": now.isoformat(),
                     "xp_awarded": 0,
                 }
             )
@@ -698,7 +622,7 @@ async def complete_habit(
 
     updated = _recalculate_streaks(auth, row)
 
-    if inserted_now:
+    if not completion_was_active:
         tracked_seconds = _tracked_seconds_for_day(auth, habit_id, completion_date)
         actual_minutes = max(1, int(round(tracked_seconds / 60))) if tracked_seconds > 0 else None
         planned_minutes = int(row.get("duration_minutes") or 30)
@@ -719,7 +643,7 @@ async def complete_habit(
 
         (
             auth.supabase.table("habit_completions")
-            .update({"xp_awarded": xp_awarded})
+            .update({"xp_awarded": xp_awarded, "updated_at": now.isoformat()})
             .eq("user_id", auth.user_id)
             .eq("habit_id", habit_id)
             .eq("completed_on", completion_date.isoformat())
@@ -728,7 +652,7 @@ async def complete_habit(
         apply_experience_delta(auth.supabase, auth.user_id, xp_awarded)
 
     return {
-        "habit": _to_habit_dto(updated, timer_started_at=None, tracked_seconds_today=0),
+        "habit": to_habit_dto(updated, timer_started_at=None, tracked_seconds_today=0),
         "completion": {
             "habitId": habit_id,
             "date": completion_date.isoformat(),
@@ -748,29 +672,34 @@ async def uncomplete_habit(
 
     existing_completion_resp = (
         auth.supabase.table("habit_completions")
-        .select("id, xp_awarded")
+        .select("id, xp_awarded, completed")
         .eq("user_id", auth.user_id)
         .eq("habit_id", habit_id)
         .eq("completed_on", completion_date.isoformat())
         .limit(1)
         .execute()
     )
-    xp_awarded = (
-        int(existing_completion_resp.data[0].get("xp_awarded") or 0)
-        if existing_completion_resp.data
-        else 0
-    )
+    existing_completion = existing_completion_resp.data[0] if existing_completion_resp.data else None
+    xp_awarded = int(existing_completion.get("xp_awarded") or 0) if existing_completion else 0
+    completion_was_active = bool(existing_completion and existing_completion.get("completed"))
 
-    (
-        auth.supabase.table("habit_completions")
-        .delete()
-        .eq("user_id", auth.user_id)
-        .eq("habit_id", habit_id)
-        .eq("completed_on", completion_date.isoformat())
-        .execute()
-    )
+    if existing_completion:
+        (
+            auth.supabase.table("habit_completions")
+            .update(
+                {
+                    "completed": False,
+                    "completed_at": None,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "xp_awarded": 0,
+                }
+            )
+            .eq("id", existing_completion["id"])
+            .eq("user_id", auth.user_id)
+            .execute()
+        )
 
-    if xp_awarded > 0:
+    if completion_was_active and xp_awarded > 0:
         apply_experience_delta(auth.supabase, auth.user_id, -xp_awarded)
 
     updated = _recalculate_streaks(auth, row)
@@ -778,7 +707,7 @@ async def uncomplete_habit(
         auth, [habit_id], completion_date
     )
     return {
-        "habit": _to_habit_dto(
+        "habit": to_habit_dto(
             updated,
             timer_started_at=timer_started_map.get(habit_id),
             tracked_seconds_today=tracked_seconds_map.get(habit_id, 0),

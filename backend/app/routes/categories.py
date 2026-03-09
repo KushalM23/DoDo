@@ -1,94 +1,64 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.auth import AuthState, require_auth
+from app.contracts import (
+    CATEGORY_COLOR_OPTIONS,
+    CATEGORY_ICON_OPTIONS,
+    DEFAULT_CATEGORY_COLOR,
+    DEFAULT_CATEGORY_ICON,
+    to_category_dto,
+)
 
 router = APIRouter(prefix="/categories")
 
 
-def _to_category_dto(row: dict) -> dict:
-    return {
-        "id": row["id"],
-        "name": row["name"],
-        "color": row.get("color") or "#E8651A",
-        "icon": row.get("icon") or "inbox",
-        "createdAt": row["created_at"],
-        "updatedAt": row.get("updated_at") or row["created_at"],
-    }
+def _validate_choice(value: str, allowed: tuple[str, ...], field_name: str) -> str:
+    if value not in allowed:
+        raise ValueError(f"Invalid {field_name}.")
+    return value
 
 
 class CreateCategory(BaseModel):
     id: Optional[str] = None
     name: str = Field(min_length=1, max_length=50)
-    color: Literal[
-        "#E8651A",
-        "#30A46C",
-        "#3B82F6",
-        "#E5484D",
-        "#F5A623",
-        "#8B5CF6",
-        "#14B8A6",
-        "#EC4899",
-    ] = "#E8651A"
-    icon: Literal[
-        "inbox",
-        "briefcase",
-        "check-square",
-        "calendar",
-        "flame",
-        "heart",
-        "user",
-        "settings",
-        "repeat",
-        "zap",
-    ] = "inbox"
+    color: str = DEFAULT_CATEGORY_COLOR
+    icon: str = DEFAULT_CATEGORY_ICON
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, value: str) -> str:
+        return _validate_choice(value, CATEGORY_COLOR_OPTIONS, "category color")
+
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, value: str) -> str:
+        return _validate_choice(value, CATEGORY_ICON_OPTIONS, "category icon")
 
 
 class UpdateCategory(BaseModel):
     name: str = Field(min_length=1, max_length=50)
-    color: Literal[
-        "#E8651A",
-        "#30A46C",
-        "#3B82F6",
-        "#E5484D",
-        "#F5A623",
-        "#8B5CF6",
-        "#14B8A6",
-        "#EC4899",
-    ] = "#E8651A"
-    icon: Literal[
-        "inbox",
-        "briefcase",
-        "check-square",
-        "calendar",
-        "flame",
-        "heart",
-        "user",
-        "settings",
-        "repeat",
-        "zap",
-    ] = "inbox"
+    color: str = DEFAULT_CATEGORY_COLOR
+    icon: str = DEFAULT_CATEGORY_ICON
 
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, value: str) -> str:
+        return _validate_choice(value, CATEGORY_COLOR_OPTIONS, "category color")
 
-@router.get("")
-async def list_categories(auth: AuthState = Depends(require_auth)):
-    resp = (
-        auth.supabase.table("categories")
-        .select("*")
-        .eq("user_id", auth.user_id)
-        .order("created_at", desc=False)
-        .execute()
-    )
-    return {"categories": [_to_category_dto(r) for r in resp.data]}
+    @field_validator("icon")
+    @classmethod
+    def validate_icon(cls, value: str) -> str:
+        return _validate_choice(value, CATEGORY_ICON_OPTIONS, "category icon")
 
 
 @router.post("", status_code=201)
 async def create_category(body: CreateCategory, auth: AuthState = Depends(require_auth)):
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
     resp = (
         auth.supabase.table("categories")
@@ -100,40 +70,43 @@ async def create_category(body: CreateCategory, auth: AuthState = Depends(requir
                 "color": body.color,
                 "icon": body.icon,
                 "updated_at": now.isoformat(),
+                "deleted_at": None,
             }
         )
         .execute()
     )
-    return {"category": _to_category_dto(resp.data[0])}
+    return {"category": to_category_dto(resp.data[0])}
 
 
 @router.patch("/{category_id}")
 async def update_category(
     category_id: str, body: UpdateCategory, auth: AuthState = Depends(require_auth)
 ):
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
     resp = (
         auth.supabase.table("categories")
         .update({"name": body.name.strip(), "color": body.color, "icon": body.icon, "updated_at": now.isoformat()})
         .eq("id", category_id)
         .eq("user_id", auth.user_id)
+        .is_("deleted_at", "null")
         .execute()
     )
 
     if not resp.data:
         raise HTTPException(status_code=404, detail="Category not found.")
 
-    return {"category": _to_category_dto(resp.data[0])}
+    return {"category": to_category_dto(resp.data[0])}
 
 
 @router.delete("/{category_id}", status_code=204)
 async def delete_category(category_id: str, auth: AuthState = Depends(require_auth)):
+    now = datetime.now(timezone.utc).isoformat()
     resp = (
         auth.supabase.table("categories")
-        .delete()
+        .update({"deleted_at": now, "updated_at": now})
         .eq("id", category_id)
         .eq("user_id", auth.user_id)
+        .is_("deleted_at", "null")
         .execute()
     )
 
