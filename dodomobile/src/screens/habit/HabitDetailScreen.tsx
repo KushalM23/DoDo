@@ -17,6 +17,7 @@ import {fontSize, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import {
+  buildHabitTrackerDateKeys,
   formatHabitFrequency,
   habitAppliesToDate,
   minuteToLabel,
@@ -60,45 +61,22 @@ export function HabitDetailScreen() {
   const today = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => dateKey(today), [today]);
 
-  const trackerDates = useMemo(() => {
-    if (!habit) {
-      return [] as Date[];
-    }
-
-    const startKey = habit.anchorDate ?? habit.createdAt.slice(0, 10);
-    const startDate = new Date(`${startKey}T00:00:00`);
-    const recentStart = new Date(today);
-    recentStart.setDate(today.getDate() - 48);
-
-    const cursor = startDate > recentStart ? new Date(startDate) : recentStart;
-    const out: Date[] = [];
-    let guard = 0;
-
-    while (out.length < 49 && guard < 1200) {
-      const key = dateKey(cursor);
-      if (habitAppliesToDate(habit, key)) {
-        out.push(new Date(cursor));
-      }
-      cursor.setDate(cursor.getDate() + 1);
-      guard += 1;
-    }
-
-    return out;
-  }, [habit, today]);
+  const trackerDateKeys = useMemo(
+    () => (habit ? buildHabitTrackerDateKeys(habit, todayKey, 49) : []),
+    [habit, todayKey],
+  );
 
   useEffect(() => {
     if (!habit) {
       return;
     }
-    const historyStartDate = trackerDates[0];
+    const historyStartDate = trackerDateKeys[0];
     if (!historyStartDate) {
       return;
     }
 
-    const start = dateKey(historyStartDate);
-    const end = todayKey;
-    void loadHistory({habitId: habit.id, startDate: start, endDate: end});
-  }, [habit?.id, loadHistory, todayKey, trackerDates]);
+    void loadHistory({habitId: habit.id, startDate: historyStartDate, endDate: todayKey});
+  }, [habit?.id, loadHistory, todayKey, trackerDateKeys]);
 
   useEffect(() => {
     if (!lockInMode) {
@@ -145,7 +123,6 @@ export function HabitDetailScreen() {
         ]}
         infoIconName={currentHabit.icon}
         infoIconColor={colors.habitBadge}
-        infoIconBackgroundColor={colors.habitBadgeLight}
         onExitFocus={() => setLockInMode(false)}
         actionLabel={canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
         actionIconName={canCompleteToday ? (completedToday ? 'rotate-ccw' : 'check') : 'edit'}
@@ -259,8 +236,7 @@ export function HabitDetailScreen() {
 
         <View style={styles.progressCard}>
           <View style={styles.dotGrid}>
-            {trackerDates.map(day => {
-              const key = dateKey(day);
+            {trackerDateKeys.map(key => {
               const completed = isHabitCompletedOn(currentHabit.id, key);
               const isFuture = key > todayKey;
               const isToday = key === todayKey;
@@ -428,13 +404,14 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.bodyBold,
     },
     progressCard: {
+      marginTop: spacing.md,
       borderRadius: 20,
       padding: spacing.md,
     },
     dotGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      rowGap: 16,
+      rowGap: 22,
       columnGap: 0,
     },
     dotCell: {
@@ -449,10 +426,11 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceLight,
     },
     dotDone: {
-      backgroundColor: colors.accent,
+      backgroundColor: colors.habitBadge,
     },
     dotToday: {
-      backgroundColor: colors.accentLight,
+      borderWidth: 3,
+      borderColor: colors.text,
     },
     actionBtn: {
       flex: 1,
@@ -485,7 +463,7 @@ const createStyles = (colors: ThemeColors) =>
       gap: spacing.sm,
     },
     lockInFloatingBtn: {
-      marginBottom: 20,
+      marginBottom: 8,
       alignSelf: 'center',
     },
     emptyWrap: {

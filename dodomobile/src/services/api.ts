@@ -224,15 +224,31 @@ export async function deleteHabit(habitId: string): Promise<void> {
   await apiRequest<void>(`/habits/${habitId}`, "DELETE");
 }
 
-export async function completeHabit(habitId: string, date?: string): Promise<Habit> {
-  const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}/complete`, "POST", date ? { date } : {});
-  return data.habit;
+export type HabitCompletionMutationResponse = {
+  habit: Habit;
+  completion: HabitCompletionRecord;
+};
+
+export async function completeHabit(
+  habitId: string,
+  date?: string,
+): Promise<HabitCompletionMutationResponse> {
+  return apiRequest<HabitCompletionMutationResponse>(
+    `/habits/${habitId}/complete`,
+    "POST",
+    date ? { date } : {},
+  );
 }
 
-export async function uncompleteHabit(habitId: string, date?: string): Promise<Habit> {
+export async function uncompleteHabit(
+  habitId: string,
+  date?: string,
+): Promise<HabitCompletionMutationResponse> {
   const qs = date ? `?date=${encodeURIComponent(date)}` : "";
-  const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}/complete${qs}`, "DELETE");
-  return data.habit;
+  return apiRequest<HabitCompletionMutationResponse>(
+    `/habits/${habitId}/complete${qs}`,
+    "DELETE",
+  );
 }
 
 export async function startHabitTimer(habitId: string, date?: string): Promise<Habit> {

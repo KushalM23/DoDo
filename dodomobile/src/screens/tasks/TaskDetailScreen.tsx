@@ -699,7 +699,7 @@ const createStyles = (colors: ThemeColors) =>
     emptyText: {
       color: colors.mutedText,
       fontSize: fontSize.md,
-      fontFamily: fonts.body,
+      fontFamily: fonts.bodyBold,
     },
     deletedState: {
       flex: 1,
@@ -717,7 +717,7 @@ const createStyles = (colors: ThemeColors) =>
     deletedText: {
       color: colors.mutedText,
       fontSize: fontSize.sm,
-      fontFamily: fonts.body,
+      fontFamily: fonts.bodyBold,
       textAlign: 'center',
     },
     tabsWrapper: {
@@ -804,7 +804,7 @@ const createStyles = (colors: ThemeColors) =>
       gap: 8,
     },
     catChipText: {
-      fontFamily: fonts.bodyMedium,
+      fontFamily: fonts.bodyBold,
       color: colors.mutedText,
       fontSize: fontSize.sm,
     },
@@ -820,7 +820,7 @@ const createStyles = (colors: ThemeColors) =>
       gap: spacing.sm,
     },
     lockInBtn: {
-      marginBottom: 20,
+      marginBottom: 8,
       alignSelf: 'center',
     },
     actionBtn: {

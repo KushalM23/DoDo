@@ -69,6 +69,28 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
+  const reconcileLocalState = useCallback(async (userId: string) => {
+    const [nextHabits, nextCompletionMap] = await Promise.all([
+      listHabitsLocal(userId),
+      listHabitCompletionMapLocal(userId),
+    ]);
+    setHabits(nextHabits);
+    setCompletionMap(nextCompletionMap);
+  }, []);
+
+  const syncAndReconcile = useCallback(
+    async (userId: string) => {
+      const didSync = await runSync(userId, 'manual');
+      if (!didSync) {
+        return false;
+      }
+
+      await reconcileLocalState(userId);
+      return true;
+    },
+    [reconcileLocalState],
+  );
+
   const refresh = useCallback(async () => {
     if (!user?.id) {
       setHabits([]);
@@ -79,21 +101,8 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
     setLoading(true);
 
     try {
-      const localHabits = await listHabitsLocal(user.id);
-      setHabits(localHabits);
-
-      const localMap = await listHabitCompletionMapLocal(user.id);
-      setCompletionMap(localMap);
-
-      void runSync(user.id, 'manual').then(async didSync => {
-        if (!didSync) {
-          return;
-        }
-        const reconciledHabits = await listHabitsLocal(user.id);
-        const reconciledMap = await listHabitCompletionMapLocal(user.id);
-        setHabits(reconciledHabits);
-        setCompletionMap(reconciledMap);
-      });
+      await reconcileLocalState(user.id);
+      void syncAndReconcile(user.id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (
@@ -106,7 +115,7 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
       setLoading(false);
       setInitialized(true);
     }
-  }, [user?.id]);
+  }, [reconcileLocalState, syncAndReconcile, user?.id]);
 
   useEffect(() => {
     setInitialized(false);
@@ -124,9 +133,9 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
         anchorDate: input.anchorDate ?? localDateKey(new Date()),
       });
       setHabits(prev => [...prev, optimistic]);
-      void runSync(user.id, 'manual');
+      void syncAndReconcile(user.id);
     },
-    [user?.id],
+    [syncAndReconcile, user?.id],
   );
 
   const editHabit = useCallback(
@@ -163,9 +172,9 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
       }
 
       setHabits(prev => prev.map(h => (h.id === habitId ? updated : h)));
-      void runSync(user.id, 'manual');
+      void syncAndReconcile(user.id);
     },
-    [habits, user?.id],
+    [habits, syncAndReconcile, user?.id],
   );
 
   const removeHabit = useCallback(
@@ -183,9 +192,9 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
         delete next[id];
         return next;
       });
-      void runSync(user.id, 'manual');
+      void syncAndReconcile(user.id);
     },
-    [user?.id],
+    [syncAndReconcile, user?.id],
   );
 
   const loadHistory = useCallback(
@@ -240,9 +249,9 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
         date,
         completed,
       });
-      void runSync(user.id, 'manual');
+      await syncAndReconcile(user.id);
     },
-    [user?.id],
+    [syncAndReconcile, user?.id],
   );
 
   const startHabitTimer = useCallback(
@@ -262,9 +271,9 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
         startedAt: nowIso,
         action: 'start_timer',
       });
-      void runSync(user.id, 'manual');
+      void syncAndReconcile(user.id);
     },
-    [user?.id],
+    [syncAndReconcile, user?.id],
   );
 
   const pauseHabitTimer = useCallback(
@@ -283,9 +292,9 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
         startedAt: null,
         action: 'pause_timer',
       });
-      void runSync(user.id, 'manual');
+      void syncAndReconcile(user.id);
     },
-    [user?.id],
+    [syncAndReconcile, user?.id],
   );
 
   useEffect(() => {

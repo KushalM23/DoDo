@@ -43,7 +43,8 @@ import type {SyncQueueItem} from './types';
 
 type RunSyncReason = 'startup' | 'periodic' | 'foreground' | 'logout' | 'manual';
 
-let running = false;
+let activeSync: Promise<boolean> | null = null;
+let rerunRequested = false;
 
 function asTaskCreate(payload: unknown): CreateTaskInput {
   return payload as CreateTaskInput;
@@ -140,14 +141,16 @@ async function pushOperation(userId: string, op: SyncQueueItem): Promise<void> {
   if (op.entity === 'habit_completion') {
     const {habitId, date} = payload as {habitId: string; date: string};
     if (op.action === 'complete') {
-      const updated = await completeHabit(habitId, date);
-      await upsertHabitFromRemote(userId, updated);
+      const result = await completeHabit(habitId, date);
+      await upsertHabitFromRemote(userId, result.habit);
+      await upsertHabitHistoryFromRemote(userId, [result.completion]);
       await markEntitySynced(userId, op.entity, op.entityId);
       return;
     }
     if (op.action === 'uncomplete') {
-      const updated = await uncompleteHabit(habitId, date);
-      await upsertHabitFromRemote(userId, updated);
+      const result = await uncompleteHabit(habitId, date);
+      await upsertHabitFromRemote(userId, result.habit);
+      await upsertHabitHistoryFromRemote(userId, [result.completion]);
       await markEntitySynced(userId, op.entity, op.entityId);
       return;
     }
@@ -214,20 +217,33 @@ async function pullRemote(userId: string): Promise<void> {
 
 export async function runSync(userId: string, _reason: RunSyncReason): Promise<boolean> {
   await initializeLocalDb();
-  if (running) {
-    return false;
+  if (activeSync) {
+    rerunRequested = true;
+    return activeSync;
   }
 
-  running = true;
-  try {
-    const pushOk = await pushQueue(userId);
-    if (pushOk) {
-      await pullRemote(userId);
+  activeSync = (async () => {
+    let overallOk = true;
+
+    try {
+      do {
+        rerunRequested = false;
+
+        const pushOk = await pushQueue(userId);
+        overallOk = overallOk && pushOk;
+
+        if (pushOk) {
+          await pullRemote(userId);
+        }
+      } while (rerunRequested);
+
+      return overallOk;
+    } finally {
+      activeSync = null;
     }
-    return pushOk;
-  } finally {
-    running = false;
-  }
+  })();
+
+  return activeSync;
 }
 
 export async function runFinalSyncForLogout(userId: string): Promise<boolean> {

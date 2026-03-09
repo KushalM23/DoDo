@@ -22,21 +22,7 @@ const normalizeTypographyStyle = (style) => {
 };
 
 if (Platform.OS === "android") {
-	const originalCreate = StyleSheet.create.bind(StyleSheet);
 	const originalFlatten = StyleSheet.flatten.bind(StyleSheet);
-
-	StyleSheet.create = (styles) => {
-		if (!isObject(styles)) {
-			return originalCreate(styles);
-		}
-
-		const patched = {};
-		for (const [key, style] of Object.entries(styles)) {
-			patched[key] = normalizeTypographyStyle(style);
-		}
-
-		return originalCreate(patched);
-	};
 
 	StyleSheet.flatten = (style) => normalizeTypographyStyle(originalFlatten(style));
 }
