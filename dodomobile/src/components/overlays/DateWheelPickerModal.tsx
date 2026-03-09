@@ -198,7 +198,7 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 14,
-      marginTop: spacing.xs,
+      marginTop: spacing.lg,
     },
     confirmText: {
       color: '#fff',

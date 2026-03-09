@@ -29,6 +29,7 @@ type WheelRowProps = {
   item: string;
   index: number;
   itemHeight: number;
+  sideItemCount: number;
   scrollOffsetY: Animated.Value;
   selectedIndex: number;
   colors: ThemeColors;
@@ -40,48 +41,93 @@ const WheelRow = React.memo(function WheelRow({
   item,
   index,
   itemHeight,
+  sideItemCount,
   scrollOffsetY,
   selectedIndex,
   colors,
   onPress,
   disabled = false,
 }: WheelRowProps) {
+  const steps = useMemo(
+    () => Array.from({length: sideItemCount * 2 + 1}, (_, stepIndex) => stepIndex - sideItemCount),
+    [sideItemCount],
+  );
   const inputRange = useMemo(
-    () => [
-      (index - 2) * itemHeight,
-      (index - 1) * itemHeight,
-      index * itemHeight,
-      (index + 1) * itemHeight,
-      (index + 2) * itemHeight,
-    ],
-    [index, itemHeight],
+    () => steps.map(step => (index + step) * itemHeight),
+    [index, itemHeight, steps],
+  );
+  const opacityOutputRange = useMemo(
+    () =>
+      steps.map(step => {
+        const normalizedDistance = Math.abs(step) / Math.max(1, sideItemCount);
+        return Math.max(0.12, 1 - normalizedDistance * 0.88);
+      }),
+    [sideItemCount, steps],
+  );
+  const rotateOutputRange = useMemo(
+    () =>
+      steps.map(step => {
+        const normalizedDistance = step / Math.max(1, sideItemCount);
+        return `${-normalizedDistance * 0.72}deg`;
+      }),
+    [sideItemCount, steps],
+  );
+  const scaleOutputRange = useMemo(
+    () =>
+      steps.map(step => {
+        const normalizedDistance = Math.abs(step) / Math.max(1, sideItemCount);
+        return 1 - normalizedDistance * 0.25;
+      }),
+    [sideItemCount, steps],
+  );
+  const translateYOutputRange = useMemo(
+    () =>
+      steps.map(step => {
+        const normalizedDistance = step / Math.max(1, sideItemCount);
+        return -normalizedDistance * itemHeight * 0.05;
+      }),
+    [itemHeight, sideItemCount, steps],
   );
   const animatedStyle = useMemo(
     () => ({
       opacity: scrollOffsetY.interpolate({
         inputRange,
-        outputRange: [0.2, 0.56, 1, 0.56, 0.2],
+        outputRange: opacityOutputRange,
         extrapolate: 'clamp',
       }),
       transform: [
         {perspective: 1000},
         {
+          translateY: scrollOffsetY.interpolate({
+            inputRange,
+            outputRange: translateYOutputRange,
+            extrapolate: 'clamp',
+          }),
+        },
+        {
           rotateX: scrollOffsetY.interpolate({
             inputRange,
-            outputRange: ['56deg', '28deg', '0deg', '-28deg', '-56deg'],
+            outputRange: rotateOutputRange,
             extrapolate: 'clamp',
           }),
         },
         {
           scale: scrollOffsetY.interpolate({
             inputRange,
-            outputRange: [0.86, 0.94, 1, 0.94, 0.86],
+            outputRange: scaleOutputRange,
             extrapolate: 'clamp',
           }),
         },
       ],
     }),
-    [inputRange, scrollOffsetY],
+    [
+      inputRange,
+      opacityOutputRange,
+      rotateOutputRange,
+      scaleOutputRange,
+      scrollOffsetY,
+      translateYOutputRange,
+    ],
   );
 
   const distanceFromSelected = Math.abs(index - selectedIndex);
@@ -149,6 +195,7 @@ export function WheelColumn({
   const scrollOffsetY = useRef(
     new Animated.Value(Math.max(0, Math.min(items.length - 1, selectedIndex)) * itemHeight),
   ).current;
+  const sideItemCount = Math.floor(visibleRowCount / 2);
   const verticalPadding = (itemHeight * (visibleRowCount - 1)) / 2;
   const [layoutReady, setLayoutReady] = useState(false);
 
@@ -162,7 +209,10 @@ export function WheelColumn({
       const nextIndex = clampIndex(index);
       const nextOffset = nextIndex * itemHeight;
       currentIndexRef.current = nextIndex;
-      scrollOffsetY.setValue(nextOffset);
+
+      if (!animated) {
+        scrollOffsetY.setValue(nextOffset);
+      }
 
       listRef.current?.scrollToOffset({
         offset: nextOffset,
@@ -211,12 +261,8 @@ export function WheelColumn({
     currentIndexRef.current = nextIndex;
     pendingSyncIndexRef.current = null;
 
-    const frame = requestAnimationFrame(() => {
-      scrollToIndex(nextIndex, shouldAnimate);
-      hasMountedRef.current = true;
-    });
-
-    return () => cancelAnimationFrame(frame);
+    scrollToIndex(nextIndex, shouldAnimate);
+    hasMountedRef.current = true;
   }, [clampIndex, isActive, items.length, layoutReady, scrollToIndex, selectedIndex]);
 
   useEffect(() => {
@@ -304,10 +350,8 @@ export function WheelColumn({
     const nextIndex = pendingSyncIndexRef.current;
     pendingSyncIndexRef.current = null;
 
-    requestAnimationFrame(() => {
-      scrollToIndex(nextIndex, false);
-      hasMountedRef.current = true;
-    });
+    scrollToIndex(nextIndex, false);
+    hasMountedRef.current = true;
   }, [layoutReady, scrollToIndex]);
 
   const handleRowPress = useCallback(
@@ -352,6 +396,7 @@ export function WheelColumn({
       <Animated.FlatList
         ref={listRef}
         data={items}
+        initialScrollIndex={clampIndex(selectedIndex)}
         keyExtractor={(_, index) => `wheel-item-${index}`}
         testID={testID}
         showsVerticalScrollIndicator={false}
@@ -361,10 +406,10 @@ export function WheelColumn({
         decelerationRate="fast"
         bounces={false}
         overScrollMode="never"
-        removeClippedSubviews
-        initialNumToRender={Math.min(items.length, visibleRowCount + 4)}
-        maxToRenderPerBatch={visibleRowCount + 4}
-        windowSize={visibleRowCount + 4}
+        removeClippedSubviews={false}
+        initialNumToRender={Math.min(items.length, visibleRowCount + 8)}
+        maxToRenderPerBatch={visibleRowCount + 8}
+        windowSize={visibleRowCount + 6}
         scrollEnabled={isActive && items.length > 1}
         scrollEventThrottle={16}
         onScroll={handleScroll}
@@ -383,6 +428,7 @@ export function WheelColumn({
               item={item}
               index={index}
               itemHeight={itemHeight}
+              sideItemCount={sideItemCount}
               scrollOffsetY={scrollOffsetY}
               selectedIndex={selectedIndex}
               colors={colors}
