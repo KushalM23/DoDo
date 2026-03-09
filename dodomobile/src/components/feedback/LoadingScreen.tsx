@@ -1,95 +1,100 @@
 import React, {useEffect, useMemo, useRef} from 'react';
-import {Animated, StyleSheet, Text, View} from 'react-native';
+import {
+  Animated,
+  Easing,
+  Image,
+  StatusBar,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 
-type Props = {variant?: 'app' | 'screen'; title?: string};
+type Props = {
+  variant?: 'app' | 'screen';
+  title?: string;
+  exiting?: boolean;
+  onExitComplete?: () => void;
+};
 
-export function LoadingScreen({variant = 'screen', title}: Props) {
+export function LoadingScreen({
+  variant = 'screen',
+  title,
+  exiting = false,
+  onExitComplete,
+}: Props) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const {width, height} = useWindowDimensions();
 
-  // All animations use useNativeDriver: false so they can be in the same loop
-  const scaleAnim = useRef(new Animated.Value(0.92)).current;
-  const opacityAnim = useRef(new Animated.Value(0.6)).current;
+  const circleScaleAnim = useRef(new Animated.Value(0)).current;
+
+  const circleSize = Math.ceil(Math.sqrt(width * width + height * height)) + 64;
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(scaleAnim, {
-            toValue: 1.06,
-            duration: 900,
-            useNativeDriver: false,
-          }),
-          Animated.timing(opacityAnim, {
-            toValue: 1,
-            duration: 900,
-            useNativeDriver: false,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scaleAnim, {
-            toValue: 0.92,
-            duration: 900,
-            useNativeDriver: false,
-          }),
-          Animated.timing(opacityAnim, {
-            toValue: 0.6,
-            duration: 900,
-            useNativeDriver: false,
-          }),
-        ]),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [scaleAnim, opacityAnim]);
+    if (variant !== 'app') {
+      return;
+    }
 
-  const shadowOpacity = opacityAnim.interpolate({
-    inputRange: [0.6, 1],
-    outputRange: [0.25, 0.55],
-  });
+    circleScaleAnim.setValue(0);
+    Animated.timing(circleScaleAnim, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [circleScaleAnim, variant]);
+
+  useEffect(() => {
+    if (variant !== 'app' || !exiting) {
+      return;
+    }
+
+    circleScaleAnim.stopAnimation();
+    Animated.timing(circleScaleAnim, {
+      toValue: 0,
+      duration: 260,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({finished}) => {
+      if (finished) {
+        onExitComplete?.();
+      }
+    });
+  }, [circleScaleAnim, exiting, onExitComplete, variant]);
 
   if (variant === 'app') {
     return (
-      <View style={styles.container}>
+      <View style={styles.appContainer} pointerEvents="none">
+        <StatusBar barStyle="light-content" backgroundColor={colors.accent} />
         <Animated.View
           style={[
-            styles.brandSlab,
+            styles.circleWipe,
             {
-              transform: [{scale: scaleAnim}],
-              opacity: opacityAnim,
-              shadowOpacity,
+              width: circleSize,
+              height: circleSize,
+              borderRadius: circleSize / 2,
+              transform: [{scale: circleScaleAnim}],
             },
           ]}>
-          <View style={styles.brandDot} />
+          <View style={styles.brandShell}>
+            <View style={styles.logo}>
+              <Image
+                source={require('../../../assets/icon.png')}
+                style={styles.logoImage}
+              />
+            </View>
+            <Text style={styles.brandName}>{title ?? 'DODO'}</Text>
+          </View>
         </Animated.View>
-        <Text style={styles.brandName}>{title ?? 'dodo'}</Text>
       </View>
     );
   }
 
-  // Screen loader: three pulsing dots
-  const dot1 = opacityAnim;
-  const dot2 = opacityAnim.interpolate({
-    inputRange: [0.6, 1],
-    outputRange: [0.4, 0.8],
-  });
-  const dot3 = opacityAnim.interpolate({
-    inputRange: [0.6, 1],
-    outputRange: [0.2, 0.5],
-  });
-
   return (
     <View style={styles.container}>
-      <Animated.View style={styles.dotRow}>
-        <Animated.View
-          style={[styles.dot, styles.dotOrange, {opacity: dot1}]}
-        />
-        <Animated.View style={[styles.dot, styles.dotSm, {opacity: dot2}]} />
-        <Animated.View style={[styles.dot, styles.dotSm, {opacity: dot3}]} />
-      </Animated.View>
       {title ? <Text style={styles.inlineLabel}>{title}</Text> : null}
     </View>
   );
@@ -102,49 +107,41 @@ const createStyles = (c: ThemeColors) =>
       backgroundColor: c.background,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 20,
+      gap: 5,
     },
-    brandSlab: {
-      width: 80,
-      height: 80,
-      borderRadius: 28,
+    appContainer: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10,
+    },
+    circleWipe: {
       backgroundColor: c.accent,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: c.accent,
-      shadowOffset: {width: 0, height: 12},
-      shadowRadius: 24,
-      elevation: 12,
+      overflow: 'hidden',
     },
-    brandDot: {
-      width: 26,
-      height: 26,
-      borderRadius: 13,
-      backgroundColor: '#fff',
-    },
-    brandName: {
-      fontSize: 32,
-      fontFamily: fonts.heading,
-      color: c.text,
-      letterSpacing: -1.5,
-    },
-    dotRow: {
-      flexDirection: 'row',
+    brandShell: {
       alignItems: 'center',
-      gap: 8,
+      justifyContent: 'center',
     },
-    dot: {
+    logo: {
+      width: 148,
+      height: 148,
+      borderRadius: 99,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    logoImage: {
+      width: '100%',
+      height: '100%',
       borderRadius: 99,
     },
-    dotOrange: {
-      width: 12,
-      height: 12,
-      backgroundColor: c.accent,
-    },
-    dotSm: {
-      width: 8,
-      height: 8,
-      backgroundColor: c.border,
+    brandName: {
+      fontSize: 34,
+      fontFamily: fonts.bodyBold,
+      color: c.text,
+      textTransform: 'uppercase',
     },
     inlineLabel: {
       fontSize: 13,

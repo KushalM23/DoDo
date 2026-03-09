@@ -107,7 +107,6 @@ interface CalendarGridProps {
   setSelectedDate: (dateKey: string) => void;
   statusMap: Record<string, 'none' | 'partial' | 'done'>;
   habitStatusMap: Record<string, 'none' | 'partial' | 'done'>;
-  isLandscape: boolean;
 }
 
 export function CalendarGrid({
@@ -119,7 +118,6 @@ export function CalendarGrid({
   setSelectedDate,
   statusMap,
   habitStatusMap,
-  isLandscape,
 }: CalendarGridProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -127,8 +125,7 @@ export function CalendarGrid({
   const {width} = useWindowDimensions();
 
   const SCREEN_WIDTH = width;
-  const calendarWidth = isLandscape ? Math.floor(width * 0.45) : SCREEN_WIDTH;
-  const CELL_SIZE = Math.floor((calendarWidth - spacing.lg * 2) / 7);
+  const CELL_SIZE = Math.floor((SCREEN_WIDTH - spacing.lg * 2) / 7);
 
   const dayNames = useMemo(
     () => getWeekdayLabels(preferences.weekStart),
@@ -344,9 +341,7 @@ export function CalendarGrid({
   );
 
   return (
-    <View
-      style={[styles.calendarSection, isLandscape && {flex: 1}]}
-      {...panResponder.panHandlers}>
+    <View style={styles.calendarSection} {...panResponder.panHandlers}>
       {/* Wrap month label + week headers + grid in the fade animation
           so everything fades together during month transitions. */}
       <Animated.View style={{opacity: fadeAnim}}>

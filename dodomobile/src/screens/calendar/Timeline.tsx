@@ -31,7 +31,6 @@ import {
 
 interface TimelineProps {
   mode: 'week' | 'month';
-  isLandscape: boolean;
   tasksForSelectedDate: TimelineEvent[];
 }
 
@@ -47,7 +46,6 @@ function touchDistance(event: GestureResponderEvent): number {
 
 export function Timeline({
   mode,
-  isLandscape,
   tasksForSelectedDate,
 }: TimelineProps) {
   const colors = useThemeColors();
@@ -221,11 +219,7 @@ export function Timeline({
   }
 
   return (
-    <View
-      style={[
-        styles.timelineSection,
-        isLandscape && styles.timelineSectionLandscape,
-      ]}>
+    <View style={styles.timelineSection}>
       <Text style={styles.timelineTitle}>Timeline</Text>
       <View
         style={styles.timelineShell}
@@ -491,10 +485,6 @@ const createStyles = (colors: ThemeColors) =>
       borderTopColor: colors.border,
       paddingTop: 4,
       marginBottom: 80,
-    },
-    timelineSectionLandscape: {
-      borderTopWidth: 0,
-      flex: 1,
     },
     timelineTitle: {
       fontSize: 28,

@@ -2,7 +2,6 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {
   StyleSheet,
   View,
-  useWindowDimensions,
   InteractionManager,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -35,8 +34,6 @@ export function CalendarScreen() {
   const {user} = useAuth();
   const {habits, completionMap, loadHistory} = useHabits();
   const {preferences} = usePreferences();
-  const {width, height} = useWindowDimensions();
-  const isLandscape = width > height;
 
   const today = useMemo(() => new Date(), []);
   const [mode, setMode] = useState<'week' | 'month'>('week');
@@ -144,51 +141,19 @@ export function CalendarScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.mainWrapper} pointerEvents="auto">
-        {isLandscape ? (
-          <View style={styles.landscapeContent}>
-            <View
-              style={[styles.landscapeLeft, {width: Math.floor(width * 0.45)}]}>
-              <CalendarGrid
-                mode={mode}
-                setMode={setMode}
-                currentDate={currentDate}
-                setCurrentDate={setCurrentDate}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-                statusMap={statusMap}
-                habitStatusMap={habitStatusMap}
-                isLandscape={true}
-              />
-            </View>
-            <View style={styles.landscapeDivider} />
-            <View style={styles.landscapeRight}>
-              <Timeline
-                mode={mode}
-                isLandscape={true}
-                tasksForSelectedDate={tasksForSelectedDate}
-              />
-            </View>
-          </View>
-        ) : (
-          <View style={styles.content}>
-            <CalendarGrid
-              mode={mode}
-              setMode={setMode}
-              currentDate={currentDate}
-              setCurrentDate={setCurrentDate}
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              statusMap={statusMap}
-              habitStatusMap={habitStatusMap}
-              isLandscape={false}
-            />
-            <Timeline
-              mode={mode}
-              isLandscape={false}
-              tasksForSelectedDate={tasksForSelectedDate}
-            />
-          </View>
-        )}
+        <View style={styles.content}>
+          <CalendarGrid
+            mode={mode}
+            setMode={setMode}
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            statusMap={statusMap}
+            habitStatusMap={habitStatusMap}
+          />
+          <Timeline mode={mode} tasksForSelectedDate={tasksForSelectedDate} />
+        </View>
       </View>
 
       {/* Bottom Gradient overlay */}
@@ -213,25 +178,5 @@ const createStyles = (colors: ThemeColors) =>
       paddingBottom: spacing.sm,
       paddingTop: 2,
       gap: 0,
-    },
-    landscapeContent: {
-      flex: 1,
-      flexDirection: 'row',
-    },
-    landscapeLeft: {
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.sm,
-      paddingTop: 2,
-    },
-    landscapeDivider: {
-      width: 1,
-      backgroundColor: colors.border,
-      marginVertical: spacing.sm,
-    },
-    landscapeRight: {
-      flex: 1,
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.sm,
-      paddingTop: 2,
     },
   });
