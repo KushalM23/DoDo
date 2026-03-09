@@ -157,7 +157,19 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
         );
       },
       async signUp(email: string, password: string, displayName: string) {
-        await register(email, password, displayName);
+        const data = await register(email, password, displayName);
+        const session: StoredAuthSession = {
+          token: data.token,
+          refreshToken: data.refreshToken,
+        };
+        setAuthSession(session);
+        setToken(data.token);
+        setUser(data.user);
+        await AsyncStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+        await AsyncStorage.setItem(
+          '@dodo/auth_user',
+          JSON.stringify(data.user),
+        );
       },
       async signOut() {
         if (user?.id) {

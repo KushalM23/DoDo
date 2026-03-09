@@ -62,11 +62,24 @@ def _to_auth_user(user, profile_progress: dict | None = None) -> dict:
     }
 
 
+def _session_payload(session) -> dict:
+    if not session or not session.access_token or not session.refresh_token:
+        raise HTTPException(
+            status_code=500,
+            detail="Registration succeeded, but no authenticated session was created.",
+        )
+
+    return {
+        "token": session.access_token,
+        "refreshToken": session.refresh_token,
+    }
+
+
 @router.post("/register", status_code=201)
 async def register(body: RegisterPayload):
     client = get_public_client()
     try:
-        resp = client.auth.sign_up(
+        signup_resp = client.auth.sign_up(
             {
                 "email": body.email,
                 "password": body.password,
@@ -80,22 +93,44 @@ async def register(body: RegisterPayload):
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    if not resp.user:
+    if not signup_resp.user:
         raise HTTPException(status_code=500, detail="Registration failed.")
 
-    progress = progress_from_experience(0)
-    if resp.session and resp.session.access_token:
+    session = signup_resp.session
+    user = signup_resp.user
+
+    if not session or not session.access_token or not session.refresh_token:
         try:
-            client_for_user = get_client_for_token(resp.session.access_token)
-            progress = _fetch_profile_progress(client_for_user, resp.user.id)
-        except Exception:
-            pass
+            login_resp = client.auth.sign_in_with_password(
+                {"email": body.email, "password": body.password}
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail="Registration succeeded, but automatic sign-in failed.",
+            ) from exc
+
+        if not login_resp.user:
+            raise HTTPException(
+                status_code=500,
+                detail="Registration succeeded, but automatic sign-in returned no user.",
+            )
+
+        session = login_resp.session
+        user = login_resp.user
+
+    session_payload = _session_payload(session)
+
+    progress = progress_from_experience(0)
+    try:
+        client_for_user = get_client_for_token(session_payload["token"])
+        progress = _fetch_profile_progress(client_for_user, user.id)
+    except Exception:
+        pass
 
     return {
-        "user": _to_auth_user(resp.user, progress),
-        "token": resp.session.access_token if resp.session else None,
-        "refreshToken": resp.session.refresh_token if resp.session else None,
-        "requiresEmailConfirmation": resp.session is None,
+        "user": _to_auth_user(user, progress),
+        **session_payload,
     }
 
 
