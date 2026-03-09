@@ -32,6 +32,7 @@ create table if not exists public.tasks (
   completed boolean not null default false,
   completed_at timestamptz,
   timer_started_at timestamptz,
+  actual_duration_seconds integer not null default 0 check (actual_duration_seconds >= 0),
   actual_duration_minutes integer not null default 0 check (actual_duration_minutes >= 0),
   completion_xp integer not null default 0 check (completion_xp >= 0),
   created_at timestamptz not null default now(),
@@ -91,6 +92,7 @@ alter table public.categories add column if not exists updated_at timestamptz;
 alter table public.categories add column if not exists deleted_at timestamptz;
 
 alter table public.tasks add column if not exists description text;
+alter table public.tasks add column if not exists actual_duration_seconds integer;
 alter table public.tasks add column if not exists actual_duration_minutes integer;
 alter table public.tasks add column if not exists completion_xp integer;
 alter table public.tasks add column if not exists updated_at timestamptz;
@@ -151,6 +153,7 @@ set color = case
 
 update public.tasks
 set description = coalesce(description, ''),
+  actual_duration_seconds = coalesce(actual_duration_seconds, greatest(coalesce(actual_duration_minutes, 0), 0) * 60),
     actual_duration_minutes = coalesce(actual_duration_minutes, 0),
     completion_xp = coalesce(completion_xp, 0),
     updated_at = coalesce(updated_at, created_at, now());
@@ -195,6 +198,8 @@ alter table public.categories alter column updated_at set not null;
 
 alter table public.tasks alter column description set default '';
 alter table public.tasks alter column description set not null;
+alter table public.tasks alter column actual_duration_seconds set default 0;
+alter table public.tasks alter column actual_duration_seconds set not null;
 alter table public.tasks alter column actual_duration_minutes set default 0;
 alter table public.tasks alter column actual_duration_minutes set not null;
 alter table public.tasks alter column completion_xp set default 0;

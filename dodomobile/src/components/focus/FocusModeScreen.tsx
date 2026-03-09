@@ -12,6 +12,7 @@ import {
   enableFocusModeSilence,
   openFocusModeSilenceSettings,
 } from '../../utils/focusModeSilencer';
+import {formatClockDuration} from '../../utils/taskTiming';
 
 type FocusModeScreenProps = {
   now: Date;
@@ -29,6 +30,7 @@ type FocusModeScreenProps = {
   infoIconName?: AppIconName;
   infoIconColor?: string;
   infoIconBackgroundColor?: string;
+  elapsedSeconds?: number;
 };
 
 function twoDigits(value: number): string {
@@ -51,6 +53,7 @@ export function FocusModeScreen({
   infoIconName,
   infoIconColor,
   infoIconBackgroundColor,
+  elapsedSeconds,
 }: FocusModeScreenProps) {
   const colors = darkColors;
   const styles = useMemo(() => createStyles(colors), []);
@@ -121,6 +124,14 @@ export function FocusModeScreen({
           <View style={styles.clockWrap}>
             <Text style={styles.clockLine}>{twoDigits(hour)}</Text>
             <Text style={styles.clockLine}>{twoDigits(now.getMinutes())}</Text>
+            {typeof elapsedSeconds === 'number' ? (
+              <View style={styles.elapsedWrap}>
+                <Text style={styles.elapsedLabel}>Focus time</Text>
+                <Text style={styles.elapsedValue}>
+                  {formatClockDuration(elapsedSeconds)}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.infoBlock}>
@@ -214,6 +225,24 @@ const createStyles = (colors: ThemeColors) =>
       lineHeight: 150,
       letterSpacing: -2,
       includeFontPadding: false,
+    },
+    elapsedWrap: {
+      marginTop: spacing.md,
+      alignItems: 'center',
+      gap: 2,
+    },
+    elapsedLabel: {
+      color: colors.mutedText,
+      fontSize: fontSize.xs,
+      fontFamily: fonts.bodyBold,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    elapsedValue: {
+      color: colors.text,
+      fontSize: fontSize.xxl,
+      fontFamily: fonts.headingSemiBold,
+      letterSpacing: -0.5,
     },
     infoBlock: {
       marginTop: spacing.lg,

@@ -35,6 +35,7 @@ import {
 import type {RootStackParamList} from '../../navigation/RootNavigator';
 import type {CreateTaskInput, Priority, Task} from '../../types/task';
 import {formatDate, formatDateTime, formatTime} from '../../utils/dateTime';
+import {getTaskTrackedSeconds} from '../../utils/taskTiming';
 
 function priorityMeta(
   priority: Priority,
@@ -92,6 +93,8 @@ export function TaskDetailScreen() {
     tasks,
     loading: tasksLoading,
     initialized: tasksInitialized,
+    startTimer,
+    pauseTimer,
     toggleTaskCompletion,
     removeTask,
     updateTaskDetails,
@@ -146,6 +149,14 @@ export function TaskDetailScreen() {
   }, [lockInMode]);
 
   useEffect(() => {
+    if (!lockInMode || !task || task.completed || task.timerStartedAt) {
+      return;
+    }
+
+    void startTimer(task).catch(() => {});
+  }, [lockInMode, startTimer, task]);
+
+  useEffect(() => {
     return () => {
       if (undoTimerRef.current) {
         clearTimeout(undoTimerRef.current);
@@ -167,6 +178,10 @@ export function TaskDetailScreen() {
   const priorityInfo = useMemo(
     () => (task ? priorityMeta(task.priority, colors) : null),
     [task, colors],
+  );
+  const focusElapsedSeconds = useMemo(
+    () => (task ? getTaskTrackedSeconds(task, lockTime) : 0),
+    [lockTime, task],
   );
 
   const draftPriorityInfo = useMemo(
@@ -279,6 +294,25 @@ export function TaskDetailScreen() {
       return;
     }
     scheduleDelete(task.id);
+  }
+
+  async function handleExitFocus() {
+    if (!task) {
+      setLockInMode(false);
+      return;
+    }
+
+    try {
+      if (!task.completed && task.timerStartedAt) {
+        await pauseTimer(task);
+      }
+      setLockInMode(false);
+    } catch (err) {
+      showAlert(
+        'Failed to pause timer',
+        err instanceof Error ? err.message : 'Unable to pause focus timer.',
+      );
+    }
   }
 
   useEffect(() => {
@@ -410,7 +444,10 @@ export function TaskDetailScreen() {
             weekStart: preferences.weekStart,
           })}`,
         ]}
-        onExitFocus={() => setLockInMode(false)}
+        elapsedSeconds={focusElapsedSeconds}
+        onExitFocus={() => {
+          void handleExitFocus();
+        }}
         actionLabel={task.completed ? 'Undo' : 'Complete'}
         actionIconName="check"
         onActionPress={handleComplete}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import date as date_type
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -41,6 +42,24 @@ def _planned_minutes(task_row: dict) -> int:
 def _elapsed_minutes(started_at: str, now_utc: datetime) -> int:
     start_dt = _parse_iso_datetime(str(started_at), "timerStartedAt")
     return max(0, int((now_utc - start_dt).total_seconds() // 60))
+
+
+def _elapsed_seconds(started_at: str, now_utc: datetime) -> int:
+    start_dt = _parse_iso_datetime(str(started_at), "timerStartedAt")
+    return max(0, int((now_utc - start_dt).total_seconds()))
+
+
+def _seconds_to_minutes(seconds: int) -> int:
+    safe_seconds = max(0, int(seconds))
+    if safe_seconds == 0:
+        return 0
+    return math.ceil(safe_seconds / 60)
+
+
+def _task_duration_seconds(row: dict[str, Any]) -> int:
+    if row.get("actual_duration_seconds") is not None:
+        return max(0, int(row.get("actual_duration_seconds") or 0))
+    return max(0, int(row.get("actual_duration_minutes") or 0) * 60)
 
 
 def _task_completion_streak(auth: AuthState, candidate_day: date_type | None = None) -> int:
@@ -115,6 +134,7 @@ async def create_task(body: CreateTask, auth: AuthState = Depends(require_auth))
                 "completed": False,
                 "completed_at": None,
                 "timer_started_at": None,
+                "actual_duration_seconds": 0,
                 "actual_duration_minutes": 0,
                 "completion_xp": 0,
                 "updated_at": now.isoformat(),
@@ -135,7 +155,6 @@ _FIELD_MAP = {
     "durationMinutes": "duration_minutes",
     "priority": "priority",
     "completed": "completed",
-    "timerStartedAt": "timer_started_at",
 }
 
 
@@ -167,40 +186,87 @@ async def update_task(task_id: str, request: Request, auth: AuthState = Depends(
                 val = val.strip()
             payload[snake] = val
 
+    if "actualDurationSeconds" in raw and raw["actualDurationSeconds"] is not None:
+        try:
+            requested_seconds = max(0, int(raw["actualDurationSeconds"]))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="Invalid actualDurationSeconds value.") from exc
+
+        current_seconds = _task_duration_seconds(current_row)
+        if requested_seconds < current_seconds:
+            raise HTTPException(status_code=400, detail="Task timer cannot be reset.")
+
+        payload["actual_duration_seconds"] = requested_seconds
+        payload["actual_duration_minutes"] = _seconds_to_minutes(requested_seconds)
+    elif "actualDurationMinutes" in raw and raw["actualDurationMinutes"] is not None:
+        try:
+            requested_minutes = max(0, int(raw["actualDurationMinutes"]))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="Invalid actualDurationMinutes value.") from exc
+
+        current_seconds = _task_duration_seconds(current_row)
+        requested_seconds = requested_minutes * 60
+        if requested_seconds < current_seconds:
+            raise HTTPException(status_code=400, detail="Task timer cannot be reset.")
+
+        payload["actual_duration_seconds"] = requested_seconds
+        payload["actual_duration_minutes"] = requested_minutes
+
     if not payload:
         raise HTTPException(status_code=400, detail="At least one field is required.")
 
     now = datetime.now(timezone.utc)
     payload["updated_at"] = now.isoformat()
-    
+
     previous_completed = bool(current_row.get("completed"))
     next_completed = bool(payload["completed"]) if "completed" in payload else previous_completed
     xp_delta = 0
 
-    actual_minutes = int(current_row.get("actual_duration_minutes") or 0)
-    has_active_timer = bool(current_row.get("timer_started_at"))
-    should_close_timer = (
-        has_active_timer
-        and (
-            ("timer_started_at" in payload and payload["timer_started_at"] is None)
-            or (next_completed and not previous_completed)
-        )
-    )
+    actual_seconds = int(payload.get("actual_duration_seconds", _task_duration_seconds(current_row)))
+    active_started_at = current_row.get("timer_started_at")
+    has_client_duration = "actual_duration_seconds" in payload
 
-    if should_close_timer and current_row.get("timer_started_at"):
-        actual_minutes += _elapsed_minutes(str(current_row["timer_started_at"]), now)
-        payload["actual_duration_minutes"] = max(0, actual_minutes)
+    if "timerStartedAt" in raw:
+        requested_timer_started_at = raw["timerStartedAt"]
+        if requested_timer_started_at:
+            parsed_started_at = _parse_iso_datetime(
+                str(requested_timer_started_at),
+                "timerStartedAt",
+            )
+            if next_completed:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Completed tasks cannot have an active timer.",
+                )
+            if not active_started_at:
+                active_started_at = parsed_started_at.isoformat()
+                payload["timer_started_at"] = active_started_at
+        else:
+            payload["timer_started_at"] = None
+            if active_started_at and not has_client_duration:
+                actual_seconds += _elapsed_seconds(str(active_started_at), now)
+            active_started_at = None
 
-    if "timer_started_at" in payload and payload["timer_started_at"]:
-        _parse_iso_datetime(str(payload["timer_started_at"]), "timerStartedAt")
+    payload["actual_duration_seconds"] = actual_seconds
+    payload["actual_duration_minutes"] = _seconds_to_minutes(actual_seconds)
 
     if next_completed and not previous_completed:
+        if active_started_at:
+            if not has_client_duration:
+                actual_seconds += _elapsed_seconds(str(active_started_at), now)
+            active_started_at = None
+
         payload["completed_at"] = now.isoformat()
         payload["timer_started_at"] = None
+        payload["actual_duration_seconds"] = actual_seconds
+        payload["actual_duration_minutes"] = _seconds_to_minutes(actual_seconds)
 
         merged_row = {**current_row, **payload}
         planned_minutes = _planned_minutes(merged_row)
-        actual_for_score = max(1, int(merged_row.get("actual_duration_minutes") or planned_minutes))
+        actual_for_score = max(
+            1,
+            _seconds_to_minutes(_task_duration_seconds(merged_row)) or planned_minutes,
+        )
         completed_on_time = now <= _parse_iso_datetime(str(merged_row["deadline"]), "deadline")
         streak = _task_completion_streak(auth, candidate_day=now.date())
         completion_xp = task_completion_xp(
