@@ -140,7 +140,7 @@ const createStyles = (c: ThemeColors) =>
     brandName: {
       fontSize: 34,
       fontFamily: fonts.bodyBold,
-      color: c.text,
+      color: '#fff',
       textTransform: 'uppercase',
     },
     inlineLabel: {
