@@ -564,12 +564,8 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceLight,
     },
     draggingItem: {
-      backgroundColor: colors.surface,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 8,
+      borderColor: colors.accent,
+      borderWidth: 2,
     },
     manageLabelWrap: {
       flex: 1,

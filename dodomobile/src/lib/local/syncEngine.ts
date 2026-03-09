@@ -234,6 +234,10 @@ export async function runSync(userId: string, _reason: RunSyncReason): Promise<b
         const pushOk = await pushQueue(userId);
         overallOk = overallOk && pushOk;
 
+        if (rerunRequested) {
+          continue;
+        }
+
         if (pushOk) {
           await pullRemote(userId);
         }
