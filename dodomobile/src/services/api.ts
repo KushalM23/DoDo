@@ -121,9 +121,8 @@ async function apiRequest<T>(
 
 export async function register(email: string, password: string, displayName: string): Promise<{
   user: AuthUser;
-  token: string | null;
-  refreshToken: string | null;
-  requiresEmailConfirmation: boolean;
+  token: string;
+  refreshToken: string;
 }> {
   return apiRequest(
     "/auth/register",

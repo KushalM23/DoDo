@@ -404,9 +404,16 @@ as $$
 declare
   v_display_name text;
 begin
-  v_display_name := trim(coalesce(new.raw_user_meta_data ->> 'display_name', ''));
+  v_display_name := trim(
+    coalesce(
+      new.raw_user_meta_data ->> 'display_name',
+      split_part(coalesce(new.email, ''), '@', 1),
+      'User'
+    )
+  );
+
   if v_display_name = '' then
-    raise exception 'Display name is required';
+    v_display_name := 'User';
   end if;
 
   insert into public.profiles (id, display_name)

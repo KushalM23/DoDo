@@ -58,16 +58,6 @@ export function LoginScreen({navigation}: Props) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.heroSection}>
-            <View style={styles.brandRow}>
-              <Image
-                source={require('../../../assets/icon.jpg')}
-                style={styles.logo}
-              />
-              <View style={styles.brandCopy}>
-                <Text style={styles.eyebrow}>DODO</Text>
-              </View>
-            </View>
-
             <Text style={styles.screenTitle}>Sign In</Text>
           </View>
 
@@ -172,31 +162,6 @@ const createStyles = (c: ThemeColors) =>
     },
     heroSection: {
       gap: spacing.xl,
-    },
-    brandRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    logo: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      shadowColor: c.accent,
-      shadowOffset: {width: 0, height: 10},
-      shadowOpacity: 0.25,
-      shadowRadius: 18,
-      elevation: 8,
-    },
-    brandCopy: {
-      gap: spacing.xs,
-    },
-    eyebrow: {
-      color: c.accent,
-      fontSize: fontSize.xxl,
-      fontFamily: fonts.bodyBold,
-      letterSpacing: 1.2,
-      textTransform: 'uppercase',
     },
     screenTitle: {
       color: c.text,
