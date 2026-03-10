@@ -29,7 +29,6 @@ import {fonts} from '../../theme/fonts';
 import {toLocalDateKey} from '../../utils/dateTime';
 import {habitAppliesToDate} from '../../utils/habits';
 import {
-  formatCompactDuration,
   getTaskPlannedSeconds,
   getTaskTrackedSeconds,
 } from '../../utils/taskTiming';
@@ -232,11 +231,14 @@ export function ProfileScreen() {
     );
 
     return {
-      actualSeconds,
-      allottedSeconds,
-      label: `${formatCompactDuration(actualSeconds)} / ${formatCompactDuration(
-        allottedSeconds,
-      )}`,
+      efficiency:
+        allottedSeconds > 0
+          ? Math.round(
+              (Math.min(actualSeconds, allottedSeconds) /
+                Math.max(actualSeconds, allottedSeconds)) *
+                100,
+            )
+          : 100,
     };
   }, [completedTasks]);
 
@@ -467,9 +469,9 @@ export function ProfileScreen() {
             icon="calendar"
           />
           <StatRow
-            label="Time taken / allotted"
-            value={taskTimeStats.label}
-            icon="hourglass"
+            label="Time efficiency"
+            value={`${taskTimeStats.efficiency}%`}
+            icon="target"
           />
           <StatRow
             label="Overdue tasks"
