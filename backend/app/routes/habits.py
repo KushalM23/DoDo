@@ -289,6 +289,11 @@ def _tracked_seconds_for_day(auth: AuthState, habit_id: str, day: date_type) -> 
     return max(0, total)
 
 
+def _planned_habit_seconds(row: dict) -> int:
+    planned_minutes = int(row.get("duration_minutes") or 30)
+    return max(60, planned_minutes * 60)
+
+
 class CreateHabit(BaseModel):
     id: Optional[str] = None
     title: str = Field(min_length=1, max_length=100)
@@ -632,6 +637,22 @@ async def complete_habit(
 
     if not completion_was_active:
         tracked_seconds = _tracked_seconds_for_day(auth, habit_id, completion_date)
+        if tracked_seconds <= 0:
+            tracked_seconds = _planned_habit_seconds(row)
+            (
+                auth.supabase.table("habit_sessions")
+                .insert(
+                    {
+                        "user_id": auth.user_id,
+                        "habit_id": habit_id,
+                        "session_date": completion_date.isoformat(),
+                        "started_at": now.isoformat(),
+                        "ended_at": now.isoformat(),
+                        "duration_seconds": tracked_seconds,
+                    }
+                )
+                .execute()
+            )
         actual_minutes = max(1, int(round(tracked_seconds / 60))) if tracked_seconds > 0 else None
         planned_minutes = int(row.get("duration_minutes") or 30)
 
