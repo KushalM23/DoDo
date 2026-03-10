@@ -60,6 +60,24 @@ function elapsedTaskSeconds(startedAt: string | null | undefined, endedAtIso: st
   return Math.max(0, Math.floor((endedAtMs - startedAtMs) / 1000));
 }
 
+function getPlannedTaskSeconds(task: Pick<Task, 'durationMinutes' | 'scheduledAt' | 'deadline'>): number {
+  if (
+    task.durationMinutes != null &&
+    Number.isFinite(task.durationMinutes) &&
+    task.durationMinutes > 0
+  ) {
+    return Math.max(60, Math.round(task.durationMinutes * 60));
+  }
+
+  const scheduledAtMs = Date.parse(task.scheduledAt);
+  const deadlineMs = Date.parse(task.deadline);
+  if (!Number.isFinite(scheduledAtMs) || !Number.isFinite(deadlineMs)) {
+    return 60;
+  }
+
+  return Math.max(60, Math.floor((deadlineMs - scheduledAtMs) / 1000));
+}
+
 function toTask(row: any): Task {
   const actualDurationSeconds = safeTaskSeconds(
     row.actual_duration_seconds,
@@ -449,6 +467,10 @@ export async function updateTaskLocal(
         actualDurationSeconds += elapsedTaskSeconds(nextTimerStartedAt, now);
       }
       nextTimerStartedAt = null;
+    }
+
+    if (actualDurationSeconds <= 0) {
+      actualDurationSeconds = getPlannedTaskSeconds(existing);
     }
   }
 
@@ -1010,6 +1032,29 @@ export async function setHabitCompletedLocal(params: {
   completed: boolean;
 }): Promise<void> {
   const now = nowIso();
+  if (params.completed) {
+    const existingHabitRows = await query<any>(
+      'SELECT duration_minutes, tracked_seconds_today FROM habits_local WHERE user_id = ? AND id = ? LIMIT 1',
+      [params.userId, params.habitId],
+    );
+    const existingHabit = existingHabitRows[0];
+    if (existingHabit) {
+      const trackedSecondsToday = Math.max(0, Number(existingHabit.tracked_seconds_today) || 0);
+      if (trackedSecondsToday <= 0) {
+        const plannedSeconds = Math.max(
+          60,
+          Math.max(1, Number(existingHabit.duration_minutes) || 30) * 60,
+        );
+        await query(
+          `UPDATE habits_local
+           SET tracked_seconds_today = ?, updated_at = ?, last_modified_device_at = ?, sync_state = 'pending'
+           WHERE user_id = ? AND id = ?`,
+          [plannedSeconds, now, now, params.userId, params.habitId],
+        );
+      }
+    }
+  }
+
   await query(
     `INSERT OR REPLACE INTO habit_completions_local (
       habit_id, user_id, completed_on, completed, updated_at,

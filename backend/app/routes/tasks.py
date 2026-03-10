@@ -62,6 +62,13 @@ def _task_duration_seconds(row: dict[str, Any]) -> int:
     return max(0, int(row.get("actual_duration_minutes") or 0) * 60)
 
 
+def _fallback_task_duration_seconds(row: dict[str, Any]) -> int:
+    tracked_seconds = _task_duration_seconds(row)
+    if tracked_seconds > 0:
+        return tracked_seconds
+    return max(60, _planned_minutes(row) * 60)
+
+
 def _task_completion_streak(auth: AuthState, candidate_day: date_type | None = None) -> int:
     response = (
         auth.supabase.table("tasks")
@@ -255,6 +262,9 @@ async def update_task(task_id: str, request: Request, auth: AuthState = Depends(
             if not has_client_duration:
                 actual_seconds += _elapsed_seconds(str(active_started_at), now)
             active_started_at = None
+
+        if actual_seconds <= 0:
+            actual_seconds = _fallback_task_duration_seconds({**current_row, **payload})
 
         payload["completed_at"] = now.isoformat()
         payload["timer_started_at"] = None
