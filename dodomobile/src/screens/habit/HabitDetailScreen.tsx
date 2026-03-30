@@ -375,7 +375,7 @@ export function HabitDetailScreen() {
                 canCompleteToday
                   ? completedToday
                     ? 'rotate-ccw'
-                    : 'edit'
+                    : 'check'
                   : 'edit'
               }
               size={18}

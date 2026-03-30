@@ -301,10 +301,18 @@ export function TaskDetailScreen() {
   }
 
   function handleDelete() {
-    if (!task || busy || savingDetails) {
+    if (!task || busy || savingDetails || pendingDelete) {
       return;
     }
-    scheduleDelete(task.id);
+
+    showAlert('Delete task?', 'This action cannot be undone.', [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => scheduleDelete(task.id),
+      },
+    ]);
   }
 
   async function handleExitFocus() {

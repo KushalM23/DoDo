@@ -7,13 +7,28 @@ node_modules/
 .env.backend
 .env.local
 .env.*.local
+.venv/
+venv/
+
+# Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
 
 # React Native
 dodomobile/android/.gradle/
+dodomobile/android/.cxx/
 dodomobile/android/app/.gradle/
 dodomobile/android/app/build/
+dodomobile/android/app/.cxx/
 dodomobile/android/build/
 dodomobile/android/local.properties
+dodomobile/android/app/google-services.json
+dodomobile/ios/rn_native/GoogleService-Info.plist
+dodomobile/.idea/
 dodomobile/ios/Pods/
 dodomobile/ios/build/
 dodomobile/ios/DerivedData/
