@@ -254,7 +254,7 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
       });
       await syncAndReconcile(user.id, true);
     },
-    [refreshUser, syncAndReconcile, user?.id],
+    [syncAndReconcile, user?.id],
   );
 
   const startHabitTimer = useCallback(

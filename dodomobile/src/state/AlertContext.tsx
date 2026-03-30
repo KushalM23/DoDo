@@ -6,7 +6,10 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import {CustomAlert, type AlertButton} from '../components/feedback/CustomAlert';
+import {
+  CustomAlert,
+  type AlertButton,
+} from '../components/feedback/CustomAlert';
 
 type AlertConfig = {
   title: string;

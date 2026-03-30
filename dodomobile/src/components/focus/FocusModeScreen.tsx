@@ -52,11 +52,11 @@ export function FocusModeScreen({
   actionIconColor,
   infoIconName,
   infoIconColor,
-  infoIconBackgroundColor,
+  infoIconBackgroundColor: _infoIconBackgroundColor,
   elapsedSeconds,
 }: FocusModeScreenProps) {
   const colors = darkColors;
-  const styles = useMemo(() => createStyles(colors), []);
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {showAlert} = useAlert();
   const didPromptForSilenceAccess = useRef(false);
   const focusSilenceEnabled = useRef(false);
@@ -180,7 +180,8 @@ export function FocusModeScreen({
                 style={[
                   styles.actionText,
                   {
-                    color: actionTextColor ?? (actionDone ? colors.accent : '#fff'),
+                    color:
+                      actionTextColor ?? (actionDone ? colors.accent : '#fff'),
                   },
                 ]}>
                 {actionLabel}

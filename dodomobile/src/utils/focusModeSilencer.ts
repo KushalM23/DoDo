@@ -6,10 +6,7 @@ type FocusModeAudioModule = {
   openPolicyAccessSettings: () => Promise<boolean>;
 };
 
-type FocusModeSilenceResult =
-  | 'enabled'
-  | 'permission_required'
-  | 'unavailable';
+type FocusModeSilenceResult = 'enabled' | 'permission_required' | 'unavailable';
 
 const nativeModule = NativeModules.FocusModeAudio as
   | FocusModeAudioModule

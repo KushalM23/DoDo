@@ -155,5 +155,13 @@ export function AppIcon({
   const resolvedName = ICON_NAME_MAP[name] as React.ComponentProps<
     typeof Lucide
   >['name'];
-  return <Lucide name={resolvedName} size={size} color={color} {...rest} />;
+  return (
+    <Lucide
+      name={resolvedName}
+      size={size}
+      color={color}
+      strokeWidth={strokeWidth}
+      {...rest}
+    />
+  );
 }

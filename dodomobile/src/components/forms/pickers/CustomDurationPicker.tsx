@@ -41,21 +41,20 @@ export function CustomDurationPicker({
 
   // Sync external value changes (e.g., when modal opens with new task/habit)
   useEffect(() => {
-    const currentParsed = customToMinutes(customText, unit);
-    if (currentParsed !== value) {
-      if (value >= 60 && value % 60 === 0) {
-        setUnit('hour');
-        setCustomText(String(value / 60));
-      } else {
-        setUnit('min');
-        setCustomText(String(value));
-      }
+    if (value >= 60 && value % 60 === 0) {
+      setUnit('hour');
+      setCustomText(String(value / 60));
+    } else {
+      setUnit('min');
+      setCustomText(String(value));
     }
   }, [value]);
 
   function customToMinutes(raw: string, u: 'min' | 'hour') {
     const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return value;
+    if (!Number.isFinite(parsed)) {
+      return value;
+    }
     const base = u === 'hour' ? parsed * 60 : parsed;
     return Math.max(1, Math.min(1440, Math.round(base)));
   }
@@ -108,10 +107,15 @@ export function CustomDurationPicker({
           onChangeText={raw => {
             const allowDecimal = unit === 'hour';
             const clean = allowDecimal
-              ? raw.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 5)
+              ? raw
+                  .replace(/[^0-9.]/g, '')
+                  .replace(/(\..*)\./g, '$1')
+                  .slice(0, 5)
               : raw.replace(/[^0-9]/g, '').slice(0, 4);
             setCustomText(clean);
-            if (clean.length === 0) return;
+            if (clean.length === 0) {
+              return;
+            }
             onChange(customToMinutes(clean, unit));
           }}
           onBlur={() => {
@@ -156,7 +160,9 @@ export function CustomDurationPicker({
             onPress={() => {
               const currentMinutes = customToMinutes(customText, unit);
               setUnit('hour');
-              setCustomText(String(Math.max(1, Math.round(currentMinutes / 60))));
+              setCustomText(
+                String(Math.max(1, Math.round(currentMinutes / 60))),
+              );
               onChange(currentMinutes);
             }}>
             <Text

@@ -49,7 +49,11 @@ const WheelRow = React.memo(function WheelRow({
   disabled = false,
 }: WheelRowProps) {
   const steps = useMemo(
-    () => Array.from({length: sideItemCount * 2 + 1}, (_, stepIndex) => stepIndex - sideItemCount),
+    () =>
+      Array.from(
+        {length: sideItemCount * 2 + 1},
+        (_, stepIndex) => stepIndex - sideItemCount,
+      ),
     [sideItemCount],
   );
   const inputRange = useMemo(
@@ -135,12 +139,13 @@ const WheelRow = React.memo(function WheelRow({
     distanceFromSelected === 0
       ? colors.accent
       : distanceFromSelected === 1
-        ? colors.textSecondary
-        : colors.mutedText;
+      ? colors.textSecondary
+      : colors.mutedText;
 
   return (
     <Pressable disabled={disabled} onPress={() => onPress(index)}>
-      <Animated.View style={[wheelRowStyles.row, {height: itemHeight}, animatedStyle]}>
+      <Animated.View
+        style={[wheelRowStyles.row, {height: itemHeight}, animatedStyle]}>
         <Text
           numberOfLines={1}
           style={[
@@ -186,14 +191,18 @@ export function WheelColumn({
   const listRef = useRef<FlatList<string>>(null);
   const hasMountedRef = useRef(false);
   const isMomentumScrollingRef = useRef(false);
-  const momentumScrollFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const momentumScrollFallbackRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const wasActiveRef = useRef(false);
   const currentIndexRef = useRef(0);
   const selectedIndexRef = useRef(0);
   const pendingSyncIndexRef = useRef<number | null>(null);
   const previousItemsLengthRef = useRef(items.length);
   const scrollOffsetY = useRef(
-    new Animated.Value(Math.max(0, Math.min(items.length - 1, selectedIndex)) * itemHeight),
+    new Animated.Value(
+      Math.max(0, Math.min(items.length - 1, selectedIndex)) * itemHeight,
+    ),
   ).current;
   const sideItemCount = Math.floor(visibleRowCount / 2);
   const verticalPadding = (itemHeight * (visibleRowCount - 1)) / 2;
@@ -263,7 +272,14 @@ export function WheelColumn({
 
     scrollToIndex(nextIndex, shouldAnimate);
     hasMountedRef.current = true;
-  }, [clampIndex, isActive, items.length, layoutReady, scrollToIndex, selectedIndex]);
+  }, [
+    clampIndex,
+    isActive,
+    items.length,
+    layoutReady,
+    scrollToIndex,
+    selectedIndex,
+  ]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -285,7 +301,7 @@ export function WheelColumn({
       }
       scrollToIndex(nextIndex, false);
     },
-    [clampIndex, onSelectedIndexChange, scrollToIndex],
+    [clampIndex, itemHeight, onSelectedIndexChange, scrollToIndex],
   );
 
   const handleScrollEnd = useCallback(
@@ -362,7 +378,10 @@ export function WheelColumn({
 
       const nextIndex = clampIndex(index);
 
-      if (nextIndex === selectedIndexRef.current && nextIndex === currentIndexRef.current) {
+      if (
+        nextIndex === selectedIndexRef.current &&
+        nextIndex === currentIndexRef.current
+      ) {
         return;
       }
 
@@ -375,7 +394,14 @@ export function WheelColumn({
         onSelectedIndexChange(nextIndex);
       }
     },
-    [clampIndex, clearMomentumFallback, isActive, items.length, onSelectedIndexChange, scrollToIndex],
+    [
+      clampIndex,
+      clearMomentumFallback,
+      isActive,
+      items.length,
+      onSelectedIndexChange,
+      scrollToIndex,
+    ],
   );
 
   return (

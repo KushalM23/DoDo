@@ -11,14 +11,14 @@
 
 export const fonts = {
   /* ── Headings (Oswald) ─────────────────────── */
-  heading: "Oswald-Bold",
-  headingSemiBold: "Oswald-SemiBold",
-  headingMedium: "Oswald-Medium",
-  headingRegular: "Oswald-Regular",
+  heading: 'Oswald-Bold',
+  headingSemiBold: 'Oswald-SemiBold',
+  headingMedium: 'Oswald-Medium',
+  headingRegular: 'Oswald-Regular',
 
   /* ── Body / UI (Poppins) ───────────────────── */
-  body: "Poppins-Regular",
-  bodyMedium: "Poppins-Medium",
-  bodySemiBold: "Poppins-SemiBold",
-  bodyBold: "Poppins-Bold",
+  body: 'Poppins-Regular',
+  bodyMedium: 'Poppins-Medium',
+  bodySemiBold: 'Poppins-SemiBold',
+  bodyBold: 'Poppins-Bold',
 };

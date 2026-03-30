@@ -85,7 +85,10 @@ export function RootNavigator() {
               <Stack.Screen
                 name="Register"
                 component={RegisterScreen}
-                options={{title: 'Create Account', animation: 'slide_from_right'}}
+                options={{
+                  title: 'Create Account',
+                  animation: 'slide_from_right',
+                }}
               />
             </>
           )}

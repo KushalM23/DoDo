@@ -25,7 +25,10 @@ async function exec(sql: string, params: unknown[] = []): Promise<void> {
   await getDb().executeAsync(sql, params);
 }
 
-async function hasColumn(tableName: string, columnName: string): Promise<boolean> {
+async function hasColumn(
+  tableName: string,
+  columnName: string,
+): Promise<boolean> {
   const rows = await query<{name: string}>(`PRAGMA table_info(${tableName})`);
   return rows.some(row => row.name === columnName);
 }
@@ -178,12 +181,24 @@ export async function initializeLocalDb(): Promise<void> {
     )
   `);
 
-  await exec('CREATE INDEX IF NOT EXISTS idx_tasks_local_user_schedule ON tasks_local(user_id, scheduled_at)');
-  await exec('CREATE INDEX IF NOT EXISTS idx_tasks_local_user_deleted ON tasks_local(user_id, deleted_at)');
-  await exec('CREATE INDEX IF NOT EXISTS idx_categories_local_user_deleted ON categories_local(user_id, deleted_at)');
-  await exec('CREATE INDEX IF NOT EXISTS idx_habits_local_user_deleted ON habits_local(user_id, deleted_at)');
-  await exec('CREATE INDEX IF NOT EXISTS idx_habit_completions_local_user_date ON habit_completions_local(user_id, completed_on)');
-  await exec('CREATE INDEX IF NOT EXISTS idx_sync_queue_schedule ON sync_queue(user_id, status, next_retry_at, created_at)');
+  await exec(
+    'CREATE INDEX IF NOT EXISTS idx_tasks_local_user_schedule ON tasks_local(user_id, scheduled_at)',
+  );
+  await exec(
+    'CREATE INDEX IF NOT EXISTS idx_tasks_local_user_deleted ON tasks_local(user_id, deleted_at)',
+  );
+  await exec(
+    'CREATE INDEX IF NOT EXISTS idx_categories_local_user_deleted ON categories_local(user_id, deleted_at)',
+  );
+  await exec(
+    'CREATE INDEX IF NOT EXISTS idx_habits_local_user_deleted ON habits_local(user_id, deleted_at)',
+  );
+  await exec(
+    'CREATE INDEX IF NOT EXISTS idx_habit_completions_local_user_date ON habit_completions_local(user_id, completed_on)',
+  );
+  await exec(
+    'CREATE INDEX IF NOT EXISTS idx_sync_queue_schedule ON sync_queue(user_id, status, next_retry_at, created_at)',
+  );
 
   await ensureColumn(
     'tasks_local',
@@ -199,10 +214,10 @@ export async function initializeLocalDb(): Promise<void> {
   );
 
   for (const [fromColor, toColor] of LEGACY_CATEGORY_COLOR_MIGRATIONS) {
-    await exec(
-      'UPDATE categories_local SET color = ? WHERE color = ?',
-      [toColor, fromColor],
-    );
+    await exec('UPDATE categories_local SET color = ? WHERE color = ?', [
+      toColor,
+      fromColor,
+    ]);
     await exec(
       `UPDATE sync_queue
        SET payload_json = REPLACE(payload_json, ?, ?)
@@ -217,10 +232,19 @@ export async function initializeLocalDb(): Promise<void> {
 export async function purgeUserData(userId: string): Promise<void> {
   await initializeLocalDb();
   await runInTransaction(async tx => {
-    await tx.executeAsync('DELETE FROM tasks_local WHERE user_id = ?', [userId]);
-    await tx.executeAsync('DELETE FROM categories_local WHERE user_id = ?', [userId]);
-    await tx.executeAsync('DELETE FROM habits_local WHERE user_id = ?', [userId]);
-    await tx.executeAsync('DELETE FROM habit_completions_local WHERE user_id = ?', [userId]);
+    await tx.executeAsync('DELETE FROM tasks_local WHERE user_id = ?', [
+      userId,
+    ]);
+    await tx.executeAsync('DELETE FROM categories_local WHERE user_id = ?', [
+      userId,
+    ]);
+    await tx.executeAsync('DELETE FROM habits_local WHERE user_id = ?', [
+      userId,
+    ]);
+    await tx.executeAsync(
+      'DELETE FROM habit_completions_local WHERE user_id = ?',
+      [userId],
+    );
     await tx.executeAsync('DELETE FROM sync_queue WHERE user_id = ?', [userId]);
     await tx.executeAsync('DELETE FROM sync_state WHERE user_id = ?', [userId]);
   });

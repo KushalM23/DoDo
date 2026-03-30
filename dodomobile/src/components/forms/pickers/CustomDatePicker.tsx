@@ -109,19 +109,13 @@ export function CustomDatePicker({
     <View style={styles.container}>
       {/* Month navigation */}
       <View style={styles.monthRow}>
-        <Pressable
-          onPress={prevMonth}
-          hitSlop={12}
-          style={styles.monthNavBtn}>
+        <Pressable onPress={prevMonth} hitSlop={12} style={styles.monthNavBtn}>
           <AppIcon name="chevron-left" size={20} color={colors.text} />
         </Pressable>
         <Text style={styles.monthLabel}>
           {MONTHS[viewMonth]} {viewYear}
         </Text>
-        <Pressable
-          onPress={nextMonth}
-          hitSlop={12}
-          style={styles.monthNavBtn}>
+        <Pressable onPress={nextMonth} hitSlop={12} style={styles.monthNavBtn}>
           <AppIcon name="chevron-right" size={20} color={colors.text} />
         </Pressable>
       </View>

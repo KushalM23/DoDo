@@ -30,7 +30,10 @@ import {BottomGradient} from '../../components/display/BottomGradient';
 import {TaskForm} from '../../components/forms/TaskForm';
 import {ManageCategoriesModal} from '../../components/overlays/ManageCategoriesModal';
 import {DateWheelPickerModal} from '../../components/overlays/DateWheelPickerModal';
-import {formatTaskTriggerLabel, parseDateKey} from '../../components/overlays/dateWheelPickerUtils';
+import {
+  formatTaskTriggerLabel,
+  parseDateKey,
+} from '../../components/overlays/dateWheelPickerUtils';
 import {sortTasks} from '../../utils/taskSort';
 import {habitAppliesToDate, minuteToIso} from '../../utils/habits';
 import {toLocalDateKey} from '../../utils/dateTime';
@@ -403,7 +406,13 @@ function TaskPage({
   });
 
   return (
-    <Animated.View style={{width: SCREEN_WIDTH, transform: [{scale}], opacity, marginBottom: 100}}>
+    <Animated.View
+      style={{
+        width: SCREEN_WIDTH,
+        transform: [{scale}],
+        opacity,
+        marginBottom: 100,
+      }}>
       <FlatList
         data={[...tasks, ...completedTasks]}
         keyExtractor={t => t.id}
@@ -422,7 +431,12 @@ function TaskPage({
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={{paddingBottom: 16, paddingTop: 8, gap: 8}}>
-            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
               <Pressable
                 disabled={!onHeadingPress}
                 onPress={onHeadingPress}
@@ -543,7 +557,9 @@ export function TasksScreen() {
   const {categories} = useCategories();
   const [formVisible, setFormVisible] = useState(false);
   const [manageCategoriesVisible, setManageCategoriesVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(() => toLocalDateKey(new Date()));
+  const [selectedDate, setSelectedDate] = useState(() =>
+    toLocalDateKey(new Date()),
+  );
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
@@ -667,7 +683,9 @@ export function TasksScreen() {
             loading={loading}
             onRefresh={() => void refresh(selectedDate)}
             onManageCategories={() => setManageCategoriesVisible(true)}
-            onHeadingPress={index === 0 ? () => setIsDatePickerOpen(true) : undefined}
+            onHeadingPress={
+              index === 0 ? () => setIsDatePickerOpen(true) : undefined
+            }
             colors={colors}
           />
         ))}

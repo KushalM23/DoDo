@@ -150,7 +150,10 @@ export function CalendarGrid({
    *  - Otherwise → select the 1st of that month
    */
   const shiftMonth = (delta: number) => {
-    const nextSelection = shiftCalendarMonth(stateRef.current.currentDate, delta);
+    const nextSelection = shiftCalendarMonth(
+      stateRef.current.currentDate,
+      delta,
+    );
 
     unstable_batchedUpdates(() => {
       setCurrentDate(nextSelection.currentDate);
@@ -316,7 +319,6 @@ export function CalendarGrid({
     () => formatCalendarTriggerLabel(currentDate),
     [currentDate],
   );
-
 
   // Calculate transition fade
   const fadeAnim = monthTransitionAnim.interpolate({

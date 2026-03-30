@@ -238,7 +238,12 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
         return;
       }
       await softDeleteTaskLocal(user.id, taskId);
-      setTasks(prev => sortTasks(prev.filter(t => t.id !== taskId), sortMode));
+      setTasks(prev =>
+        sortTasks(
+          prev.filter(t => t.id !== taskId),
+          sortMode,
+        ),
+      );
       void runSync(user.id, 'manual');
     },
     [sortMode, user?.id],

@@ -138,7 +138,7 @@ export function TaskDetailScreen() {
     setActiveTab('');
     lastAutoSavedSignatureRef.current = '';
     autoSaveErrorShownRef.current = false;
-  }, [task?.id]);
+  }, [task]);
 
   useEffect(() => {
     if (!lockInMode) {
@@ -154,7 +154,7 @@ export function TaskDetailScreen() {
     }
 
     void startTimer(task).catch(() => {});
-  }, [lockInMode, startTimer, task?.id]);
+  }, [lockInMode, startTimer, task]);
 
   useEffect(() => {
     return () => {
@@ -238,7 +238,8 @@ export function TaskDetailScreen() {
       priorityDraft !== task.priority ||
       categoryIdDraft !== task.categoryId ||
       durationMinutesDraft !== originalDuration ||
-      scheduledAtDraft.toISOString() !== new Date(task.scheduledAt).toISOString()
+      scheduledAtDraft.toISOString() !==
+        new Date(task.scheduledAt).toISOString()
     );
   }, [
     task,
@@ -465,7 +466,11 @@ export function TaskDetailScreen() {
           <AppIcon name="chevron-left" size={24} color={colors.text} />
         </Pressable>
         <View style={styles.headerTitleInputWrap}>
-          <TextInput value={titleDraft} style={styles.headerTitle} onChangeText={setTitleDraft} />
+          <TextInput
+            value={titleDraft}
+            style={styles.headerTitle}
+            onChangeText={setTitleDraft}
+          />
         </View>
         <View style={{width: 24}} />
       </View>
@@ -477,7 +482,6 @@ export function TaskDetailScreen() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             bounces={false}>
-
             <View style={styles.tabsWrapper}>
               <View style={styles.tabsRow}>
                 {tabsTop.map(tab => {
@@ -555,7 +559,10 @@ export function TaskDetailScreen() {
                     return (
                       <Pressable
                         key={p}
-                        style={[styles.chipBtn, active && {backgroundColor: col}]}
+                        style={[
+                          styles.chipBtn,
+                          active && {backgroundColor: col},
+                        ]}
                         onPress={() => setPriorityDraft(p)}>
                         <AppIcon
                           name={
@@ -569,7 +576,10 @@ export function TaskDetailScreen() {
                           color={active ? '#fff' : colors.mutedText}
                         />
                         <Text
-                          style={[styles.chipBtnText, active && {color: '#fff'}]}>
+                          style={[
+                            styles.chipBtnText,
+                            active && {color: '#fff'},
+                          ]}>
                           {p === 1 ? 'Low' : p === 2 ? 'Medium' : 'High'}
                         </Text>
                       </Pressable>
@@ -621,8 +631,13 @@ export function TaskDetailScreen() {
                     return (
                       <Pressable
                         key={cat.id}
-                        style={[styles.catChip, active && {backgroundColor: cat.color}]}
-                        onPress={() => setCategoryIdDraft(active ? null : cat.id)}>
+                        style={[
+                          styles.catChip,
+                          active && {backgroundColor: cat.color},
+                        ]}
+                        onPress={() =>
+                          setCategoryIdDraft(active ? null : cat.id)
+                        }>
                         <AppIcon
                           name={cat.icon as AppIconName}
                           size={16}
@@ -631,7 +646,10 @@ export function TaskDetailScreen() {
                         <Text
                           style={[
                             styles.catChipText,
-                            active && {color: '#fff', fontFamily: fonts.bodyBold},
+                            active && {
+                              color: '#fff',
+                              fontFamily: fonts.bodyBold,
+                            },
                           ]}>
                           {cat.name}
                         </Text>
@@ -664,7 +682,9 @@ export function TaskDetailScreen() {
           <Pressable
             style={[
               styles.actionBtn,
-              task.completed ? {backgroundColor: colors.surface} : styles.completeBtn,
+              task.completed
+                ? {backgroundColor: colors.surface}
+                : styles.completeBtn,
             ]}
             onPress={handleComplete}
             disabled={busy || savingDetails}>

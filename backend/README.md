@@ -28,6 +28,8 @@ python run.py
 - `GET  /api/auth/me`
 - `POST /api/auth/change-password`
 - `DELETE /api/auth/delete-account`
+- `POST /api/notifications/token`
+- `DELETE /api/notifications/token`
 - `GET/POST/PATCH/DELETE /api/tasks`
 - `GET/POST/PATCH/DELETE /api/categories`
 - `GET/POST/PATCH/DELETE /api/habits`

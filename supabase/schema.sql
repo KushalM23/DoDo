@@ -83,6 +83,19 @@ create table if not exists public.habit_sessions (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.device_push_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  fcm_token text not null,
+  platform text not null check (platform in ('android', 'ios')),
+  device_id text,
+  app_version text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  disabled_at timestamptz,
+  unique (fcm_token)
+);
+
 alter table public.profiles add column if not exists experience_points integer;
 alter table public.profiles add column if not exists current_level integer;
 
@@ -117,6 +130,15 @@ alter table public.habit_completions add column if not exists completed boolean;
 alter table public.habit_completions add column if not exists updated_at timestamptz;
 alter table public.habit_completions add column if not exists completed_at timestamptz;
 alter table public.habit_completions add column if not exists xp_awarded integer;
+
+alter table public.device_push_tokens add column if not exists user_id uuid;
+alter table public.device_push_tokens add column if not exists fcm_token text;
+alter table public.device_push_tokens add column if not exists platform text;
+alter table public.device_push_tokens add column if not exists device_id text;
+alter table public.device_push_tokens add column if not exists app_version text;
+alter table public.device_push_tokens add column if not exists created_at timestamptz;
+alter table public.device_push_tokens add column if not exists updated_at timestamptz;
+alter table public.device_push_tokens add column if not exists disabled_at timestamptz;
 
 alter table public.profiles drop constraint if exists profiles_progress_values_check;
 alter table public.categories drop constraint if exists categories_color_check;
@@ -230,6 +252,18 @@ alter table public.habit_completions alter column updated_at set not null;
 alter table public.habit_completions alter column xp_awarded set default 0;
 alter table public.habit_completions alter column xp_awarded set not null;
 
+update public.device_push_tokens
+set updated_at = coalesce(updated_at, created_at, now()),
+    created_at = coalesce(created_at, now())
+where updated_at is null or created_at is null;
+
+alter table public.device_push_tokens alter column fcm_token set not null;
+alter table public.device_push_tokens alter column platform set not null;
+alter table public.device_push_tokens alter column updated_at set default now();
+alter table public.device_push_tokens alter column updated_at set not null;
+alter table public.device_push_tokens alter column created_at set default now();
+alter table public.device_push_tokens alter column created_at set not null;
+
 alter table public.profiles add constraint profiles_progress_values_check
   check (experience_points >= 0 and current_level >= 1);
 
@@ -275,6 +309,8 @@ create index if not exists idx_habit_completions_user_habit_date on public.habit
 create index if not exists idx_habit_completions_user_updated_at on public.habit_completions(user_id, updated_at);
 create index if not exists idx_habit_sessions_user_habit_date on public.habit_sessions(user_id, habit_id, session_date);
 create index if not exists idx_habit_sessions_user_active on public.habit_sessions(user_id, habit_id, ended_at);
+create index if not exists idx_device_push_tokens_user_id on public.device_push_tokens(user_id);
+create index if not exists idx_device_push_tokens_active on public.device_push_tokens(user_id, disabled_at);
 create index if not exists idx_profiles_display_name on public.profiles(display_name);
 
 alter table public.profiles enable row level security;
@@ -283,6 +319,7 @@ alter table public.tasks enable row level security;
 alter table public.habits enable row level security;
 alter table public.habit_completions enable row level security;
 alter table public.habit_sessions enable row level security;
+alter table public.device_push_tokens enable row level security;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles
@@ -397,6 +434,27 @@ with check (auth.uid() = user_id);
 
 drop policy if exists "habit_sessions_delete_own" on public.habit_sessions;
 create policy "habit_sessions_delete_own" on public.habit_sessions
+for delete to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "device_push_tokens_select_own" on public.device_push_tokens;
+create policy "device_push_tokens_select_own" on public.device_push_tokens
+for select to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "device_push_tokens_insert_own" on public.device_push_tokens;
+create policy "device_push_tokens_insert_own" on public.device_push_tokens
+for insert to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "device_push_tokens_update_own" on public.device_push_tokens;
+create policy "device_push_tokens_update_own" on public.device_push_tokens
+for update to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "device_push_tokens_delete_own" on public.device_push_tokens;
+create policy "device_push_tokens_delete_own" on public.device_push_tokens
 for delete to authenticated
 using (auth.uid() = user_id);
 

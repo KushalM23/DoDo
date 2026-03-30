@@ -36,7 +36,7 @@ function buildSections(totalSeconds: number): ClockSection[] {
 
 export function FocusFlipClock({totalSeconds}: FocusFlipClockProps) {
   const colors = darkColors;
-  const styles = useMemo(() => createStyles(colors), []);
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const sections = useMemo(() => buildSections(totalSeconds), [totalSeconds]);
 
   return (
@@ -45,7 +45,9 @@ export function FocusFlipClock({totalSeconds}: FocusFlipClockProps) {
         {sections.map((section, index) => (
           <React.Fragment key={section.key}>
             <Text style={styles.sectionText}>{section.value}</Text>
-            {index < sections.length - 1 ? <Text style={styles.separator}>:</Text> : null}
+            {index < sections.length - 1 ? (
+              <Text style={styles.separator}>:</Text>
+            ) : null}
           </React.Fragment>
         ))}
       </View>

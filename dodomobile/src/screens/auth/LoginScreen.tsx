@@ -1,7 +1,6 @@
 import React, {useMemo, useRef, useState} from 'react';
 import {
   Animated,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,

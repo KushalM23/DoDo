@@ -20,7 +20,11 @@ import {
   type Category,
   type CreateCategoryInput,
 } from '../../types/category';
-import type {CreateHabitInput, Habit, HabitCompletionRecord} from '../../types/habit';
+import type {
+  CreateHabitInput,
+  Habit,
+  HabitCompletionRecord,
+} from '../../types/habit';
 import type {CreateTaskInput, Task} from '../../types/task';
 import {initializeLocalDb} from './db';
 import {
@@ -41,7 +45,12 @@ import {
 } from './repository';
 import type {SyncQueueItem} from './types';
 
-type RunSyncReason = 'startup' | 'periodic' | 'foreground' | 'logout' | 'manual';
+type RunSyncReason =
+  | 'startup'
+  | 'periodic'
+  | 'foreground'
+  | 'logout'
+  | 'manual';
 
 let activeSync: Promise<boolean> | null = null;
 let rerunRequested = false;
@@ -108,7 +117,10 @@ async function pushOperation(userId: string, op: SyncQueueItem): Promise<void> {
       return;
     }
     if (op.action === 'update') {
-      const updated = await updateCategory(op.entityId, asCategoryCreate(payload));
+      const updated = await updateCategory(
+        op.entityId,
+        asCategoryCreate(payload),
+      );
       await upsertCategoryFromRemote(userId, updated);
       await markEntitySynced(userId, op.entity, op.entityId);
       return;
@@ -128,7 +140,10 @@ async function pushOperation(userId: string, op: SyncQueueItem): Promise<void> {
       return;
     }
     if (op.action === 'update') {
-      const updated = await updateHabit(op.entityId, payload as Partial<CreateHabitInput>);
+      const updated = await updateHabit(
+        op.entityId,
+        payload as Partial<CreateHabitInput>,
+      );
       await upsertHabitFromRemote(userId, updated);
       await markEntitySynced(userId, op.entity, op.entityId);
       return;
@@ -217,7 +232,10 @@ async function pullRemote(userId: string): Promise<void> {
   await setLastSyncAt(userId, snapshot.serverTime);
 }
 
-export async function runSync(userId: string, _reason: RunSyncReason): Promise<boolean> {
+export async function runSync(
+  userId: string,
+  _reason: RunSyncReason,
+): Promise<boolean> {
   await initializeLocalDb();
   if (activeSync) {
     rerunRequested = true;

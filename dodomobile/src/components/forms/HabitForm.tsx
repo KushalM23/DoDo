@@ -67,10 +67,11 @@ export function HabitForm({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const {showAlert} = useAlert();
   const {preferences} = usePreferences();
-  
+
   const [title, setTitle] = useState('');
   const [icon, setIcon] = useState<HabitIcon>(DEFAULT_HABIT_ICON);
-  const [frequencyType, setFrequencyType] = useState<HabitFrequencyType>('daily');
+  const [frequencyType, setFrequencyType] =
+    useState<HabitFrequencyType>('daily');
   const [intervalDays, setIntervalDays] = useState('2');
   const [customDays, setCustomDays] = useState<number[]>([]);
   const [timeValue, setTimeValue] = useState(new Date());
@@ -79,15 +80,21 @@ export function HabitForm({
   const [activeTab, setActiveTab] = useState('');
 
   function formatDurationSmart(mins: number): string {
-    if (mins < 60) return `${mins}m`;
+    if (mins < 60) {
+      return `${mins}m`;
+    }
     const h = Math.floor(mins / 60);
     const m = mins % 60;
-    if (m === 0) return `${h}h`;
+    if (m === 0) {
+      return `${h}h`;
+    }
     return `${h}h${m}m`;
   }
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     const base = new Date();
     if (initialValues?.timeMinute != null) {
@@ -121,7 +128,9 @@ export function HabitForm({
   }
 
   async function handleSubmit() {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      return;
+    }
 
     const parsedInterval = Math.max(
       2,
@@ -129,7 +138,10 @@ export function HabitForm({
     );
     const parsedDuration = durationMinutes;
     if (frequencyType === 'custom_days' && customDays.length === 0) {
-      showAlert('Missing days', 'Choose at least one day for custom frequency.');
+      showAlert(
+        'Missing days',
+        'Choose at least one day for custom frequency.',
+      );
       return;
     }
 
@@ -159,8 +171,12 @@ export function HabitForm({
   }
 
   let freqLabel = 'Daily';
-  if (frequencyType === 'interval') freqLabel = `${intervalDays} Days`;
-  if (frequencyType === 'custom_days') freqLabel = `${customDays.length}/wk`;
+  if (frequencyType === 'interval') {
+    freqLabel = `${intervalDays} Days`;
+  }
+  if (frequencyType === 'custom_days') {
+    freqLabel = `${customDays.length}/wk`;
+  }
 
   const tabs: FormTab[] = [
     {
@@ -201,7 +217,6 @@ export function HabitForm({
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={setActiveTab}>
-      
       {activeTab === 'icon' && (
         <View style={styles.tabContentContainer}>
           <Text style={styles.contentLabel}>Select Icon</Text>
@@ -330,7 +345,10 @@ export function HabitForm({
 
       {activeTab === 'duration' && (
         <View style={styles.tabContentContainer}>
-          <CustomDurationPicker value={durationMinutes} onChange={setDurationMinutes} />
+          <CustomDurationPicker
+            value={durationMinutes}
+            onChange={setDurationMinutes}
+          />
         </View>
       )}
     </FormPopup>

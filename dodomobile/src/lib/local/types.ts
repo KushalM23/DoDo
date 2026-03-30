@@ -1,6 +1,11 @@
 export type SyncState = 'synced' | 'pending' | 'retry' | 'terminal_local_only';
 
-export type SyncEntity = 'task' | 'habit' | 'category' | 'habit_completion' | 'habit_timer';
+export type SyncEntity =
+  | 'task'
+  | 'habit'
+  | 'category'
+  | 'habit_completion'
+  | 'habit_timer';
 
 export type SyncAction =
   | 'create'

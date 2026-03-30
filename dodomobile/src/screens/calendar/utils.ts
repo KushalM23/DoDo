@@ -128,11 +128,17 @@ export function buildMonthCells(
   }
 
   let startTrim = 0;
-  while (startTrim < cells.length && cells.slice(startTrim, startTrim + 7).every(c => !c.inCurrentMonth)) {
+  while (
+    startTrim < cells.length &&
+    cells.slice(startTrim, startTrim + 7).every(c => !c.inCurrentMonth)
+  ) {
     startTrim += 7;
   }
   let endTrim = cells.length;
-  while (endTrim > startTrim && cells.slice(endTrim - 7, endTrim).every(c => !c.inCurrentMonth)) {
+  while (
+    endTrim > startTrim &&
+    cells.slice(endTrim - 7, endTrim).every(c => !c.inCurrentMonth)
+  ) {
     endTrim -= 7;
   }
 

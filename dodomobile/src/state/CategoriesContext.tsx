@@ -271,7 +271,10 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
 
   const setCategoryOrder = useCallback(
     async (nextOrderInput: string[]) => {
-      const orderedState = buildOrderedCategoryState(categories, nextOrderInput);
+      const orderedState = buildOrderedCategoryState(
+        categories,
+        nextOrderInput,
+      );
       setOrderedIds(orderedState.orderedIds);
       setCategories(orderedState.categories);
       await persistOrder(orderedState.orderedIds);

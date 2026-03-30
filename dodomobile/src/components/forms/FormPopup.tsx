@@ -104,7 +104,9 @@ export function FormPopup({
     [onTabChange],
   );
 
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
 
   const isMultiRow = tabs.length > 0 && Array.isArray(tabs[0]);
   const rows = isMultiRow ? (tabs as FormTab[][]) : ([tabs] as FormTab[][]);
@@ -189,9 +191,7 @@ export function FormPopup({
                       <Pressable
                         key={tab.id}
                         style={[styles.tabBtn, tabBgStyle]}
-                        onPress={() =>
-                          handleTabChange(isActive ? '' : tab.id)
-                        }>
+                        onPress={() => handleTabChange(isActive ? '' : tab.id)}>
                         {tab.icon && (
                           <AppIcon
                             name={tab.icon as AppIconName}

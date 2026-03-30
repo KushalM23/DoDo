@@ -1,7 +1,6 @@
 import React, {useMemo, useRef, useState} from 'react';
 import {
   Animated,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -33,9 +32,6 @@ export function RegisterScreen({navigation}: Props) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [focused, setFocused] = useState<'name' | 'email' | 'password' | null>(
-    null,
-  );
   const btnScale = useRef(new Animated.Value(1)).current;
 
   async function onSubmit() {
@@ -77,8 +73,8 @@ export function RegisterScreen({navigation}: Props) {
                     {field === 'name'
                       ? 'Your Name'
                       : field === 'email'
-                        ? 'Email'
-                        : 'Password'}
+                      ? 'Email'
+                      : 'Password'}
                   </Text>
                   {field === 'password' ? (
                     <View style={styles.passwordField}>
@@ -92,8 +88,6 @@ export function RegisterScreen({navigation}: Props) {
                         style={styles.passwordInput}
                         value={password}
                         onChangeText={setPassword}
-                        onFocus={() => setFocused(field)}
-                        onBlur={() => setFocused(null)}
                       />
                       <Pressable
                         style={styles.passwordToggleButton}
@@ -114,15 +108,13 @@ export function RegisterScreen({navigation}: Props) {
                       keyboardType={
                         field === 'email' ? 'email-address' : 'default'
                       }
-                      placeholder={field === 'name' ? 'Alex' : 'you@example.com'}
-                      placeholderTextColor={colors.mutedText}
-                      style={
-                        styles.fieldInput
+                      placeholder={
+                        field === 'name' ? 'Alex' : 'you@example.com'
                       }
+                      placeholderTextColor={colors.mutedText}
+                      style={styles.fieldInput}
                       value={field === 'name' ? name : email}
                       onChangeText={field === 'name' ? setName : setEmail}
-                      onFocus={() => setFocused(field)}
-                      onBlur={() => setFocused(null)}
                     />
                   )}
                 </View>
@@ -164,7 +156,9 @@ export function RegisterScreen({navigation}: Props) {
           <Pressable
             style={styles.secondaryButton}
             onPress={() => navigation.goBack()}>
-            <Text style={styles.secondaryButtonText}>Already have an account</Text>
+            <Text style={styles.secondaryButtonText}>
+              Already have an account
+            </Text>
             <AppIcon name="chevron-left" size={18} color={colors.text} />
           </Pressable>
         </ScrollView>

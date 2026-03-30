@@ -1,4 +1,10 @@
-import React, {createContext, useContext, useEffect, useMemo, useRef} from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import {AppState, type AppStateStatus} from 'react-native';
 import {initializeLocalDb} from '../lib/local/db';
 import {runSync} from '../lib/local/syncEngine';

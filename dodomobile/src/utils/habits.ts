@@ -1,6 +1,6 @@
-import type { TimeFormatPreference } from "../state/PreferencesContext";
-import type { Habit } from "../types/habit";
-import { formatTime } from "./dateTime";
+import type {TimeFormatPreference} from '../state/PreferencesContext';
+import type {Habit} from '../types/habit';
+import {formatTime} from './dateTime';
 
 function parseDateKey(dateKey: string): Date {
   return new Date(`${dateKey}T00:00:00`);
@@ -19,20 +19,32 @@ function weekdaySunFirst(date: Date): number {
 
 export function habitAppliesToDate(habit: Habit, dateKey: string): boolean {
   const target = parseDateKey(dateKey);
-  const anchorSource = habit.anchorDate ? `${habit.anchorDate}T00:00:00` : habit.createdAt;
+  const anchorSource = habit.anchorDate
+    ? `${habit.anchorDate}T00:00:00`
+    : habit.createdAt;
   const anchor = anchorSource ? new Date(anchorSource) : target;
   anchor.setHours(0, 0, 0, 0);
-  if (target < anchor) return false;
+  if (target < anchor) {
+    return false;
+  }
 
-  if (habit.frequencyType === "daily") return true;
+  if (habit.frequencyType === 'daily') {
+    return true;
+  }
 
-  if (habit.frequencyType === "interval") {
-    if (!habit.intervalDays) return false;
-    const diffDays = Math.floor((target.getTime() - anchor.getTime()) / (24 * 60 * 60 * 1000));
+  if (habit.frequencyType === 'interval') {
+    if (!habit.intervalDays) {
+      return false;
+    }
+    const diffDays = Math.floor(
+      (target.getTime() - anchor.getTime()) / (24 * 60 * 60 * 1000),
+    );
     return diffDays % habit.intervalDays === 0;
   }
 
-  if (!habit.customDays.length) return false;
+  if (!habit.customDays.length) {
+    return false;
+  }
   return habit.customDays.includes(weekdaySunFirst(target));
 }
 
@@ -41,8 +53,12 @@ export function buildHabitTrackerDateKeys(
   referenceDateKey: string,
   limit = 49,
 ): string[] {
-  const anchorSource = habit.anchorDate ? `${habit.anchorDate}T00:00:00` : habit.createdAt;
-  const anchor = anchorSource ? new Date(anchorSource) : parseDateKey(referenceDateKey);
+  const anchorSource = habit.anchorDate
+    ? `${habit.anchorDate}T00:00:00`
+    : habit.createdAt;
+  const anchor = anchorSource
+    ? new Date(anchorSource)
+    : parseDateKey(referenceDateKey);
   anchor.setHours(0, 0, 0, 0);
 
   const cursor = parseDateKey(referenceDateKey);
@@ -55,7 +71,11 @@ export function buildHabitTrackerDateKeys(
   const pastApplicableDates: string[] = [];
   let guard = 0;
 
-  while (pastApplicableDates.length < limit && cursor >= anchor && guard < 5000) {
+  while (
+    pastApplicableDates.length < limit &&
+    cursor >= anchor &&
+    guard < 5000
+  ) {
     const key = toDateKey(cursor);
     if (habitAppliesToDate(habit, key)) {
       pastApplicableDates.push(key);
@@ -96,8 +116,12 @@ export function calculateHabitStreaks(
   nextOccurrenceOn: string | null;
 } {
   const completedSet = new Set(completedDateKeys);
-  const anchorSource = habit.anchorDate ? `${habit.anchorDate}T00:00:00` : habit.createdAt;
-  const anchor = anchorSource ? new Date(anchorSource) : parseDateKey(referenceDateKey);
+  const anchorSource = habit.anchorDate
+    ? `${habit.anchorDate}T00:00:00`
+    : habit.createdAt;
+  const anchor = anchorSource
+    ? new Date(anchorSource)
+    : parseDateKey(referenceDateKey);
   anchor.setHours(0, 0, 0, 0);
 
   const referenceDate = parseDateKey(referenceDateKey);
@@ -180,12 +204,19 @@ export function calculateHabitStreaks(
 }
 
 export function formatHabitFrequency(habit: Habit): string {
-  if (habit.frequencyType === "daily") return "Every day";
-  if (habit.frequencyType === "interval") return `Every ${habit.intervalDays ?? "?"} days`;
+  if (habit.frequencyType === 'daily') {
+    return 'Every day';
+  }
+  if (habit.frequencyType === 'interval') {
+    return `Every ${habit.intervalDays ?? '?'} days`;
+  }
 
-  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const days = [...habit.customDays].sort((a, b) => a - b).map((d) => labels[d]).join(", ");
-  return days.length > 0 ? days : "Custom";
+  const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const days = [...habit.customDays]
+    .sort((a, b) => a - b)
+    .map(d => labels[d])
+    .join(', ');
+  return days.length > 0 ? days : 'Custom';
 }
 
 export function minuteToIso(dateKey: string, minute: number): string {
@@ -196,8 +227,13 @@ export function minuteToIso(dateKey: string, minute: number): string {
   return date.toISOString();
 }
 
-export function minuteToLabel(minute: number | null | undefined, timeFormat: TimeFormatPreference): string {
-  if (minute == null) return "Any time";
+export function minuteToLabel(
+  minute: number | null | undefined,
+  timeFormat: TimeFormatPreference,
+): string {
+  if (minute == null) {
+    return 'Any time';
+  }
   const date = new Date();
   date.setHours(Math.floor(minute / 60), minute % 60, 0, 0);
   return formatTime(date, timeFormat);

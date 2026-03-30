@@ -44,10 +44,7 @@ function touchDistance(event: GestureResponderEvent): number {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-export function Timeline({
-  mode,
-  tasksForSelectedDate,
-}: TimelineProps) {
+export function Timeline({mode, tasksForSelectedDate}: TimelineProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const {preferences} = usePreferences();
@@ -116,7 +113,10 @@ export function Timeline({
 
   function clampScroll(value: number, scale: number): number {
     const viewportExtent = isVertical ? timelineHeight : timelineViewportWidth;
-    const maxScroll = Math.max(0, (DAY_MINUTES + TIMELINE_END_BUFFER) * scale - viewportExtent);
+    const maxScroll = Math.max(
+      0,
+      (DAY_MINUTES + TIMELINE_END_BUFFER) * scale - viewportExtent,
+    );
     return Math.max(0, Math.min(maxScroll, value));
   }
 
@@ -237,237 +237,251 @@ export function Timeline({
         <ScrollView
           ref={isVertical ? scrollRef : undefined}
           horizontal={false}
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{flexGrow: 1}}
           showsVerticalScrollIndicator={false}
-          onScroll={isVertical ? event => {
-            scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
-          } : undefined}
+          onScroll={
+            isVertical
+              ? event => {
+                  scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+                }
+              : undefined
+          }
           scrollEventThrottle={16}>
           <ScrollView
             ref={!isVertical ? scrollRef : undefined}
             horizontal={true}
             contentContainerStyle={styles.timelineScrollContent}
             showsHorizontalScrollIndicator={false}
-            onScroll={!isVertical ? event => {
-              scrollOffsetRef.current = event.nativeEvent.contentOffset.x;
-            } : undefined}
+            onScroll={
+              !isVertical
+                ? event => {
+                    scrollOffsetRef.current = event.nativeEvent.contentOffset.x;
+                  }
+                : undefined
+            }
             scrollEventThrottle={16}>
             {isVertical ? (
-            <View
-              style={[
-                styles.timelineTrackVertical,
-                {
-                  height: timelineExtent,
-                  width: Math.max(
-                    timelineViewportWidth,
-                    timelineBodyDimension + AXIS_HEIGHT + 32,
-                  ),
-                },
-              ]}>
-              {timelineMarks.map(minute => {
-                const top = minute * pxPerMinute;
-                const hour = Math.floor(minute / 60) % 24;
-                const mins = minute % 60;
-                return (
-                  <View
-                    key={`tick_${minute}`}
-                    style={[styles.timeTickVertical, {top}]}>
-                    <Text
-                      style={[
-                        styles.timeTickLabel,
-                        {textAlign: 'right', marginRight: 4},
-                      ]}>
-                      {formatTime(
-                        new Date(2000, 0, 1, hour, mins, 0),
-                        preferences.timeFormat,
-                      )}
-                    </Text>
-                  </View>
-                );
-              })}
-
               <View
                 style={[
-                  styles.timelineBodyVertical,
-                  {left: AXIS_HEIGHT + 16, width: timelineBodyDimension},
+                  styles.timelineTrackVertical,
+                  {
+                    height: timelineExtent,
+                    width: Math.max(
+                      timelineViewportWidth,
+                      timelineBodyDimension + AXIS_HEIGHT + 32,
+                    ),
+                  },
                 ]}>
-                {rowLayout.placed.map(event => {
-                  const startPx = event.startMinute * pxPerMinute;
-                  const endPx = event.endMinute * pxPerMinute;
-                  const rawSpan = Math.max(0, endPx - startPx);
-                  const appliedGap = Math.min(
-                    EVENT_AXIS_GAP,
-                    Math.max(0, rawSpan - MIN_EVENT_AXIS_SIZE),
-                  );
-                  const top = startPx + appliedGap / 2;
-                  const evtHeight = Math.max(
-                    MIN_EVENT_AXIS_SIZE,
-                    rawSpan - appliedGap,
-                  );
-                  const compact = evtHeight < 44;
-                  const left = event.row * slotSize + 6;
+                {timelineMarks.map(minute => {
+                  const top = minute * pxPerMinute;
+                  const hour = Math.floor(minute / 60) % 24;
+                  const mins = minute % 60;
                   return (
-                    <Pressable
-                      key={event.id}
-                      onPress={() => handleTimelinePress(event)}
-                      style={[
-                        styles.eventCard,
-                        compact && styles.eventCardCompact,
-                        {
-                          top,
-                          height: evtHeight,
-                          left,
-                          width: Math.max(48, slotSize - 12),
-                        },
-                        event.isHabit
-                          ? styles.habitEventBase
-                          : styles.taskEventBase,
-                        event.completed &&
-                          (event.isHabit
-                            ? styles.habitEventCompleted
-                            : styles.taskEventCompleted),
-                      ]}>
+                    <View
+                      key={`tick_${minute}`}
+                      style={[styles.timeTickVertical, {top}]}>
                       <Text
-                        numberOfLines={1}
                         style={[
-                          styles.eventTitle,
-                          compact && styles.eventTitleCompact,
-                          !event.isHabit &&
-                            !event.completed &&
-                            styles.taskEventTitleOnAccent,
-                          event.isHabit &&
-                            !event.completed &&
-                            styles.habitEventTitleOnAccent,
+                          styles.timeTickLabel,
+                          {textAlign: 'right', marginRight: 4},
                         ]}>
-                        {event.title}
+                        {formatTime(
+                          new Date(2000, 0, 1, hour, mins, 0),
+                          preferences.timeFormat,
+                        )}
                       </Text>
-                      {!compact && (
+                    </View>
+                  );
+                })}
+
+                <View
+                  style={[
+                    styles.timelineBodyVertical,
+                    {left: AXIS_HEIGHT + 16, width: timelineBodyDimension},
+                  ]}>
+                  {rowLayout.placed.map(event => {
+                    const startPx = event.startMinute * pxPerMinute;
+                    const endPx = event.endMinute * pxPerMinute;
+                    const rawSpan = Math.max(0, endPx - startPx);
+                    const appliedGap = Math.min(
+                      EVENT_AXIS_GAP,
+                      Math.max(0, rawSpan - MIN_EVENT_AXIS_SIZE),
+                    );
+                    const top = startPx + appliedGap / 2;
+                    const evtHeight = Math.max(
+                      MIN_EVENT_AXIS_SIZE,
+                      rawSpan - appliedGap,
+                    );
+                    const compact = evtHeight < 44;
+                    const left = event.row * slotSize + 6;
+                    return (
+                      <Pressable
+                        key={event.id}
+                        onPress={() => handleTimelinePress(event)}
+                        style={[
+                          styles.eventCard,
+                          compact && styles.eventCardCompact,
+                          {
+                            top,
+                            height: evtHeight,
+                            left,
+                            width: Math.max(48, slotSize - 12),
+                          },
+                          event.isHabit
+                            ? styles.habitEventBase
+                            : styles.taskEventBase,
+                          event.completed &&
+                            (event.isHabit
+                              ? styles.habitEventCompleted
+                              : styles.taskEventCompleted),
+                        ]}>
                         <Text
                           numberOfLines={1}
                           style={[
-                            styles.eventMeta,
+                            styles.eventTitle,
+                            compact && styles.eventTitleCompact,
                             !event.isHabit &&
                               !event.completed &&
-                              styles.taskEventMetaOnAccent,
+                              styles.taskEventTitleOnAccent,
                             event.isHabit &&
                               !event.completed &&
-                              styles.habitEventMetaOnAccent,
+                              styles.habitEventTitleOnAccent,
                           ]}>
-                          {formatEventTime(event.startMinute, event.endMinute)}
+                          {event.title}
                         </Text>
-                      )}
-                    </Pressable>
-                  );
-                })}
+                        {!compact && (
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.eventMeta,
+                              !event.isHabit &&
+                                !event.completed &&
+                                styles.taskEventMetaOnAccent,
+                              event.isHabit &&
+                                !event.completed &&
+                                styles.habitEventMetaOnAccent,
+                            ]}>
+                            {formatEventTime(
+                              event.startMinute,
+                              event.endMinute,
+                            )}
+                          </Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
-          ) : (
-            <View
-              style={[
-                styles.timelineTrack,
-                {
-                  width: timelineExtent,
-                  height: Math.max(
-                    timelineHeight,
-                    timelineBodyDimension + AXIS_HEIGHT + 32,
-                  ),
-                },
-              ]}>
-              {timelineMarks.map(minute => {
-                const left = minute * pxPerMinute;
-                const hour = Math.floor(minute / 60) % 24;
-                const mins = minute % 60;
-                return (
-                  <View
-                    key={`tick_${minute}`}
-                    style={[styles.timeTick, {left}]}>
-                    <Text style={styles.timeTickLabel}>
-                      {formatTime(
-                        new Date(2000, 0, 1, hour, mins, 0),
-                        preferences.timeFormat,
-                      )}
-                    </Text>
-                  </View>
-                );
-              })}
-
+            ) : (
               <View
                 style={[
-                  styles.timelineBody,
-                  {top: AXIS_HEIGHT, height: timelineBodyDimension},
+                  styles.timelineTrack,
+                  {
+                    width: timelineExtent,
+                    height: Math.max(
+                      timelineHeight,
+                      timelineBodyDimension + AXIS_HEIGHT + 32,
+                    ),
+                  },
                 ]}>
-                {rowLayout.placed.map(event => {
-                  const startPx = event.startMinute * pxPerMinute;
-                  const endPx = event.endMinute * pxPerMinute;
-                  const rawSpan = Math.max(0, endPx - startPx);
-                  const appliedGap = Math.min(
-                    EVENT_AXIS_GAP,
-                    Math.max(0, rawSpan - MIN_EVENT_AXIS_SIZE),
-                  );
-                  const left = startPx + appliedGap / 2;
-                  const evtWidth = Math.max(
-                    MIN_EVENT_AXIS_SIZE,
-                    rawSpan - appliedGap,
-                  );
-                  const compact = evtWidth < 90;
-                  const top = event.row * slotSize + 6;
+                {timelineMarks.map(minute => {
+                  const left = minute * pxPerMinute;
+                  const hour = Math.floor(minute / 60) % 24;
+                  const mins = minute % 60;
                   return (
-                    <Pressable
-                      key={event.id}
-                      onPress={() => handleTimelinePress(event)}
-                      style={[
-                        styles.eventCard,
-                        compact && styles.eventCardCompact,
-                        {
-                          left,
-                          width: evtWidth,
-                          top,
-                          height: Math.max(28, slotSize - 12),
-                        },
-                        event.isHabit
-                          ? styles.habitEventBase
-                          : styles.taskEventBase,
-                        event.completed &&
-                          (event.isHabit
-                            ? styles.habitEventCompleted
-                            : styles.taskEventCompleted),
-                      ]}>
-                      <View style={styles.eventContent}>
-                        <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.eventTitle,
-                          compact && styles.eventTitleCompact,
-                          !event.isHabit &&
-                            !event.completed &&
-                            styles.taskEventTitleOnAccent,
-                          event.isHabit &&
-                            !event.completed &&
-                            styles.habitEventTitleOnAccent,
-                        ]}>
-                        {event.title}
+                    <View
+                      key={`tick_${minute}`}
+                      style={[styles.timeTick, {left}]}>
+                      <Text style={styles.timeTickLabel}>
+                        {formatTime(
+                          new Date(2000, 0, 1, hour, mins, 0),
+                          preferences.timeFormat,
+                        )}
                       </Text>
-                      {!compact && (
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.eventMeta,
-                            !event.isHabit &&
-                              !event.completed &&
-                              styles.taskEventMetaOnAccent,
-                            event.isHabit &&
-                              !event.completed &&
-                              styles.habitEventMetaOnAccent,
-                          ]}>
-                          {formatEventTime(event.startMinute, event.endMinute)}
-                        </Text>
-                      )}
-                      </View>
-                    </Pressable>
+                    </View>
                   );
                 })}
+
+                <View
+                  style={[
+                    styles.timelineBody,
+                    {top: AXIS_HEIGHT, height: timelineBodyDimension},
+                  ]}>
+                  {rowLayout.placed.map(event => {
+                    const startPx = event.startMinute * pxPerMinute;
+                    const endPx = event.endMinute * pxPerMinute;
+                    const rawSpan = Math.max(0, endPx - startPx);
+                    const appliedGap = Math.min(
+                      EVENT_AXIS_GAP,
+                      Math.max(0, rawSpan - MIN_EVENT_AXIS_SIZE),
+                    );
+                    const left = startPx + appliedGap / 2;
+                    const evtWidth = Math.max(
+                      MIN_EVENT_AXIS_SIZE,
+                      rawSpan - appliedGap,
+                    );
+                    const compact = evtWidth < 90;
+                    const top = event.row * slotSize + 6;
+                    return (
+                      <Pressable
+                        key={event.id}
+                        onPress={() => handleTimelinePress(event)}
+                        style={[
+                          styles.eventCard,
+                          compact && styles.eventCardCompact,
+                          {
+                            left,
+                            width: evtWidth,
+                            top,
+                            height: Math.max(28, slotSize - 12),
+                          },
+                          event.isHabit
+                            ? styles.habitEventBase
+                            : styles.taskEventBase,
+                          event.completed &&
+                            (event.isHabit
+                              ? styles.habitEventCompleted
+                              : styles.taskEventCompleted),
+                        ]}>
+                        <View style={styles.eventContent}>
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.eventTitle,
+                              compact && styles.eventTitleCompact,
+                              !event.isHabit &&
+                                !event.completed &&
+                                styles.taskEventTitleOnAccent,
+                              event.isHabit &&
+                                !event.completed &&
+                                styles.habitEventTitleOnAccent,
+                            ]}>
+                            {event.title}
+                          </Text>
+                          {!compact && (
+                            <Text
+                              numberOfLines={1}
+                              style={[
+                                styles.eventMeta,
+                                !event.isHabit &&
+                                  !event.completed &&
+                                  styles.taskEventMetaOnAccent,
+                                event.isHabit &&
+                                  !event.completed &&
+                                  styles.habitEventMetaOnAccent,
+                              ]}>
+                              {formatEventTime(
+                                event.startMinute,
+                                event.endMinute,
+                              )}
+                            </Text>
+                          )}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
             )}
           </ScrollView>
         </ScrollView>

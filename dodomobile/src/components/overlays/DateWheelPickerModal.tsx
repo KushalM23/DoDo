@@ -1,5 +1,13 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {Animated, Easing, Modal, Pressable, StyleSheet, Text, View} from 'react-native';
+import {
+  Animated,
+  Easing,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import {fontSize, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
@@ -38,7 +46,9 @@ export function DateWheelPickerModal(props: DateWheelPickerModalProps) {
   const enterOpacity = useRef(new Animated.Value(0)).current;
   const enterTranslateY = useRef(new Animated.Value(18)).current;
 
-  const [taskTempDate, setTaskTempDate] = useState(() => startOfLocalDay(props.value));
+  const [taskTempDate, setTaskTempDate] = useState(() =>
+    startOfLocalDay(props.value),
+  );
   const [taskDateItems, setTaskDateItems] = useState<TaskDateWheelItem[]>(() =>
     buildTaskDateItems(startOfLocalDay(props.value)),
   );
@@ -50,8 +60,12 @@ export function DateWheelPickerModal(props: DateWheelPickerModalProps) {
   const [calendarTempDate, setCalendarTempDate] = useState(
     () => new Date(props.value.getFullYear(), props.value.getMonth(), 1),
   );
-  const [calendarMonthItems, setCalendarMonthItems] = useState<CalendarMonthWheelItem[]>(() =>
-    buildCalendarMonthItems(new Date(props.value.getFullYear(), props.value.getMonth(), 1)),
+  const [calendarMonthItems, setCalendarMonthItems] = useState<
+    CalendarMonthWheelItem[]
+  >(() =>
+    buildCalendarMonthItems(
+      new Date(props.value.getFullYear(), props.value.getMonth(), 1),
+    ),
   );
   const calendarSelectedIndex = useMemo(
     () => findCalendarMonthIndex(calendarMonthItems, calendarTempDate),
@@ -67,7 +81,11 @@ export function DateWheelPickerModal(props: DateWheelPickerModalProps) {
     setTaskTempDate(nextValue);
     setTaskDateItems(buildTaskDateItems(nextValue));
 
-    const nextCalendarDate = new Date(nextValue.getFullYear(), nextValue.getMonth(), 1);
+    const nextCalendarDate = new Date(
+      nextValue.getFullYear(),
+      nextValue.getMonth(),
+      1,
+    );
     setCalendarTempDate(nextCalendarDate);
     setCalendarMonthItems(buildCalendarMonthItems(nextCalendarDate));
   }, [props.value, props.visible]);
@@ -111,13 +129,14 @@ export function DateWheelPickerModal(props: DateWheelPickerModalProps) {
             },
           ]}>
           <Pressable onPress={() => {}}>
-
             <View style={styles.wheelWrap}>
               {props.mode === 'task-date' ? (
                 <WheelColumn
                   items={taskDateItems.map(item => item.label)}
                   selectedIndex={taskSelectedIndex}
-                  onSelectedIndexChange={index => setTaskTempDate(taskDateItems[index].date)}
+                  onSelectedIndexChange={index =>
+                    setTaskTempDate(taskDateItems[index].date)
+                  }
                   isActive={props.visible}
                   width="100%"
                   testID="task-date-wheel"

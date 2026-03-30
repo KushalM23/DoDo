@@ -78,8 +78,12 @@ export function HabitDetailScreen() {
       return;
     }
 
-    void loadHistory({habitId: habit.id, startDate: historyStartDate, endDate: todayKey});
-  }, [habit?.id, loadHistory, todayKey, trackerDateKeys]);
+    void loadHistory({
+      habitId: habit.id,
+      startDate: historyStartDate,
+      endDate: todayKey,
+    });
+  }, [habit, loadHistory, todayKey, trackerDateKeys]);
 
   useEffect(() => {
     if (!lockInMode) {
@@ -105,7 +109,7 @@ export function HabitDetailScreen() {
 
     void startHabitTimer(habit.id, todayKey).catch(() => {});
   }, [
-    habit?.id,
+    habit,
     canCompleteToday,
     completedToday,
     lockInMode,
@@ -159,11 +163,7 @@ export function HabitDetailScreen() {
     setLockInMode(false);
 
     try {
-      if (
-        currentHabit.timerStartedAt &&
-        !completedToday &&
-        canCompleteToday
-      ) {
+      if (currentHabit.timerStartedAt && !completedToday && canCompleteToday) {
         await pauseHabitTimer(currentHabit.id, todayKey);
       }
     } catch (err) {
@@ -190,9 +190,15 @@ export function HabitDetailScreen() {
         onExitFocus={() => {
           void handleExitFocus();
         }}
-        actionLabel={canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
-        actionIconName={canCompleteToday ? (completedToday ? 'rotate-ccw' : 'check') : 'edit'}
-        onActionPress={canCompleteToday ? toggleTodayCompletion : () => setEditVisible(true)}
+        actionLabel={
+          canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'
+        }
+        actionIconName={
+          canCompleteToday ? (completedToday ? 'rotate-ccw' : 'check') : 'edit'
+        }
+        onActionPress={
+          canCompleteToday ? toggleTodayCompletion : () => setEditVisible(true)
+        }
         actionDisabled={busy && canCompleteToday}
         actionDone={canCompleteToday && completedToday}
       />
@@ -237,14 +243,16 @@ export function HabitDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={12}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <AppIcon name="chevron-left" size={24} color={colors.text} />
         </Pressable>
         <View style={styles.headerTitleWrapRow}>
           <View style={styles.headerIconInline}>
-            <AppIcon name={currentHabit.icon} size={28} color={colors.habitBadge} />
+            <AppIcon
+              name={currentHabit.icon}
+              size={28}
+              color={colors.habitBadge}
+            />
           </View>
           <Text style={styles.name} numberOfLines={1}>
             {currentHabit.title}
@@ -267,12 +275,14 @@ export function HabitDetailScreen() {
           <View style={styles.infoPill}>
             <AppIcon name="flame" size={14} color={colors.mutedText} />
             <Text style={styles.infoPillText}>
-             {currentHabit.currentStreak}   Current
+              {currentHabit.currentStreak} Current
             </Text>
           </View>
           <View style={styles.infoPill}>
             <AppIcon name="flame" size={14} color={colors.mutedText} />
-            <Text style={styles.infoPillText}>{currentHabit.bestStreak}  Best</Text>
+            <Text style={styles.infoPillText}>
+              {currentHabit.bestStreak} Best
+            </Text>
           </View>
         </View>
 
@@ -296,7 +306,9 @@ export function HabitDetailScreen() {
         <View style={styles.quickInfoRow}>
           <View style={styles.infoPillFull}>
             <AppIcon name="repeat" size={14} color={colors.mutedText} />
-            <Text style={styles.infoPillText}>{formatHabitFrequency(currentHabit)}</Text>
+            <Text style={styles.infoPillText}>
+              {formatHabitFrequency(currentHabit)}
+            </Text>
           </View>
         </View>
 
@@ -343,11 +355,23 @@ export function HabitDetailScreen() {
               busy && styles.disabled,
             ]}
             disabled={busy && canCompleteToday}
-            onPress={canCompleteToday ? toggleTodayCompletion : () => setEditVisible(true)}>
+            onPress={
+              canCompleteToday
+                ? toggleTodayCompletion
+                : () => setEditVisible(true)
+            }>
             <AppIcon
-              name={canCompleteToday ? (completedToday ? 'rotate-ccw' : 'edit') : 'edit'}
+              name={
+                canCompleteToday
+                  ? completedToday
+                    ? 'rotate-ccw'
+                    : 'edit'
+                  : 'edit'
+              }
               size={18}
-              color={canCompleteToday && completedToday ? colors.accent : '#fff'}
+              color={
+                canCompleteToday && completedToday ? colors.accent : '#fff'
+              }
             />
             <Text
               style={[
@@ -357,7 +381,11 @@ export function HabitDetailScreen() {
                     canCompleteToday && completedToday ? colors.accent : '#fff',
                 },
               ]}>
-              {canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
+              {canCompleteToday
+                ? completedToday
+                  ? 'Undo'
+                  : 'Complete'
+                : 'Edit'}
             </Text>
           </Pressable>
 

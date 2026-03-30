@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
   <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
@@ -12,6 +13,9 @@
       android:allowBackup="false"
       android:usesCleartextTraffic="true"
       android:theme="@style/AppTheme">
+      <meta-data
+        android:name="com.google.firebase.messaging.default_notification_channel_id"
+        android:value="dodo-default" />
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

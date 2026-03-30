@@ -6,13 +6,7 @@
  * Full Stats: All recovered stats from previous implementation
  */
 import React, {useEffect, useMemo, useRef} from 'react';
-import {
-  Animated,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import {Animated, Pressable, StyleSheet, Text, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -458,11 +452,7 @@ export function ProfileScreen() {
             value={`${bestStreak}d`}
             icon="flame-kindling"
           />
-          <StatRow
-            label="Active tasks"
-            value={activeTasks}
-            icon="square"
-          />
+          <StatRow label="Active tasks" value={activeTasks} icon="square" />
           <StatRow
             label="Avg done/day (7d)"
             value={avgCompletedPerDay}
@@ -483,11 +473,7 @@ export function ProfileScreen() {
             value={categoryProductivity.count}
             icon="briefcase"
           />
-          <StatRow
-            label="Peak window"
-            value={peakWindow.label}
-            icon="sun"
-          />
+          <StatRow label="Peak window" value={peakWindow.label} icon="sun" />
           <StatRow label="Habits" value={habits.length} icon="repeat" />
           <StatRow
             label="Habit rate (30d)"

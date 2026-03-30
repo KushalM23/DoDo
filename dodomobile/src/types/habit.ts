@@ -1,37 +1,37 @@
-export type HabitFrequencyType = "daily" | "interval" | "custom_days";
+export type HabitFrequencyType = 'daily' | 'interval' | 'custom_days';
 
 export type HabitIcon =
-  | "briefcase"
-  | "heart"
-  | "user"
-  | "book-open"
-  | "dumbbell"
-  | "droplets"
-  | "utensils"
-  | "bed"
-  | "brain"
-  | "music"
-  | "sun"
-  | "moon"
-  | "coffee"
-  | "shopping-cart";
+  | 'briefcase'
+  | 'heart'
+  | 'user'
+  | 'book-open'
+  | 'dumbbell'
+  | 'droplets'
+  | 'utensils'
+  | 'bed'
+  | 'brain'
+  | 'music'
+  | 'sun'
+  | 'moon'
+  | 'coffee'
+  | 'shopping-cart';
 
 export const HABIT_ICON_OPTIONS: HabitIcon[] = [
-  "briefcase",
-  "heart",
-  "user",
-  "book-open",
-  "dumbbell",
-  "droplets",
-  "utensils",
-  "bed",
-  "brain",
-  "music",
-  "coffee",
-  "shopping-cart",
+  'briefcase',
+  'heart',
+  'user',
+  'book-open',
+  'dumbbell',
+  'droplets',
+  'utensils',
+  'bed',
+  'brain',
+  'music',
+  'coffee',
+  'shopping-cart',
 ];
 
-export const DEFAULT_HABIT_ICON: HabitIcon = "book-open";
+export const DEFAULT_HABIT_ICON: HabitIcon = 'book-open';
 
 export type Habit = {
   id: string;

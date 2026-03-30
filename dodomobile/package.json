@@ -8,11 +8,15 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "postinstall": "node scripts/ensure-firebase-tsconfig-base.js"
   },
   "dependencies": {
+    "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-community/datetimepicker": "^8.6.0",
+    "@react-native-firebase/app": "^23.8.8",
+    "@react-native-firebase/messaging": "^23.8.8",
     "@react-native-vector-icons/lucide": "^12.4.0",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.18",

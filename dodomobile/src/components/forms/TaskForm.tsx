@@ -1,10 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useAlert} from '../../state/AlertContext';
 import {CustomDatePicker} from './pickers/CustomDatePicker';
 import {CustomTimePicker} from './pickers/CustomTimePicker';
@@ -34,8 +29,6 @@ type TaskFormProps = {
   onCancel: () => void;
   onSubmit: (input: CreateTaskInput) => Promise<void>;
 };
-
-
 
 function roundToNextInterval(date: Date, intervalMinutes: number): Date {
   const next = new Date(date);
@@ -69,7 +62,7 @@ export function TaskForm({
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  
+
   const [activeTab, setActiveTab] = useState('');
 
   useEffect(() => {
@@ -122,7 +115,9 @@ export function TaskForm({
   }, [visible, defaultCategoryId, defaultDate, initialValues, mode]);
 
   async function handleSubmit() {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      return;
+    }
     if (!Number.isFinite(durationMinutes) || durationMinutes < 1) {
       showAlert('Invalid duration', 'Duration must be at least 1 minute.');
       return;
@@ -154,15 +149,19 @@ export function TaskForm({
   }
 
   function formatDurationSmart(mins: number): string {
-    if (mins < 60) return `${mins}m`;
+    if (mins < 60) {
+      return `${mins}m`;
+    }
     const h = Math.floor(mins / 60);
     const m = mins % 60;
-    if (m === 0) return `${h}h`;
+    if (m === 0) {
+      return `${h}h`;
+    }
     return `${h}h${m}m`;
   }
 
   const durationLabel = formatDurationSmart(durationMinutes);
-  
+
   const selectedCat = categories.find(c => c.id === categoryId);
   const categoryIcon = selectedCat?.icon || 'package';
   const categoryColor = selectedCat?.color;
@@ -189,7 +188,12 @@ export function TaskForm({
   const tabsBottom: FormTab[] = [
     {
       id: 'priority',
-      icon: priority === 3 ? 'arrow-up-circle' : priority === 2 ? 'minus-circle' : 'arrow-down-circle',
+      icon:
+        priority === 3
+          ? 'arrow-up-circle'
+          : priority === 2
+          ? 'minus-circle'
+          : 'arrow-down-circle',
       color: priorityColor,
       valueDisplay: priority === 3 ? 'High' : priority === 2 ? 'Med' : 'Low',
     },
@@ -226,7 +230,6 @@ export function TaskForm({
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={setActiveTab}>
-      
       {activeTab === 'priority' && (
         <View>
           <Text style={styles.contentLabel}>Priority Level</Text>
@@ -242,10 +245,7 @@ export function TaskForm({
               return (
                 <Pressable
                   key={p}
-                  style={[
-                    styles.chipBtn,
-                    active && {backgroundColor: col}
-                  ]}
+                  style={[styles.chipBtn, active && {backgroundColor: col}]}
                   onPress={() => setPriority(p)}>
                   <AppIcon
                     name={
@@ -292,7 +292,10 @@ export function TaskForm({
 
       {activeTab === 'duration' && (
         <View style={{paddingBottom: spacing.sm}}>
-          <CustomDurationPicker value={durationMinutes} onChange={setDurationMinutes} />
+          <CustomDurationPicker
+            value={durationMinutes}
+            onChange={setDurationMinutes}
+          />
         </View>
       )}
 
@@ -305,12 +308,15 @@ export function TaskForm({
               return (
                 <Pressable
                   key={cat.id}
-                  style={[styles.catChip, active && {backgroundColor: cat.color}]}
+                  style={[
+                    styles.catChip,
+                    active && {backgroundColor: cat.color},
+                  ]}
                   onPress={() => setCategoryId(active ? null : cat.id)}>
-                  <AppIcon 
-                    name={cat.icon as any} 
-                    size={16} 
-                    color={active ? '#fff' : colors.mutedText} 
+                  <AppIcon
+                    name={cat.icon as any}
+                    size={16}
+                    color={active ? '#fff' : colors.mutedText}
                   />
                   <Text
                     style={[

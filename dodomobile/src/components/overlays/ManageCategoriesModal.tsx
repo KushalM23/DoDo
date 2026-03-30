@@ -14,7 +14,10 @@ import {
   UIManager,
 } from 'react-native';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -49,21 +52,21 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
     removeCategory,
     setCategoryOrder,
   } = useCategories();
-  
+
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  
+
   // Add State
   const [addInputValue, setAddInputValue] = useState('');
   const [addColor, setAddColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
   const [addIcon, setAddIcon] = useState<CategoryIcon>(DEFAULT_CATEGORY_ICON);
-  
+
   // Edit State
   const [editInputValue, setEditInputValue] = useState('');
   const [editColor, setEditColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
   const [editIcon, setEditIcon] = useState<CategoryIcon>(DEFAULT_CATEGORY_ICON);
-  
+
   const [busy, setBusy] = useState(false);
 
   const ITEM_HEIGHT = 65; // row height 57 + 8 gap
@@ -73,7 +76,7 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
   const pan = useRef(new Animated.ValueXY()).current;
   const dataRef = useRef(data);
   dataRef.current = data;
-  
+
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -99,7 +102,9 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
 
   async function handleAddSubmit() {
     const name = addInputValue.trim();
-    if (!name || busy) return;
+    if (!name || busy) {
+      return;
+    }
     setBusy(true);
     try {
       await addCategory({name, color: addColor, icon: addIcon});
@@ -123,9 +128,13 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
   }
 
   async function handleEditSubmit() {
-    if (!editingCategory || busy) return;
+    if (!editingCategory || busy) {
+      return;
+    }
     const name = editInputValue.trim();
-    if (!name) return;
+    if (!name) {
+      return;
+    }
 
     setBusy(true);
     try {
@@ -178,14 +187,19 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
   };
 
   const endDrag = () => {
-    if (!draggingIdRef.current) return;
+    if (!draggingIdRef.current) {
+      return;
+    }
     draggingIdRef.current = null;
     setDraggingId(null);
     pan.setValue({x: 0, y: 0});
-    
+
     const nextOrder = dataRef.current.map(c => c.id);
     setCategoryOrder(nextOrder).catch(err => {
-      showAlert('Error', err instanceof Error ? err.message : 'Failed to reorder');
+      showAlert(
+        'Error',
+        err instanceof Error ? err.message : 'Failed to reorder',
+      );
     });
   };
 
@@ -197,18 +211,20 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
       onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (event, gestureState) => {
         void event;
-        if (!draggingIdRef.current) return;
+        if (!draggingIdRef.current) {
+          return;
+        }
         pan.setValue({x: 0, y: gestureState.dy});
-        
+
         const dragId = draggingIdRef.current;
         const newIndex = Math.max(
           0,
           Math.min(
             dataRef.current.length - 1,
-            initialIndexRef.current + Math.round(gestureState.dy / ITEM_HEIGHT)
-          )
+            initialIndexRef.current + Math.round(gestureState.dy / ITEM_HEIGHT),
+          ),
         );
-        
+
         const currentIndex = dataRef.current.findIndex(c => c.id === dragId);
         if (newIndex !== currentIndex && currentIndex !== -1) {
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -222,7 +238,7 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
       },
       onPanResponderRelease: endDrag,
       onPanResponderTerminate: endDrag,
-    })
+    }),
   ).current;
 
   return (
@@ -251,21 +267,26 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
               ) : (
                 <View
                   {...panResponder.panHandlers}
-                  style={{height: data.length * ITEM_HEIGHT, position: 'relative'}}>
+                  style={{
+                    height: data.length * ITEM_HEIGHT,
+                    position: 'relative',
+                  }}>
                   {data.map((category, index) => {
                     const isDragging = draggingId === category.id;
                     const disableRowActions = draggingId !== null;
-                    const top = (isDragging ? initialIndexRef.current : index) * ITEM_HEIGHT;
+                    const top =
+                      (isDragging ? initialIndexRef.current : index) *
+                      ITEM_HEIGHT;
 
                     return (
                       <Animated.View
                         key={category.id}
                         style={[
                           styles.manageRowAbsolute,
-                          { top },
+                          {top},
                           isDragging && {
                             zIndex: 10,
-                            transform: [{ translateY: pan.y }],
+                            transform: [{translateY: pan.y}],
                             ...styles.draggingItem,
                           },
                         ]}>
@@ -273,7 +294,9 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                           style={styles.manageLabelWrap}
                           delayLongPress={200}
                           disabled={disableRowActions}
-                          onLongPress={() => handleLongPress(category.id, index)}>
+                          onLongPress={() =>
+                            handleLongPress(category.id, index)
+                          }>
                           <AppIcon
                             name={category.icon as any}
                             size={14}
@@ -287,13 +310,21 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                           style={styles.iconBtn}
                           disabled={disableRowActions}
                           onPress={() => openEditModal(category)}>
-                          <AppIcon name="edit" size={14} color={colors.mutedText} />
+                          <AppIcon
+                            name="edit"
+                            size={14}
+                            color={colors.mutedText}
+                          />
                         </Pressable>
                         <Pressable
                           style={styles.iconBtn}
                           disabled={disableRowActions}
                           onPress={() => handleDelete(category)}>
-                          <AppIcon name="trash-2" size={14} color={colors.danger} />
+                          <AppIcon
+                            name="trash-2"
+                            size={14}
+                            color={colors.danger}
+                          />
                         </Pressable>
                       </Animated.View>
                     );
@@ -301,10 +332,8 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                 </View>
               )}
             </ScrollView>
-            
-            <Pressable
-              style={styles.addButton}
-              onPress={handleAdd}>
+
+            <Pressable style={styles.addButton} onPress={handleAdd}>
               <AppIcon name="plus" size={16} color="#fff" />
               <Text style={styles.addButtonText}>Add Category</Text>
             </Pressable>
@@ -338,10 +367,7 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                 return (
                   <Pressable
                     key={option}
-                    style={[
-                      styles.colorOption,
-                      {backgroundColor: option},
-                    ]}
+                    style={[styles.colorOption, {backgroundColor: option}]}
                     onPress={() => setAddColor(option)}>
                     {active ? (
                       <AppIcon name="check" size={16} color="#fff" />
@@ -415,10 +441,7 @@ export function ManageCategoriesModal({visible, onClose}: Props) {
                 return (
                   <Pressable
                     key={option}
-                    style={[
-                      styles.colorOption,
-                      {backgroundColor: option}
-                    ]}
+                    style={[styles.colorOption, {backgroundColor: option}]}
                     onPress={() => setEditColor(option)}>
                     {active ? (
                       <AppIcon name="check" size={16} color="#fff" />

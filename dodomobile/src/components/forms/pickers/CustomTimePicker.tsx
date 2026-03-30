@@ -11,11 +11,7 @@ type Props = {
   timeFormat?: TimeFormatPreference;
 };
 
-export function CustomTimePicker({
-  value,
-  onChange,
-  timeFormat = '12h',
-}: Props) {
+export function CustomTimePicker({value, onChange, timeFormat = '12h'}: Props) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [hourInput, setHourInput] = useState('12');

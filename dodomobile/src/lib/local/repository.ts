@@ -48,7 +48,10 @@ function secondsToMinutes(seconds: number): number {
   return Math.ceil(safeSeconds / 60);
 }
 
-function elapsedTaskSeconds(startedAt: string | null | undefined, endedAtIso: string): number {
+function elapsedTaskSeconds(
+  startedAt: string | null | undefined,
+  endedAtIso: string,
+): number {
   if (!startedAt) {
     return 0;
   }
@@ -60,7 +63,9 @@ function elapsedTaskSeconds(startedAt: string | null | undefined, endedAtIso: st
   return Math.max(0, Math.floor((endedAtMs - startedAtMs) / 1000));
 }
 
-function getPlannedTaskSeconds(task: Pick<Task, 'durationMinutes' | 'scheduledAt' | 'deadline'>): number {
+function getPlannedTaskSeconds(
+  task: Pick<Task, 'durationMinutes' | 'scheduledAt' | 'deadline'>,
+): number {
   if (
     task.durationMinutes != null &&
     Number.isFinite(task.durationMinutes) &&
@@ -442,7 +447,10 @@ export async function updateTaskLocal(
   ) {
     actualDurationSeconds = existing.actualDurationSeconds;
   } else {
-    actualDurationSeconds = Math.max(existing.actualDurationSeconds, actualDurationSeconds);
+    actualDurationSeconds = Math.max(
+      existing.actualDurationSeconds,
+      actualDurationSeconds,
+    );
   }
 
   const nextCompleted = updates.completed ?? existing.completed;
@@ -452,7 +460,10 @@ export async function updateTaskLocal(
     if (updates.timerStartedAt && !existing.completed && !nextCompleted) {
       nextTimerStartedAt = updates.timerStartedAt;
     } else if (nextTimerStartedAt) {
-      if (updates.actualDurationSeconds == null && updates.actualDurationMinutes == null) {
+      if (
+        updates.actualDurationSeconds == null &&
+        updates.actualDurationMinutes == null
+      ) {
         actualDurationSeconds += elapsedTaskSeconds(nextTimerStartedAt, now);
       }
       nextTimerStartedAt = null;
@@ -463,7 +474,10 @@ export async function updateTaskLocal(
 
   if (updates.completed === true && !existing.completed) {
     if (nextTimerStartedAt) {
-      if (updates.actualDurationSeconds == null && updates.actualDurationMinutes == null) {
+      if (
+        updates.actualDurationSeconds == null &&
+        updates.actualDurationMinutes == null
+      ) {
         actualDurationSeconds += elapsedTaskSeconds(nextTimerStartedAt, now);
       }
       nextTimerStartedAt = null;
@@ -486,9 +500,9 @@ export async function updateTaskLocal(
         : updates.completed === false
         ? null
         : existing.completedAt,
-      timerStartedAt: nextTimerStartedAt,
-      actualDurationSeconds,
-      actualDurationMinutes: secondsToMinutes(actualDurationSeconds),
+    timerStartedAt: nextTimerStartedAt,
+    actualDurationSeconds,
+    actualDurationMinutes: secondsToMinutes(actualDurationSeconds),
     updatedAt: now,
     lastModifiedDeviceAt: now,
     syncState: 'pending',
@@ -580,8 +594,14 @@ export async function softDeleteTaskLocal(
   });
 }
 
-export async function hardDeleteTaskLocal(userId: string, taskId: string): Promise<void> {
-  await query('DELETE FROM tasks_local WHERE user_id = ? AND id = ?', [userId, taskId]);
+export async function hardDeleteTaskLocal(
+  userId: string,
+  taskId: string,
+): Promise<void> {
+  await query('DELETE FROM tasks_local WHERE user_id = ? AND id = ?', [
+    userId,
+    taskId,
+  ]);
 }
 
 export async function listCategoriesLocal(userId: string): Promise<Category[]> {
@@ -594,7 +614,10 @@ export async function listCategoriesLocal(userId: string): Promise<Category[]> {
   return rows.map(toCategory);
 }
 
-export async function upsertCategoryFromRemote(userId: string, category: Category): Promise<void> {
+export async function upsertCategoryFromRemote(
+  userId: string,
+  category: Category,
+): Promise<void> {
   const now = nowIso();
   const color = normalizeCategoryColor(category.color);
   await query(
@@ -689,7 +712,15 @@ export async function updateCategoryLocal(
      SET name = ?, color = ?, icon = ?, updated_at = ?,
          last_modified_device_at = ?, sync_state = 'pending'
      WHERE user_id = ? AND id = ?`,
-    [input.name, color, input.icon || DEFAULT_CATEGORY_ICON, now, now, userId, categoryId],
+    [
+      input.name,
+      color,
+      input.icon || DEFAULT_CATEGORY_ICON,
+      now,
+      now,
+      userId,
+      categoryId,
+    ],
   );
 
   await enqueueSyncOp({
@@ -748,7 +779,10 @@ export async function listHabitsLocal(userId: string): Promise<Habit[]> {
   return rows.map(toHabit);
 }
 
-export async function upsertHabitFromRemote(userId: string, habit: Habit): Promise<void> {
+export async function upsertHabitFromRemote(
+  userId: string,
+  habit: Habit,
+): Promise<void> {
   const now = nowIso();
   await query(
     `INSERT OR REPLACE INTO habits_local (
@@ -780,7 +814,6 @@ export async function upsertHabitFromRemote(userId: string, habit: Habit): Promi
       now,
     ],
   );
-
 }
 
 export async function createHabitLocal(
@@ -926,7 +959,10 @@ export async function updateHabitLocal(
   return row ? toHabit(row) : next;
 }
 
-export async function softDeleteHabitLocal(userId: string, habitId: string): Promise<void> {
+export async function softDeleteHabitLocal(
+  userId: string,
+  habitId: string,
+): Promise<void> {
   const now = nowIso();
   await query(
     `UPDATE habits_local
@@ -944,12 +980,18 @@ export async function softDeleteHabitLocal(userId: string, habitId: string): Pro
   });
 }
 
-export async function hardDeleteHabitLocal(userId: string, habitId: string): Promise<void> {
-  await query('DELETE FROM habits_local WHERE user_id = ? AND id = ?', [userId, habitId]);
-  await query('DELETE FROM habit_completions_local WHERE user_id = ? AND habit_id = ?', [
+export async function hardDeleteHabitLocal(
+  userId: string,
+  habitId: string,
+): Promise<void> {
+  await query('DELETE FROM habits_local WHERE user_id = ? AND id = ?', [
     userId,
     habitId,
   ]);
+  await query(
+    'DELETE FROM habit_completions_local WHERE user_id = ? AND habit_id = ?',
+    [userId, habitId],
+  );
 }
 
 export async function upsertHabitHistoryFromRemote(
@@ -1039,7 +1081,10 @@ export async function setHabitCompletedLocal(params: {
     );
     const existingHabit = existingHabitRows[0];
     if (existingHabit) {
-      const trackedSecondsToday = Math.max(0, Number(existingHabit.tracked_seconds_today) || 0);
+      const trackedSecondsToday = Math.max(
+        0,
+        Number(existingHabit.tracked_seconds_today) || 0,
+      );
       if (trackedSecondsToday <= 0) {
         const plannedSeconds = Math.max(
           60,
@@ -1105,7 +1150,9 @@ export async function setHabitTimerLocal(params: {
   });
 }
 
-export async function getPendingQueueForSync(userId: string): Promise<SyncQueueItem[]> {
+export async function getPendingQueueForSync(
+  userId: string,
+): Promise<SyncQueueItem[]> {
   const now = nowIso();
   const rows = await query<any>(
     `SELECT * FROM sync_queue
@@ -1135,7 +1182,13 @@ export async function markQueueItemRetry(op: SyncQueueItem): Promise<void> {
          status = ?,
          updated_at = ?
      WHERE id = ?`,
-    [attempts, nextRetryAt, terminal ? 'terminal_local_only' : 'retry', now, op.id],
+    [
+      attempts,
+      nextRetryAt,
+      terminal ? 'terminal_local_only' : 'retry',
+      now,
+      op.id,
+    ],
   );
 }
 

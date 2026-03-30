@@ -1,24 +1,41 @@
-import { env } from "../config/env";
-import type { AuthUser } from "../types/auth";
-import type { CreateTaskInput, Task } from "../types/task";
+import {env} from '../config/env';
+import type {AuthUser} from '../types/auth';
+import type {CreateTaskInput, Task} from '../types/task';
 import {
   DEFAULT_CATEGORY_ICON,
   normalizeCategoryColor,
   type Category,
   type CreateCategoryInput,
-} from "../types/category";
-import type { CreateHabitInput, Habit, HabitCompletionRecord } from "../types/habit";
+} from '../types/category';
+import type {
+  CreateHabitInput,
+  Habit,
+  HabitCompletionRecord,
+} from '../types/habit';
 
-type ApiMethod = "GET" | "POST" | "PATCH" | "DELETE";
+type ApiMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+
+export type PushPlatform = 'android' | 'ios';
+
+export type UpsertPushTokenInput = {
+  token: string;
+  platform: PushPlatform;
+  deviceId?: string;
+  appVersion?: string;
+};
 
 let authToken: string | null = null;
 let authRefreshToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
-type SessionRefreshHandler = (session: { token: string; refreshToken: string } | null) => Promise<void>;
+type SessionRefreshHandler = (
+  session: {token: string; refreshToken: string} | null,
+) => Promise<void>;
 let sessionRefreshHandler: SessionRefreshHandler | null = null;
 
-export function setSessionRefreshHandler(handler: SessionRefreshHandler | null) {
+export function setSessionRefreshHandler(
+  handler: SessionRefreshHandler | null,
+) {
   sessionRefreshHandler = handler;
 }
 
@@ -26,21 +43,31 @@ export function setAuthToken(token: string | null) {
   authToken = token;
 }
 
-export function setAuthSession(session: { token: string; refreshToken: string } | null) {
+export function setAuthSession(
+  session: {token: string; refreshToken: string} | null,
+) {
   authToken = session?.token ?? null;
   authRefreshToken = session?.refreshToken ?? null;
 }
 
 async function performTokenRefresh(): Promise<string | null> {
-  if (!authRefreshToken) return null;
+  if (!authRefreshToken) {
+    return null;
+  }
   try {
     const refreshed = await refreshAuthSession(authRefreshToken);
     if (!refreshed.token || !refreshed.refreshToken) {
       return null;
     }
-    setAuthSession({ token: refreshed.token, refreshToken: refreshed.refreshToken });
+    setAuthSession({
+      token: refreshed.token,
+      refreshToken: refreshed.refreshToken,
+    });
     if (sessionRefreshHandler) {
-      await sessionRefreshHandler({ token: refreshed.token, refreshToken: refreshed.refreshToken });
+      await sessionRefreshHandler({
+        token: refreshed.token,
+        refreshToken: refreshed.refreshToken,
+      });
     }
     return refreshed.token;
   } catch (err) {
@@ -53,7 +80,9 @@ async function performTokenRefresh(): Promise<string | null> {
 }
 
 async function tryRefreshAccessToken(): Promise<string | null> {
-  if (!authRefreshToken) return null;
+  if (!authRefreshToken) {
+    return null;
+  }
   if (!refreshPromise) {
     refreshPromise = performTokenRefresh().finally(() => {
       refreshPromise = null;
@@ -71,15 +100,15 @@ async function apiRequest<T>(
 ): Promise<T> {
   const tokenUsed = authToken;
   if (requiresAuth && !tokenUsed) {
-    throw new Error("You are not logged in.");
+    throw new Error('You are not logged in.');
   }
 
   const url = `${env.apiBaseUrl}${path}`;
   const response = await fetch(url, {
     method,
     headers: {
-      "Content-Type": "application/json",
-      ...(tokenUsed ? { Authorization: `Bearer ${tokenUsed}` } : {}),
+      'Content-Type': 'application/json',
+      ...(tokenUsed ? {Authorization: `Bearer ${tokenUsed}`} : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -89,12 +118,12 @@ async function apiRequest<T>(
   }
 
   const text = await response.text();
-  let data = {} as T & { error?: string };
+  let data = {} as T & {error?: string};
   if (text) {
     try {
-      data = JSON.parse(text) as T & { error?: string };
+      data = JSON.parse(text) as T & {error?: string};
     } catch {
-      throw new Error("Server returned an invalid response.");
+      throw new Error('Server returned an invalid response.');
     }
   }
 
@@ -104,7 +133,7 @@ async function apiRequest<T>(
         // Token was already refreshed by another concurrent request, retry immediately
         return apiRequest<T>(path, method, body, requiresAuth, true);
       }
-      
+
       const refreshedToken = await tryRefreshAccessToken();
       if (refreshedToken) {
         return apiRequest<T>(path, method, body, requiresAuth, true);
@@ -113,58 +142,74 @@ async function apiRequest<T>(
         await sessionRefreshHandler(null);
       }
     }
-    throw new Error(data.error ?? "Request failed");
+    throw new Error(data.error ?? 'Request failed');
   }
 
   return data;
 }
 
-export async function register(email: string, password: string, displayName: string): Promise<{
+export async function register(
+  email: string,
+  password: string,
+  displayName: string,
+): Promise<{
   user: AuthUser;
   token: string;
   refreshToken: string;
 }> {
   return apiRequest(
-    "/auth/register",
-    "POST",
-    { email: email.trim(), password, displayName: displayName.trim() },
+    '/auth/register',
+    'POST',
+    {email: email.trim(), password, displayName: displayName.trim()},
     false,
   );
 }
 
-export async function login(email: string, password: string): Promise<{ user: AuthUser; token: string; refreshToken: string }> {
+export async function login(
+  email: string,
+  password: string,
+): Promise<{user: AuthUser; token: string; refreshToken: string}> {
   return apiRequest(
-    "/auth/login",
-    "POST",
-    { email: email.trim(), password },
+    '/auth/login',
+    'POST',
+    {email: email.trim(), password},
     false,
   );
 }
 
-export async function refreshAuthSession(refreshToken: string): Promise<{ token: string; refreshToken: string }> {
-  return apiRequest(
-    "/auth/refresh",
-    "POST",
-    { refreshToken },
-    false,
-  );
+export async function refreshAuthSession(
+  refreshToken: string,
+): Promise<{token: string; refreshToken: string}> {
+  return apiRequest('/auth/refresh', 'POST', {refreshToken}, false);
 }
 
 export async function fetchMe(): Promise<AuthUser> {
-  const data = await apiRequest<{ user: AuthUser }>("/auth/me", "GET");
+  const data = await apiRequest<{user: AuthUser}>('/auth/me', 'GET');
   return data.user;
 }
 
+export async function upsertPushToken(
+  input: UpsertPushTokenInput,
+): Promise<void> {
+  await apiRequest<void>('/notifications/token', 'POST', input);
+}
+
+export async function deletePushToken(token: string): Promise<void> {
+  await apiRequest<void>('/notifications/token', 'DELETE', {token});
+}
+
 export async function changePassword(newPassword: string): Promise<void> {
-  await apiRequest<void>("/auth/change-password", "POST", { newPassword });
+  await apiRequest<void>('/auth/change-password', 'POST', {newPassword});
 }
 
 export async function deleteAccount(): Promise<void> {
-  await apiRequest<void>("/auth/delete-account", "DELETE");
+  await apiRequest<void>('/auth/delete-account', 'DELETE');
 }
 
-export async function createTask(input: CreateTaskInput & { id?: string }): Promise<Task> {
-  const data = await apiRequest<{ task: Task }>("/tasks", "POST", input);
+export async function createTask(
+  input: CreateTaskInput & {id?: string},
+): Promise<Task> {
+  const data = await apiRequest<{task: Task}>('/tasks', 'POST', input);
   return data.task;
 }
 
@@ -177,16 +222,22 @@ export async function updateTask(
     actualDurationMinutes?: number;
   },
 ): Promise<Task> {
-  const data = await apiRequest<{ task: Task }>(`/tasks/${taskId}`, "PATCH", updates);
+  const data = await apiRequest<{task: Task}>(
+    `/tasks/${taskId}`,
+    'PATCH',
+    updates,
+  );
   return data.task;
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  await apiRequest<void>(`/tasks/${taskId}`, "DELETE");
+  await apiRequest<void>(`/tasks/${taskId}`, 'DELETE');
 }
 
-export async function createCategory(input: CreateCategoryInput & { id?: string }): Promise<Category> {
-  const data = await apiRequest<{ category: Category }>("/categories", "POST", {
+export async function createCategory(
+  input: CreateCategoryInput & {id?: string},
+): Promise<Category> {
+  const data = await apiRequest<{category: Category}>('/categories', 'POST', {
     ...input,
     color: normalizeCategoryColor(input.color),
     icon: input.icon || DEFAULT_CATEGORY_ICON,
@@ -194,21 +245,30 @@ export async function createCategory(input: CreateCategoryInput & { id?: string 
   return data.category;
 }
 
-export async function updateCategory(categoryId: string, input: CreateCategoryInput): Promise<Category> {
-  const data = await apiRequest<{ category: Category }>(`/categories/${categoryId}`, "PATCH", {
-    ...input,
-    color: normalizeCategoryColor(input.color),
-    icon: input.icon || DEFAULT_CATEGORY_ICON,
-  });
+export async function updateCategory(
+  categoryId: string,
+  input: CreateCategoryInput,
+): Promise<Category> {
+  const data = await apiRequest<{category: Category}>(
+    `/categories/${categoryId}`,
+    'PATCH',
+    {
+      ...input,
+      color: normalizeCategoryColor(input.color),
+      icon: input.icon || DEFAULT_CATEGORY_ICON,
+    },
+  );
   return data.category;
 }
 
 export async function deleteCategory(categoryId: string): Promise<void> {
-  await apiRequest<void>(`/categories/${categoryId}`, "DELETE");
+  await apiRequest<void>(`/categories/${categoryId}`, 'DELETE');
 }
 
-export async function createHabit(input: CreateHabitInput & { id?: string }): Promise<Habit> {
-  const data = await apiRequest<{ habit: Habit }>("/habits", "POST", input);
+export async function createHabit(
+  input: CreateHabitInput & {id?: string},
+): Promise<Habit> {
+  const data = await apiRequest<{habit: Habit}>('/habits', 'POST', input);
   return data.habit;
 }
 
@@ -216,12 +276,16 @@ export async function updateHabit(
   habitId: string,
   updates: Partial<CreateHabitInput>,
 ): Promise<Habit> {
-  const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}`, "PATCH", updates);
+  const data = await apiRequest<{habit: Habit}>(
+    `/habits/${habitId}`,
+    'PATCH',
+    updates,
+  );
   return data.habit;
 }
 
 export async function deleteHabit(habitId: string): Promise<void> {
-  await apiRequest<void>(`/habits/${habitId}`, "DELETE");
+  await apiRequest<void>(`/habits/${habitId}`, 'DELETE');
 }
 
 export type HabitCompletionMutationResponse = {
@@ -235,8 +299,8 @@ export async function completeHabit(
 ): Promise<HabitCompletionMutationResponse> {
   return apiRequest<HabitCompletionMutationResponse>(
     `/habits/${habitId}/complete`,
-    "POST",
-    date ? { date } : {},
+    'POST',
+    date ? {date} : {},
   );
 }
 
@@ -244,20 +308,34 @@ export async function uncompleteHabit(
   habitId: string,
   date?: string,
 ): Promise<HabitCompletionMutationResponse> {
-  const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+  const qs = date ? `?date=${encodeURIComponent(date)}` : '';
   return apiRequest<HabitCompletionMutationResponse>(
     `/habits/${habitId}/complete${qs}`,
-    "DELETE",
+    'DELETE',
   );
 }
 
-export async function startHabitTimer(habitId: string, date?: string): Promise<Habit> {
-  const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}/start`, "POST", date ? { date } : {});
+export async function startHabitTimer(
+  habitId: string,
+  date?: string,
+): Promise<Habit> {
+  const data = await apiRequest<{habit: Habit}>(
+    `/habits/${habitId}/start`,
+    'POST',
+    date ? {date} : {},
+  );
   return data.habit;
 }
 
-export async function pauseHabitTimer(habitId: string, date?: string): Promise<Habit> {
-  const data = await apiRequest<{ habit: Habit }>(`/habits/${habitId}/pause`, "POST", date ? { date } : {});
+export async function pauseHabitTimer(
+  habitId: string,
+  date?: string,
+): Promise<Habit> {
+  const data = await apiRequest<{habit: Habit}>(
+    `/habits/${habitId}/pause`,
+    'POST',
+    date ? {date} : {},
+  );
   return data.habit;
 }
 
@@ -269,7 +347,9 @@ export type SyncPullResponse = {
   serverTime: string;
 };
 
-export async function fetchSyncPull(since?: string | null): Promise<SyncPullResponse> {
+export async function fetchSyncPull(
+  since?: string | null,
+): Promise<SyncPullResponse> {
   const qs = since ? `?since=${encodeURIComponent(since)}` : '';
   return apiRequest<SyncPullResponse>(`/sync/pull${qs}`, 'GET');
 }

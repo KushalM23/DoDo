@@ -67,9 +67,9 @@ export function formatOrdinalDay(day: number): string {
 }
 
 export function formatTaskWheelDayDate(value: Date): string {
-  return `${TASK_WEEKDAY_LABELS[value.getDay()]}, ${formatOrdinalDay(value.getDate())} ${
-    TASK_MONTH_LABELS[value.getMonth()]
-  }`;
+  return `${TASK_WEEKDAY_LABELS[value.getDay()]}, ${formatOrdinalDay(
+    value.getDate(),
+  )} ${TASK_MONTH_LABELS[value.getMonth()]}`;
 }
 
 export function formatTaskTriggerLabel(value: string | Date): string {
@@ -85,7 +85,11 @@ export function buildTaskDateItems(centerDate: Date): TaskDateWheelItem[] {
   const center = startOfLocalDay(centerDate);
   return Array.from({length: TASK_DAY_WINDOW * 2 + 1}, (_, index) => {
     const offset = index - TASK_DAY_WINDOW;
-    const date = new Date(center.getFullYear(), center.getMonth(), center.getDate() + offset);
+    const date = new Date(
+      center.getFullYear(),
+      center.getMonth(),
+      center.getDate() + offset,
+    );
     return {
       key: toLocalDateKey(date),
       label: formatTaskWheelDayDate(date),
@@ -103,17 +107,29 @@ export function findDateIndex(
   return index >= 0 ? index : fallbackIndex;
 }
 
-export function findTaskDateIndex(items: TaskDateWheelItem[], targetDate: Date): number {
-  return findDateIndex(items, toLocalDateKey(targetDate), Math.floor(items.length / 2));
+export function findTaskDateIndex(
+  items: TaskDateWheelItem[],
+  targetDate: Date,
+): number {
+  return findDateIndex(
+    items,
+    toLocalDateKey(targetDate),
+    Math.floor(items.length / 2),
+  );
 }
 
-export function buildCalendarMonthItems(centerDate: Date): CalendarMonthWheelItem[] {
+export function buildCalendarMonthItems(
+  centerDate: Date,
+): CalendarMonthWheelItem[] {
   const center = new Date(centerDate.getFullYear(), centerDate.getMonth(), 1);
   return Array.from({length: CALENDAR_MONTH_WINDOW * 2 + 1}, (_, index) => {
     const offset = index - CALENDAR_MONTH_WINDOW;
     const date = new Date(center.getFullYear(), center.getMonth() + offset, 1);
     return {
-      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+        2,
+        '0',
+      )}`,
       label: formatCalendarTriggerLabel(date),
       date,
       month: date.getMonth(),
@@ -128,7 +144,10 @@ export function findCalendarMonthIndex(
 ): number {
   return findDateIndex(
     items,
-    `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`,
+    `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(
+      2,
+      '0',
+    )}`,
     Math.floor(items.length / 2),
   );
 }
@@ -150,7 +169,10 @@ export function resolveCalendarMonthSelection(
   };
 }
 
-export function shiftCalendarMonth(currentDate: Date, delta: number): CalendarMonthSelection {
+export function shiftCalendarMonth(
+  currentDate: Date,
+  delta: number,
+): CalendarMonthSelection {
   const targetMonthDate = new Date(
     currentDate.getFullYear(),
     currentDate.getMonth() + delta,

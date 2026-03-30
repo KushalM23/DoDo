@@ -1,9 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {
-  StyleSheet,
-  View,
-  InteractionManager,
-} from 'react-native';
+import {StyleSheet, View, InteractionManager} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {listTasksLocal} from '../../lib/local/repository';
 import {runSync} from '../../lib/local/syncEngine';
@@ -51,9 +47,9 @@ export function CalendarScreen() {
   useEffect(() => {
     let canceled = false;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    let interactionHandle: ReturnType<
-      typeof InteractionManager.runAfterInteractions
-    > | undefined;
+    let interactionHandle:
+      | ReturnType<typeof InteractionManager.runAfterInteractions>
+      | undefined;
 
     if (!user?.id) {
       setMonthTasks([]);
@@ -75,7 +71,10 @@ export function CalendarScreen() {
               return;
             }
 
-            const reconciledTasks = await listTasksLocal(user.id, {startAt, endAt});
+            const reconciledTasks = await listTasksLocal(user.id, {
+              startAt,
+              endAt,
+            });
             if (!canceled) {
               setMonthTasks(reconciledTasks);
             }

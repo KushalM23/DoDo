@@ -90,7 +90,6 @@ export function CustomAlert({
             styles.popup,
             {transform: [{scale: scaleAnim}], opacity: opacityAnim},
           ]}>
-
           <View style={styles.body}>
             <Text style={styles.title}>{title}</Text>
             {message ? <Text style={styles.message}>{message}</Text> : null}
