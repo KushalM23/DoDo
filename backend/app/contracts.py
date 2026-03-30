@@ -150,3 +150,17 @@ def to_habit_completion_dto(row: dict[str, Any]) -> dict[str, Any]:
         "completed": bool(row.get("completed", True)),
         "updatedAt": row.get("updated_at") or row.get("completed_at"),
     }
+
+
+def to_note_dto(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "heading": row.get("heading") or "",
+        "contentRich": row.get("content_rich") or "",
+        "contentPlain": row.get("content_plain") or "",
+        "isPinned": bool(row.get("is_pinned", False)),
+        "pinnedAt": row.get("pinned_at"),
+        "createdAt": row["created_at"],
+        "updatedAt": row.get("updated_at") or row["created_at"],
+        "deletedAt": row.get("deleted_at"),
+    }

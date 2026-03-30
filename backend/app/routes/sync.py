@@ -11,6 +11,7 @@ from app.contracts import (
     to_category_dto,
     to_habit_completion_dto,
     to_habit_dto,
+    to_note_dto,
     to_task_dto,
 )
 
@@ -35,6 +36,7 @@ class SyncPullResponse(BaseModel):
     tasks: list[dict[str, Any]]
     categories: list[dict[str, Any]]
     habits: list[dict[str, Any]]
+    notes: list[dict[str, Any]]
     habitCompletions: list[dict[str, Any]]
     serverTime: str
 
@@ -82,6 +84,15 @@ async def sync_pull(
     )
     habits = [to_habit_dto(r) for r in (habits_resp.data or [])]
 
+    notes_resp = (
+        auth.supabase.table("notes")
+        .select("*")
+        .eq("user_id", auth.user_id)
+        .gte("updated_at", cutoff.isoformat())
+        .execute()
+    )
+    notes = [to_note_dto(r) for r in (notes_resp.data or [])]
+
     completions_resp = (
         auth.supabase.table("habit_completions")
         .select("habit_id, completed_on, completed, updated_at, completed_at")
@@ -95,6 +106,7 @@ async def sync_pull(
         tasks=tasks,
         categories=categories,
         habits=habits,
+        notes=notes,
         habitCompletions=habit_completions,
         serverTime=now.isoformat(),
     )
