@@ -40,6 +40,19 @@ create table if not exists public.tasks (
   deleted_at timestamptz
 );
 
+create table if not exists public.notes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  heading text not null default '',
+  content_rich text not null default '',
+  content_plain text not null default '',
+  is_pinned boolean not null default false,
+  pinned_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+
 create table if not exists public.habits (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -111,6 +124,14 @@ alter table public.tasks add column if not exists completion_xp integer;
 alter table public.tasks add column if not exists updated_at timestamptz;
 alter table public.tasks add column if not exists deleted_at timestamptz;
 
+alter table public.notes add column if not exists heading text;
+alter table public.notes add column if not exists content_rich text;
+alter table public.notes add column if not exists content_plain text;
+alter table public.notes add column if not exists is_pinned boolean;
+alter table public.notes add column if not exists pinned_at timestamptz;
+alter table public.notes add column if not exists updated_at timestamptz;
+alter table public.notes add column if not exists deleted_at timestamptz;
+
 alter table public.habits add column if not exists icon text;
 alter table public.habits add column if not exists frequency_type text;
 alter table public.habits add column if not exists interval_days integer;
@@ -180,6 +201,13 @@ set description = coalesce(description, ''),
     completion_xp = coalesce(completion_xp, 0),
     updated_at = coalesce(updated_at, created_at, now());
 
+update public.notes
+set heading = coalesce(heading, ''),
+    content_rich = coalesce(content_rich, ''),
+    content_plain = coalesce(content_plain, ''),
+    is_pinned = coalesce(is_pinned, false),
+    updated_at = coalesce(updated_at, created_at, now());
+
 update public.habits
 set frequency_type = case
       when coalesce(frequency_type, frequency, 'daily') = 'weekly' then 'custom_days'
@@ -228,6 +256,17 @@ alter table public.tasks alter column completion_xp set default 0;
 alter table public.tasks alter column completion_xp set not null;
 alter table public.tasks alter column updated_at set default now();
 alter table public.tasks alter column updated_at set not null;
+
+alter table public.notes alter column heading set default '';
+alter table public.notes alter column heading set not null;
+alter table public.notes alter column content_rich set default '';
+alter table public.notes alter column content_rich set not null;
+alter table public.notes alter column content_plain set default '';
+alter table public.notes alter column content_plain set not null;
+alter table public.notes alter column is_pinned set default false;
+alter table public.notes alter column is_pinned set not null;
+alter table public.notes alter column updated_at set default now();
+alter table public.notes alter column updated_at set not null;
 
 alter table public.habits alter column icon set default 'book-open';
 alter table public.habits alter column icon set not null;
@@ -302,6 +341,9 @@ create index if not exists idx_categories_user_created_at on public.categories(u
 create index if not exists idx_categories_user_updated_at on public.categories(user_id, updated_at);
 create index if not exists idx_tasks_user_scheduled_at on public.tasks(user_id, scheduled_at);
 create index if not exists idx_tasks_user_updated_at on public.tasks(user_id, updated_at);
+create index if not exists idx_notes_user_updated_at on public.notes(user_id, updated_at);
+create index if not exists idx_notes_user_pinned on public.notes(user_id, is_pinned, pinned_at);
+create index if not exists idx_notes_user_deleted on public.notes(user_id, deleted_at);
 create index if not exists idx_habits_user_created_at on public.habits(user_id, created_at);
 create index if not exists idx_habits_user_updated_at on public.habits(user_id, updated_at);
 create index if not exists idx_habits_user_next_occurrence on public.habits(user_id, next_occurrence_on);
@@ -316,6 +358,7 @@ create index if not exists idx_profiles_display_name on public.profiles(display_
 alter table public.profiles enable row level security;
 alter table public.categories enable row level security;
 alter table public.tasks enable row level security;
+alter table public.notes enable row level security;
 alter table public.habits enable row level security;
 alter table public.habit_completions enable row level security;
 alter table public.habit_sessions enable row level security;
@@ -371,6 +414,27 @@ with check (auth.uid() = user_id);
 
 drop policy if exists "tasks_delete_own" on public.tasks;
 create policy "tasks_delete_own" on public.tasks
+for delete to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "notes_select_own" on public.notes;
+create policy "notes_select_own" on public.notes
+for select to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "notes_insert_own" on public.notes;
+create policy "notes_insert_own" on public.notes
+for insert to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "notes_update_own" on public.notes;
+create policy "notes_update_own" on public.notes
+for update to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "notes_delete_own" on public.notes;
+create policy "notes_delete_own" on public.notes
 for delete to authenticated
 using (auth.uid() = user_id);
 

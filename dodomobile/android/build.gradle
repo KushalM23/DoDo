@@ -19,4 +19,16 @@ buildscript {
     }
 }
 
+def notifeePackageJson = ["node", "--print", "require.resolve('@notifee/react-native/package.json')"].execute(null, rootDir).text.trim()
+def notifeeMavenRepo = new File(new File(notifeePackageJson).getParentFile(), "android/libs")
+
+allprojects {
+    repositories {
+        maven {
+            // Needed in some monorepo/hoisted installs so app.notifee:core resolves.
+            url(notifeeMavenRepo.toURI())
+        }
+    }
+}
+
 apply plugin: "com.facebook.react.rootproject"

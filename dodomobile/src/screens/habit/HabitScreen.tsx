@@ -146,6 +146,11 @@ export function HabitScreen() {
             }
           />
         )}
+        ListHeaderComponent={
+          <View style={styles.headerWrap}>
+            <Text style={styles.headerTitle}>Your Habits</Text>
+          </View>
+        }
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyText}>No habits active</Text>
@@ -200,8 +205,19 @@ const createStyles = (colors: ThemeColors) =>
     },
     listPad: {
       paddingHorizontal: 24,
-      paddingTop: 24,
+      paddingTop: 8,
       paddingBottom: 120,
+    },
+    headerWrap: {
+      paddingTop: 16,
+      paddingBottom: 20,
+    },
+    headerTitle: {
+      fontSize: 40,
+      fontFamily: fonts.heading,
+      color: colors.text,
+      letterSpacing: -0.8,
+      textAlign: 'center',
     },
     rowGap: {
       gap: 16,

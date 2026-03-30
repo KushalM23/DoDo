@@ -22,6 +22,8 @@ import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import {CustomModal} from '../../components/overlays/CustomModal';
 
+const SNOOZE_OPTIONS_MINUTES = [2, 5, 10, 15, 30, 60] as const;
+
 /* ─── Pill Toggle (matches floating navbar style) ─────────── */
 
 function PillToggle<T extends string>({
@@ -143,6 +145,7 @@ export function SettingsScreen() {
     setDarkMode,
     setDateFormat,
     setTimeFormat,
+    setDefaultSnoozeMinutes,
     resetPreferences,
   } = usePreferences();
 
@@ -155,6 +158,31 @@ export function SettingsScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [snoozeInput, setSnoozeInput] = useState(
+    String(preferences.defaultSnoozeMinutes),
+  );
+
+  useEffect(() => {
+    setSnoozeInput(String(preferences.defaultSnoozeMinutes));
+  }, [preferences.defaultSnoozeMinutes]);
+
+  function applyCustomSnoozeInput() {
+    const trimmed = snoozeInput.trim();
+    if (!trimmed) {
+      setSnoozeInput(String(preferences.defaultSnoozeMinutes));
+      return;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      setSnoozeInput(String(preferences.defaultSnoozeMinutes));
+      return;
+    }
+
+    const safeMinutes = Math.max(1, Math.min(1440, Math.round(parsed)));
+    void setDefaultSnoozeMinutes(safeMinutes);
+    setSnoozeInput(String(safeMinutes));
+  }
 
   async function handlePasswordChange() {
     if (passwordNew.length < 6) {
@@ -286,6 +314,58 @@ export function SettingsScreen() {
             void setTimeFormat(next);
           }}
         />
+
+        <View style={styles.preferenceGroup}>
+          <View style={styles.snoozePanel}>
+            <View style={styles.snoozeHeaderRow}>
+              <Text style={styles.preferenceLabel}>Snooze</Text>
+
+              <View style={styles.snoozeInputWrap}>
+                <TextInput
+                  value={snoozeInput}
+                  onChangeText={raw => {
+                    setSnoozeInput(raw.replace(/[^0-9]/g, '').slice(0, 4));
+                  }}
+                  onBlur={applyCustomSnoozeInput}
+                  onSubmitEditing={applyCustomSnoozeInput}
+                  keyboardType="number-pad"
+                  returnKeyType="done"
+                  placeholder="5"
+                  placeholderTextColor={colors.mutedText}
+                  style={styles.snoozeInput}
+                />
+                <Text style={styles.snoozeInputSuffix}>min</Text>
+              </View>
+            </View>
+
+            <View style={styles.snoozeOptionsRow}>
+              {SNOOZE_OPTIONS_MINUTES.map(minutes => {
+                const active = preferences.defaultSnoozeMinutes === minutes;
+                return (
+                  <Pressable
+                    key={minutes}
+                    style={[
+                      styles.snoozeOption,
+                      active && styles.snoozeOptionActive,
+                    ]}
+                    onPress={() => {
+                      setSnoozeInput(String(minutes));
+                      void setDefaultSnoozeMinutes(minutes);
+                    }}>
+                    <Text
+                      style={[
+                        styles.snoozeOptionText,
+                        active && styles.snoozeOptionTextActive,
+                      ]}>
+                      {minutes}m
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
         <Text style={styles.sectionTitle}>Account</Text>
 
         {/* Password change — no card background */}
@@ -430,6 +510,82 @@ const createStyles = (colors: ThemeColors) =>
       letterSpacing: 1,
       marginTop: 24,
       marginBottom: 24,
+    },
+    preferenceGroup: {
+      marginTop: 4,
+      marginBottom: 20,
+    },
+    snoozePanel: {
+      borderRadius: 28,
+      padding: 4,
+    },
+    snoozeHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderRadius: 99,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      marginBottom: 8,
+    },
+    preferenceLabel: {
+      color: colors.text,
+      fontSize: fontSize.md,
+      fontFamily: fonts.bodyBold,
+      letterSpacing: 0.2,
+      marginLeft: 6,
+    },
+    snoozeInputWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.surfaceLight,
+      borderRadius: 99,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    snoozeInput: {
+      width: 52,
+      borderRadius: 99,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      color: colors.text,
+      fontSize: fontSize.md,
+      fontFamily: fonts.bodyBold,
+      textAlign: 'center',
+    },
+    snoozeInputSuffix: {
+      color: colors.mutedText,
+      fontSize: fontSize.sm,
+      fontFamily: fonts.bodySemiBold,
+    },
+    snoozeOptionsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    snoozeOption: {
+      width: '31.5%',
+      paddingHorizontal: 8,
+      paddingVertical: 10,
+      borderRadius: 99,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    snoozeOptionActive: {
+      backgroundColor: colors.accent,
+    },
+    snoozeOptionText: {
+      color: colors.mutedText,
+      fontSize: fontSize.sm,
+      fontFamily: fonts.bodyBold,
+    },
+    snoozeOptionTextActive: {
+      color: '#fff',
     },
     accountSection: {
       gap: 10,

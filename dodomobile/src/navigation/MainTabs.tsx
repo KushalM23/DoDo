@@ -17,6 +17,7 @@ import {TasksScreen} from '../screens/tasks/TasksScreen';
 import {HabitScreen} from '../screens/habit/HabitScreen';
 import {CalendarScreen} from '../screens/calendar/CalendarScreen';
 import {ProfileScreen} from '../screens/profile/ProfileScreen';
+import {NotesScreen} from '../screens/notes/NotesScreen';
 import {fontSize} from '../theme/colors';
 import {fonts} from '../theme/fonts';
 import {useThemeColors} from '../theme/ThemeProvider';
@@ -31,8 +32,9 @@ if (
 }
 
 type MainTabsParamList = {
-  TasksTab: undefined;
   HabitTab: undefined;
+  NotesTab: undefined;
+  TasksTab: undefined;
   CalendarTab: undefined;
   ProfileTab: undefined;
 };
@@ -46,8 +48,9 @@ type TabItem = {
 };
 
 const TAB_ITEMS: TabItem[] = [
-  {key: 'TasksTab', label: 'Tasks', icon: 'check-square'},
   {key: 'HabitTab', label: 'Habits', icon: 'repeat'},
+  {key: 'NotesTab', label: 'Notes', icon: 'file-text'},
+  {key: 'TasksTab', label: 'Tasks', icon: 'check-square'},
   {key: 'CalendarTab', label: 'Calendar', icon: 'calendar'},
   {key: 'ProfileTab', label: 'Profile', icon: 'user'},
 ];
@@ -230,10 +233,12 @@ function CustomTabBar({state, navigation}: BottomTabBarProps) {
 export function MainTabs() {
   return (
     <Tab.Navigator
+      initialRouteName="TasksTab"
       tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{headerShown: false, lazy: false}}>
-      <Tab.Screen name="TasksTab" component={TasksScreen} />
       <Tab.Screen name="HabitTab" component={HabitScreen} />
+      <Tab.Screen name="NotesTab" component={NotesScreen} />
+      <Tab.Screen name="TasksTab" component={TasksScreen} />
       <Tab.Screen name="CalendarTab" component={CalendarScreen} />
       <Tab.Screen name="ProfileTab" component={ProfileScreen} />
     </Tab.Navigator>

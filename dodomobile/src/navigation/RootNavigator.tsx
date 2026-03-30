@@ -5,11 +5,13 @@ import {useAuth} from '../state/AuthContext';
 import {useTasks} from '../state/TasksContext';
 import {useHabits} from '../state/HabitsContext';
 import {useCategories} from '../state/CategoriesContext';
+import {useNotes} from '../state/NotesContext';
 import {LoginScreen} from '../screens/auth/LoginScreen';
 import {RegisterScreen} from '../screens/auth/RegisterScreen';
 import {TaskDetailScreen} from '../screens/tasks/TaskDetailScreen';
 import {SettingsScreen} from '../screens/profile/SettingsScreen';
 import {HabitDetailScreen} from '../screens/habit/HabitDetailScreen';
+import {NoteEditorScreen} from '../screens/notes/NoteEditorScreen';
 import {MainTabs} from './MainTabs';
 import {LoadingScreen} from '../components/feedback/LoadingScreen';
 
@@ -17,8 +19,9 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Main: undefined;
-  TaskDetail: {taskId: string};
-  HabitDetail: {habitId: string};
+  TaskDetail: {taskId: string; openFocus?: boolean};
+  HabitDetail: {habitId: string; openFocus?: boolean};
+  NoteEditor: {noteId: string};
   Settings: undefined;
 };
 
@@ -29,13 +32,17 @@ export function RootNavigator() {
   const {initialized: tasksInitialized} = useTasks();
   const {initialized: habitsInitialized} = useHabits();
   const {initialized: categoriesInitialized} = useCategories();
+  const {initialized: notesInitialized} = useNotes();
   const [showStartupOverlay, setShowStartupOverlay] = useState(true);
   const [overlayExiting, setOverlayExiting] = useState(false);
 
   const startupLoading =
     authLoading ||
     (Boolean(user) &&
-      (!tasksInitialized || !habitsInitialized || !categoriesInitialized));
+      (!tasksInitialized ||
+        !habitsInitialized ||
+        !categoriesInitialized ||
+        !notesInitialized));
 
   useEffect(() => {
     if (!startupLoading && showStartupOverlay && !overlayExiting) {
@@ -67,6 +74,11 @@ export function RootNavigator() {
               <Stack.Screen
                 name="HabitDetail"
                 component={HabitDetailScreen}
+                options={{animation: 'slide_from_bottom'}}
+              />
+              <Stack.Screen
+                name="NoteEditor"
+                component={NoteEditorScreen}
                 options={{animation: 'slide_from_bottom'}}
               />
               <Stack.Screen

@@ -16,6 +16,7 @@ type UserPreferences = {
   dateFormat: DateFormatPreference;
   timeFormat: TimeFormatPreference;
   weekStart: WeekStartPreference;
+  defaultSnoozeMinutes: number;
 };
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -23,6 +24,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   dateFormat: 'eu',
   timeFormat: '12h',
   weekStart: 'monday',
+  defaultSnoozeMinutes: 5,
 };
 
 const PREFERENCES_KEY = '@dodo/preferences';
@@ -33,6 +35,7 @@ type PreferencesContextValue = {
   setDarkMode: (enabled: boolean) => Promise<void>;
   setDateFormat: (format: DateFormatPreference) => Promise<void>;
   setTimeFormat: (format: TimeFormatPreference) => Promise<void>;
+  setDefaultSnoozeMinutes: (minutes: number) => Promise<void>;
   resetPreferences: () => Promise<void>;
 };
 
@@ -68,6 +71,15 @@ export function PreferencesProvider({children}: {children: React.ReactNode}) {
           ...(parsed.weekStart === 'sunday' || parsed.weekStart === 'monday'
             ? {weekStart: parsed.weekStart}
             : {}),
+          ...(typeof parsed.defaultSnoozeMinutes === 'number' &&
+          Number.isFinite(parsed.defaultSnoozeMinutes)
+            ? {
+                defaultSnoozeMinutes: Math.max(
+                  1,
+                  Math.min(1440, Math.round(parsed.defaultSnoozeMinutes)),
+                ),
+              }
+            : {}),
         }));
       } finally {
         setLoading(false);
@@ -94,6 +106,13 @@ export function PreferencesProvider({children}: {children: React.ReactNode}) {
       },
       async setTimeFormat(format: TimeFormatPreference) {
         await updatePreferences({...preferences, timeFormat: format});
+      },
+      async setDefaultSnoozeMinutes(minutes: number) {
+        const safeMinutes = Math.max(1, Math.min(1440, Math.round(minutes)));
+        await updatePreferences({
+          ...preferences,
+          defaultSnoozeMinutes: safeMinutes,
+        });
       },
       async resetPreferences() {
         await updatePreferences(DEFAULT_PREFERENCES);

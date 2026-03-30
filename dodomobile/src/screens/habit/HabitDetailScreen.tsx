@@ -58,6 +58,7 @@ export function HabitDetailScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [lockInMode, setLockInMode] = useState(false);
   const [lockTime, setLockTime] = useState(() => new Date());
+  const openFocusFromNotification = route.params.openFocus === true;
 
   const habit = habits.find(h => h.id === route.params.habitId);
 
@@ -116,6 +117,15 @@ export function HabitDetailScreen() {
     startHabitTimer,
     todayKey,
   ]);
+
+  useEffect(() => {
+    if (!habit || !openFocusFromNotification || lockInMode) {
+      return;
+    }
+
+    setLockInMode(true);
+    navigation.setParams({openFocus: undefined});
+  }, [habit, lockInMode, navigation, openFocusFromNotification]);
 
   const focusElapsedSeconds = useMemo(() => {
     if (!habit) {

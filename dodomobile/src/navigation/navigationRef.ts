@@ -16,14 +16,24 @@ let pendingNavigationData: NotificationNavigationData | null = null;
 
 function navigateFromData(data: NotificationNavigationData): boolean {
   const screen = data.screen;
+  const openFocus =
+    data.openFocus === '1' ||
+    data.openFocus?.toLowerCase() === 'true' ||
+    data.openFocus?.toLowerCase() === 'yes';
 
   if (screen === 'TaskDetail' && data.taskId) {
-    navigationRef.navigate('TaskDetail', {taskId: data.taskId});
+    navigationRef.navigate('TaskDetail', {
+      taskId: data.taskId,
+      openFocus,
+    });
     return true;
   }
 
   if (screen === 'HabitDetail' && data.habitId) {
-    navigationRef.navigate('HabitDetail', {habitId: data.habitId});
+    navigationRef.navigate('HabitDetail', {
+      habitId: data.habitId,
+      openFocus,
+    });
     return true;
   }
 
@@ -43,12 +53,18 @@ function navigateFromData(data: NotificationNavigationData): boolean {
   }
 
   if (data.taskId) {
-    navigationRef.navigate('TaskDetail', {taskId: data.taskId});
+    navigationRef.navigate('TaskDetail', {
+      taskId: data.taskId,
+      openFocus,
+    });
     return true;
   }
 
   if (data.habitId) {
-    navigationRef.navigate('HabitDetail', {habitId: data.habitId});
+    navigationRef.navigate('HabitDetail', {
+      habitId: data.habitId,
+      openFocus,
+    });
     return true;
   }
 

@@ -2,6 +2,7 @@ export type SyncState = 'synced' | 'pending' | 'retry' | 'terminal_local_only';
 
 export type SyncEntity =
   | 'task'
+  | 'note'
   | 'habit'
   | 'category'
   | 'habit_completion'

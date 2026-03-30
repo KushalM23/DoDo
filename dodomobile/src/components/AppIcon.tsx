@@ -8,6 +8,9 @@ export type AppIconName =
   | 'arrow-up'
   | 'arrow-up-circle'
   | 'arrow-up-down'
+  | 'align-left'
+  | 'align-center'
+  | 'align-right'
   | 'briefcase'
   | 'brain'
   | 'book-open'
@@ -28,6 +31,8 @@ export type AppIconName =
   | 'chevron-right'
   | 'chevron-up'
   | 'clock'
+  | 'list'
+  | 'list-ordered'
   | 'edit'
   | 'eye'
   | 'eye-off'
@@ -68,6 +73,7 @@ export type AppIconName =
   | 'gift'
   | 'key'
   | 'map-pin'
+  | 'pin'
   | 'grip-vertical';
 
 type Props = {
@@ -82,6 +88,9 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   'arrow-up-circle': 'circle-arrow-up',
   'arrow-up': 'arrow-up',
   'arrow-up-down': 'arrow-up-down',
+  'align-left': 'align-left',
+  'align-center': 'align-center',
+  'align-right': 'align-right',
   brain: 'brain',
   'book-open': 'book-open',
   bed: 'bed',
@@ -98,6 +107,8 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   'chevron-right': 'chevron-right',
   'chevron-up': 'chevron-up',
   clock: 'clock',
+  list: 'list',
+  'list-ordered': 'list-ordered',
   edit: 'pencil',
   eye: 'eye',
   'eye-off': 'eye-off',
@@ -142,6 +153,7 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   gift: 'gift',
   key: 'key',
   'map-pin': 'map-pin',
+  pin: 'pin',
   'grip-vertical': 'grip-vertical',
 };
 
@@ -149,19 +161,11 @@ export function AppIcon({
   name,
   size = 16,
   color = '#000',
-  strokeWidth = 2,
+  strokeWidth: _strokeWidth = 2,
   ...rest
 }: Props) {
   const resolvedName = ICON_NAME_MAP[name] as React.ComponentProps<
     typeof Lucide
   >['name'];
-  return (
-    <Lucide
-      name={resolvedName}
-      size={size}
-      color={color}
-      strokeWidth={strokeWidth}
-      {...rest}
-    />
-  );
+  return <Lucide name={resolvedName} size={size} color={color} {...rest} />;
 }

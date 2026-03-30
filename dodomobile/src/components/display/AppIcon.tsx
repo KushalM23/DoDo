@@ -149,19 +149,11 @@ export function AppIcon({
   name,
   size = 16,
   color = '#000',
-  strokeWidth = 2,
+  strokeWidth: _strokeWidth = 2,
   ...rest
 }: Props) {
   const resolvedName = ICON_NAME_MAP[name] as React.ComponentProps<
     typeof Lucide
   >['name'];
-  return (
-    <Lucide
-      name={resolvedName}
-      size={size}
-      color={color}
-      strokeWidth={strokeWidth}
-      {...rest}
-    />
-  );
+  return <Lucide name={resolvedName} size={size} color={color} {...rest} />;
 }

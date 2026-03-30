@@ -2,9 +2,11 @@ import {
   completeHabit,
   createCategory,
   createHabit,
+  createNote,
   createTask,
   deleteCategory,
   deleteHabit,
+  deleteNote,
   deleteTask,
   fetchSyncPull,
   pauseHabitTimer,
@@ -12,6 +14,7 @@ import {
   uncompleteHabit,
   updateCategory,
   updateHabit,
+  updateNote,
   updateTask,
 } from '../../services/api';
 import {
@@ -25,6 +28,7 @@ import type {
   Habit,
   HabitCompletionRecord,
 } from '../../types/habit';
+import type {CreateNoteInput, Note, UpdateNoteInput} from '../../types/note';
 import type {CreateTaskInput, Task} from '../../types/task';
 import {initializeLocalDb} from './db';
 import {
@@ -32,6 +36,7 @@ import {
   getPendingQueueForSync,
   hardDeleteCategoryLocal,
   hardDeleteHabitLocal,
+  hardDeleteNoteLocal,
   hardDeleteTaskLocal,
   markEntitySynced,
   markEntityTerminal,
@@ -41,6 +46,7 @@ import {
   upsertCategoryFromRemote,
   upsertHabitFromRemote,
   upsertHabitHistoryFromRemote,
+  upsertNoteFromRemote,
   upsertTaskFromRemote,
 } from './repository';
 import type {SyncQueueItem} from './types';
@@ -84,6 +90,14 @@ function asCategoryCreate(payload: unknown): CreateCategoryInput {
 
 function asHabitCreate(payload: unknown): CreateHabitInput {
   return payload as CreateHabitInput;
+}
+
+function asNoteCreate(payload: unknown): CreateNoteInput {
+  return payload as CreateNoteInput;
+}
+
+function asNoteUpdate(payload: unknown): UpdateNoteInput {
+  return payload as UpdateNoteInput;
 }
 
 async function pushOperation(userId: string, op: SyncQueueItem): Promise<void> {
@@ -151,6 +165,26 @@ async function pushOperation(userId: string, op: SyncQueueItem): Promise<void> {
     if (op.action === 'delete') {
       await deleteHabit(op.entityId);
       await hardDeleteHabitLocal(userId, op.entityId);
+      return;
+    }
+  }
+
+  if (op.entity === 'note') {
+    if (op.action === 'create') {
+      const created = await createNote(asNoteCreate(payload));
+      await upsertNoteFromRemote(userId, created);
+      await markEntitySynced(userId, op.entity, op.entityId);
+      return;
+    }
+    if (op.action === 'update') {
+      const updated = await updateNote(op.entityId, asNoteUpdate(payload));
+      await upsertNoteFromRemote(userId, updated);
+      await markEntitySynced(userId, op.entity, op.entityId);
+      return;
+    }
+    if (op.action === 'delete') {
+      await deleteNote(op.entityId);
+      await hardDeleteNoteLocal(userId, op.entityId);
       return;
     }
   }
@@ -223,6 +257,9 @@ async function pullRemote(userId: string): Promise<void> {
   }
   for (const habit of snapshot.habits) {
     await upsertHabitFromRemote(userId, habit as Habit);
+  }
+  for (const note of snapshot.notes) {
+    await upsertNoteFromRemote(userId, note as Note);
   }
 
   await upsertHabitHistoryFromRemote(

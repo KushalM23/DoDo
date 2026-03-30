@@ -32,6 +32,7 @@ export function ReminderScheduleBootstrap() {
 
     const timeout = setTimeout(() => {
       void syncLocalReminderSchedules({
+        userId: user.id,
         tasks,
         habits,
         completionMap,

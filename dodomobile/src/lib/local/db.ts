@@ -145,6 +145,24 @@ export async function initializeLocalDb(): Promise<void> {
   `);
 
   await exec(`
+    CREATE TABLE IF NOT EXISTS notes_local (
+      id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      heading TEXT NOT NULL DEFAULT '',
+      content_rich TEXT NOT NULL DEFAULT '',
+      content_plain TEXT NOT NULL DEFAULT '',
+      is_pinned INTEGER NOT NULL DEFAULT 0,
+      pinned_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT,
+      last_modified_device_at TEXT NOT NULL,
+      sync_state TEXT NOT NULL DEFAULT 'pending',
+      PRIMARY KEY (id, user_id)
+    )
+  `);
+
+  await exec(`
     CREATE TABLE IF NOT EXISTS habit_completions_local (
       habit_id TEXT NOT NULL,
       user_id TEXT NOT NULL,
@@ -194,6 +212,15 @@ export async function initializeLocalDb(): Promise<void> {
     'CREATE INDEX IF NOT EXISTS idx_habits_local_user_deleted ON habits_local(user_id, deleted_at)',
   );
   await exec(
+    'CREATE INDEX IF NOT EXISTS idx_notes_local_user_pinned ON notes_local(user_id, is_pinned, pinned_at)',
+  );
+  await exec(
+    'CREATE INDEX IF NOT EXISTS idx_notes_local_user_updated ON notes_local(user_id, updated_at)',
+  );
+  await exec(
+    'CREATE INDEX IF NOT EXISTS idx_notes_local_user_deleted ON notes_local(user_id, deleted_at)',
+  );
+  await exec(
     'CREATE INDEX IF NOT EXISTS idx_habit_completions_local_user_date ON habit_completions_local(user_id, completed_on)',
   );
   await exec(
@@ -239,6 +266,9 @@ export async function purgeUserData(userId: string): Promise<void> {
       userId,
     ]);
     await tx.executeAsync('DELETE FROM habits_local WHERE user_id = ?', [
+      userId,
+    ]);
+    await tx.executeAsync('DELETE FROM notes_local WHERE user_id = ?', [
       userId,
     ]);
     await tx.executeAsync(

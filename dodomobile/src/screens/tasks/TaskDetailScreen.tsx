@@ -107,6 +107,7 @@ export function TaskDetailScreen() {
   const {preferences} = usePreferences();
 
   const taskId = route.params.taskId;
+  const openFocusFromNotification = route.params.openFocus === true;
   const task = tasks.find(t => t.id === taskId);
 
   const [activeTab, setActiveTab] = useState('');
@@ -155,6 +156,15 @@ export function TaskDetailScreen() {
 
     void startTimer(task).catch(() => {});
   }, [lockInMode, startTimer, task]);
+
+  useEffect(() => {
+    if (!task || !openFocusFromNotification || lockInMode) {
+      return;
+    }
+
+    setLockInMode(true);
+    navigation.setParams({openFocus: undefined});
+  }, [lockInMode, navigation, openFocusFromNotification, task]);
 
   useEffect(() => {
     return () => {

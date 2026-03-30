@@ -9,6 +9,7 @@ import type {
   Habit,
   HabitCompletionRecord,
 } from '../../types/habit';
+import type {CreateNoteInput, Note, UpdateNoteInput} from '../../types/note';
 import type {CreateTaskInput, Task} from '../../types/task';
 import {calculateHabitStreaks} from '../../utils/habits';
 import {query, initializeLocalDb} from './db';
@@ -144,6 +145,22 @@ function toHabit(row: any): Habit {
     nextOccurrenceOn: row.next_occurrence_on,
     timerStartedAt: row.timer_started_at,
     trackedSecondsToday: row.tracked_seconds_today ?? 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    lastModifiedDeviceAt: row.last_modified_device_at,
+    syncState: row.sync_state,
+  };
+}
+
+function toNote(row: any): Note {
+  return {
+    id: row.id,
+    heading: row.heading,
+    contentRich: row.content_rich,
+    contentPlain: row.content_plain,
+    isPinned: Boolean(row.is_pinned),
+    pinnedAt: row.pinned_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -601,6 +618,219 @@ export async function hardDeleteTaskLocal(
   await query('DELETE FROM tasks_local WHERE user_id = ? AND id = ?', [
     userId,
     taskId,
+  ]);
+}
+
+export async function listNotesLocal(userId: string): Promise<Note[]> {
+  await initializeLocalDb();
+  const rows = await query<any>(
+    `SELECT * FROM notes_local
+     WHERE user_id = ? AND deleted_at IS NULL
+     ORDER BY
+       is_pinned DESC,
+       CASE WHEN is_pinned = 1 THEN pinned_at END DESC,
+       CASE WHEN is_pinned = 0 THEN updated_at END DESC`,
+    [userId],
+  );
+  return rows.map(toNote);
+}
+
+export async function upsertNoteFromRemote(
+  userId: string,
+  note: Note,
+): Promise<void> {
+  await initializeLocalDb();
+  const now = nowIso();
+  await query(
+    `INSERT OR REPLACE INTO notes_local (
+      id, user_id, heading, content_rich, content_plain,
+      is_pinned, pinned_at, created_at, updated_at, deleted_at,
+      last_modified_device_at, sync_state
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+    [
+      note.id,
+      userId,
+      note.heading,
+      note.contentRich,
+      note.contentPlain,
+      note.isPinned ? 1 : 0,
+      note.pinnedAt ?? null,
+      note.createdAt,
+      note.updatedAt ?? now,
+      note.deletedAt ?? null,
+      now,
+    ],
+  );
+}
+
+export async function createNoteLocal(
+  userId: string,
+  input: CreateNoteInput,
+): Promise<Note> {
+  await initializeLocalDb();
+  const now = nowIso();
+  const id = generateUuid();
+  const isPinned = Boolean(input.isPinned);
+  const note: Note = {
+    id,
+    heading: input.heading ?? '',
+    contentRich: input.contentRich ?? '',
+    contentPlain: input.contentPlain ?? '',
+    isPinned,
+    pinnedAt: isPinned ? input.pinnedAt ?? now : null,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+    lastModifiedDeviceAt: now,
+    syncState: 'pending',
+  };
+
+  await query(
+    `INSERT INTO notes_local (
+      id, user_id, heading, content_rich, content_plain,
+      is_pinned, pinned_at, created_at, updated_at, deleted_at,
+      last_modified_device_at, sync_state
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      note.id,
+      userId,
+      note.heading,
+      note.contentRich,
+      note.contentPlain,
+      note.isPinned ? 1 : 0,
+      note.pinnedAt,
+      note.createdAt,
+      note.updatedAt,
+      note.deletedAt,
+      note.lastModifiedDeviceAt,
+      note.syncState,
+    ],
+  );
+
+  await enqueueSyncOp({
+    userId,
+    entity: 'note',
+    entityId: note.id,
+    action: 'create',
+    payload: {
+      id: note.id,
+      heading: note.heading,
+      contentRich: note.contentRich,
+      contentPlain: note.contentPlain,
+      isPinned: note.isPinned,
+      pinnedAt: note.pinnedAt,
+    },
+  });
+
+  return note;
+}
+
+export async function updateNoteLocal(
+  userId: string,
+  noteId: string,
+  updates: UpdateNoteInput,
+): Promise<Note | null> {
+  await initializeLocalDb();
+  const existingRows = await query<any>(
+    'SELECT * FROM notes_local WHERE user_id = ? AND id = ? LIMIT 1',
+    [userId, noteId],
+  );
+  if (existingRows.length === 0) {
+    return null;
+  }
+
+  const existing = toNote(existingRows[0]);
+  const now = nowIso();
+
+  let nextPinnedAt = existing.pinnedAt;
+  if (typeof updates.isPinned === 'boolean') {
+    if (updates.isPinned) {
+      nextPinnedAt = updates.pinnedAt ?? existing.pinnedAt ?? now;
+    } else {
+      nextPinnedAt = null;
+    }
+  } else if (typeof updates.pinnedAt !== 'undefined') {
+    nextPinnedAt = updates.pinnedAt;
+  }
+
+  const next: Note = {
+    ...existing,
+    ...updates,
+    pinnedAt: nextPinnedAt,
+    updatedAt: now,
+    lastModifiedDeviceAt: now,
+    syncState: 'pending',
+  };
+
+  await query(
+    `UPDATE notes_local SET
+      heading = ?,
+      content_rich = ?,
+      content_plain = ?,
+      is_pinned = ?,
+      pinned_at = ?,
+      updated_at = ?,
+      last_modified_device_at = ?,
+      sync_state = 'pending'
+     WHERE user_id = ? AND id = ?`,
+    [
+      next.heading,
+      next.contentRich,
+      next.contentPlain,
+      next.isPinned ? 1 : 0,
+      next.pinnedAt,
+      next.updatedAt,
+      next.lastModifiedDeviceAt,
+      userId,
+      noteId,
+    ],
+  );
+
+  await enqueueSyncOp({
+    userId,
+    entity: 'note',
+    entityId: noteId,
+    action: 'update',
+    payload: {
+      ...updates,
+      isPinned: next.isPinned,
+      pinnedAt: next.pinnedAt,
+    } as QueuePayload,
+  });
+
+  return next;
+}
+
+export async function softDeleteNoteLocal(
+  userId: string,
+  noteId: string,
+): Promise<void> {
+  await initializeLocalDb();
+  const now = nowIso();
+  await query(
+    `UPDATE notes_local
+     SET deleted_at = ?, updated_at = ?, last_modified_device_at = ?, sync_state = 'pending'
+     WHERE user_id = ? AND id = ?`,
+    [now, now, now, userId, noteId],
+  );
+
+  await enqueueSyncOp({
+    userId,
+    entity: 'note',
+    entityId: noteId,
+    action: 'delete',
+    payload: {},
+  });
+}
+
+export async function hardDeleteNoteLocal(
+  userId: string,
+  noteId: string,
+): Promise<void> {
+  await initializeLocalDb();
+  await query('DELETE FROM notes_local WHERE user_id = ? AND id = ?', [
+    userId,
+    noteId,
   ]);
 }
 
@@ -1214,6 +1444,14 @@ export async function markEntitySynced(
     );
     return;
   }
+  if (entity === 'note') {
+    await query(
+      `UPDATE notes_local SET sync_state = 'synced', updated_at = ?
+       WHERE user_id = ? AND id = ?`,
+      [now, userId, entityId],
+    );
+    return;
+  }
   if (entity === 'category') {
     await query(
       `UPDATE categories_local SET sync_state = 'synced', updated_at = ?
@@ -1249,6 +1487,14 @@ export async function markEntityTerminal(
   if (entity === 'habit') {
     await query(
       `UPDATE habits_local SET sync_state = 'terminal_local_only', updated_at = ?
+       WHERE user_id = ? AND id = ?`,
+      [now, userId, entityId],
+    );
+    return;
+  }
+  if (entity === 'note') {
+    await query(
+      `UPDATE notes_local SET sync_state = 'terminal_local_only', updated_at = ?
        WHERE user_id = ? AND id = ?`,
       [now, userId, entityId],
     );

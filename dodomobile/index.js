@@ -3,7 +3,7 @@ import messaging from '@react-native-firebase/messaging';
 import notifee, {EventType} from '@notifee/react-native';
 import {name as appName} from './app.json';
 import {
-  handleBackgroundNotificationPress,
+  handleBackgroundNotificationEvent,
   handleBackgroundRemoteMessage,
 } from './src/services/notifications';
 
@@ -41,9 +41,9 @@ messaging().setBackgroundMessageHandler(async remoteMessage => {
   await handleBackgroundRemoteMessage(remoteMessage);
 });
 
-notifee.onBackgroundEvent(async ({type, detail}) => {
-  if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
-    handleBackgroundNotificationPress(detail.notification?.data);
+notifee.onBackgroundEvent(async event => {
+  if (event.type === EventType.PRESS || event.type === EventType.ACTION_PRESS) {
+    await handleBackgroundNotificationEvent(event);
   }
 });
 

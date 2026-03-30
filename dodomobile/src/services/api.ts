@@ -12,6 +12,7 @@ import type {
   Habit,
   HabitCompletionRecord,
 } from '../types/habit';
+import type {CreateNoteInput, Note, UpdateNoteInput} from '../types/note';
 
 type ApiMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
@@ -288,6 +289,29 @@ export async function deleteHabit(habitId: string): Promise<void> {
   await apiRequest<void>(`/habits/${habitId}`, 'DELETE');
 }
 
+export async function createNote(
+  input: CreateNoteInput & {id?: string},
+): Promise<Note> {
+  const data = await apiRequest<{note: Note}>('/notes', 'POST', input);
+  return data.note;
+}
+
+export async function updateNote(
+  noteId: string,
+  updates: UpdateNoteInput,
+): Promise<Note> {
+  const data = await apiRequest<{note: Note}>(
+    `/notes/${noteId}`,
+    'PATCH',
+    updates,
+  );
+  return data.note;
+}
+
+export async function deleteNote(noteId: string): Promise<void> {
+  await apiRequest<void>(`/notes/${noteId}`, 'DELETE');
+}
+
 export type HabitCompletionMutationResponse = {
   habit: Habit;
   completion: HabitCompletionRecord;
@@ -343,6 +367,7 @@ export type SyncPullResponse = {
   tasks: Task[];
   categories: Category[];
   habits: Habit[];
+  notes: Note[];
   habitCompletions: HabitCompletionRecord[];
   serverTime: string;
 };

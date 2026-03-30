@@ -1,16 +1,21 @@
 import {
   AndroidImportance,
+  AndroidStyle,
   AuthorizationStatus,
   EventType,
   TriggerType,
   type Event,
+  type Notification,
   type TriggerNotification,
 } from '@notifee/react-native';
 import notifee from '@notifee/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import messaging, {
   FirebaseMessagingTypes,
 } from '@react-native-firebase/messaging';
 import {PermissionsAndroid, Platform} from 'react-native';
+import {runSync} from '../lib/local/syncEngine';
+import {setHabitCompletedLocal, updateTaskLocal} from '../lib/local/repository';
 import {handleNotificationNavigation} from '../navigation/navigationRef';
 import {habitAppliesToDate} from '../utils/habits';
 import type {Task} from '../types/task';
@@ -18,8 +23,17 @@ import type {Habit} from '../types/habit';
 
 const DEFAULT_CHANNEL_ID = 'dodo-default';
 const TASK_REMINDER_CHANNEL_ID = 'dodo-task-reminders';
+const REMINDER_ACTIONS_CATEGORY_ID = 'dodo-reminder-actions';
+const REMINDER_ACTION_LOCK_IN = 'lock_in';
+const REMINDER_ACTION_COMPLETE = 'complete';
+const REMINDER_ACTION_SNOOZE = 'snooze';
 const TASK_REMINDER_NOTIFICATION_PREFIX = 'task-reminder-';
 const HABIT_REMINDER_NOTIFICATION_PREFIX = 'habit-reminder-';
+const TASK_SNOOZE_NOTIFICATION_PREFIX = 'task-snooze-';
+const HABIT_SNOOZE_NOTIFICATION_PREFIX = 'habit-snooze-';
+const PREFERENCES_KEY = '@dodo/preferences';
+const AUTH_USER_KEY = '@dodo/auth_user';
+const DEFAULT_SNOOZE_MINUTES = 5;
 const HABIT_REMINDER_LOOKAHEAD_DAYS = 14;
 
 type NotificationContext = 'foreground' | 'background';
@@ -35,6 +49,7 @@ type ReminderNotificationDefinition = {
 };
 
 type ReminderSchedulePayload = {
+  userId: string;
   tasks: Task[];
   habits: Habit[];
   completionMap: Record<string, Record<string, boolean>>;
@@ -194,13 +209,66 @@ function isReminderNotificationId(id: string | undefined): boolean {
   if (!id) {
     return false;
   }
+
+  return (
+    isScheduledReminderNotificationId(id) || isSnoozedReminderNotificationId(id)
+  );
+}
+
+function isScheduledReminderNotificationId(id: string): boolean {
   return (
     id.startsWith(TASK_REMINDER_NOTIFICATION_PREFIX) ||
     id.startsWith(HABIT_REMINDER_NOTIFICATION_PREFIX)
   );
 }
 
+function isSnoozedReminderNotificationId(id: string): boolean {
+  return (
+    id.startsWith(TASK_SNOOZE_NOTIFICATION_PREFIX) ||
+    id.startsWith(HABIT_SNOOZE_NOTIFICATION_PREFIX)
+  );
+}
+
+function isReminderData(data: NotificationData | undefined): boolean {
+  if (!data) {
+    return false;
+  }
+  return Boolean(data.taskId || data.habitId);
+}
+
+function getReminderAndroidActions() {
+  return [
+    {
+      title: 'Lock in',
+      pressAction: {
+        id: REMINDER_ACTION_LOCK_IN,
+        launchActivity: 'default' as const,
+      },
+    },
+    {
+      title: 'Complete',
+      pressAction: {
+        id: REMINDER_ACTION_COMPLETE,
+      },
+    },
+    {
+      title: 'Snooze',
+      pressAction: {
+        id: REMINDER_ACTION_SNOOZE,
+      },
+    },
+  ];
+}
+
+function getReminderAndroidStyle(title: string) {
+  return {
+    type: AndroidStyle.BIGTEXT as const,
+    text: title,
+  };
+}
+
 function buildTaskReminderDefinitions(
+  userId: string,
   tasks: Task[],
   nowMs: number,
 ): ReminderNotificationDefinition[] {
@@ -219,11 +287,14 @@ function buildTaskReminderDefinitions(
     definitions.push({
       id: `${TASK_REMINDER_NOTIFICATION_PREFIX}${task.id}`,
       title: task.title,
-      body: 'Task time is now.',
+      body: '',
       timestamp,
       data: {
         screen: 'TaskDetail',
         taskId: task.id,
+        userId,
+        kind: 'task',
+        entityTitle: task.title,
       },
     });
   }
@@ -232,6 +303,7 @@ function buildTaskReminderDefinitions(
 }
 
 function buildHabitReminderDefinitions(
+  userId: string,
   habits: Habit[],
   completionMap: Record<string, Record<string, boolean>>,
   now: Date,
@@ -273,12 +345,15 @@ function buildHabitReminderDefinitions(
       definitions.push({
         id: `${HABIT_REMINDER_NOTIFICATION_PREFIX}${habit.id}-${dateKey}`,
         title: habit.title,
-        body: 'Habit time is now.',
+        body: '',
         timestamp,
         data: {
           screen: 'HabitDetail',
           habitId: habit.id,
           date: dateKey,
+          userId,
+          kind: 'habit',
+          entityTitle: habit.title,
         },
       });
     }
@@ -294,7 +369,9 @@ async function cancelStaleReminderTriggers(
   const staleIds = existingTriggers
     .map(item => item.notification.id)
     .filter((id): id is string =>
-      Boolean(id && isReminderNotificationId(id) && !desiredIds.has(id)),
+      Boolean(
+        id && isScheduledReminderNotificationId(id) && !desiredIds.has(id),
+      ),
     );
 
   await Promise.all(staleIds.map(id => notifee.cancelNotification(id)));
@@ -312,6 +389,11 @@ export async function clearLocalReminderSchedules(): Promise<void> {
 async function scheduleReminderDefinition(
   definition: ReminderNotificationDefinition,
 ): Promise<void> {
+  const reminderActions = getReminderAndroidActions();
+
+  // Recreate the trigger so behavior/style changes are applied to existing IDs.
+  await notifee.cancelNotification(definition.id).catch(() => undefined);
+
   await notifee.createTriggerNotification(
     {
       id: definition.id,
@@ -323,10 +405,13 @@ async function scheduleReminderDefinition(
         pressAction: {
           id: 'default',
         },
+        actions: reminderActions,
+        style: getReminderAndroidStyle(definition.title),
         smallIcon: 'ic_launcher',
         importance: AndroidImportance.HIGH,
       },
       ios: {
+        categoryId: REMINDER_ACTIONS_CATEGORY_ID,
         foregroundPresentationOptions: {
           badge: true,
           sound: true,
@@ -350,8 +435,13 @@ export async function syncLocalReminderSchedules(
   const now = new Date();
   const nowMs = now.getTime();
 
-  const taskDefinitions = buildTaskReminderDefinitions(payload.tasks, nowMs);
+  const taskDefinitions = buildTaskReminderDefinitions(
+    payload.userId,
+    payload.tasks,
+    nowMs,
+  );
   const habitDefinitions = buildHabitReminderDefinitions(
+    payload.userId,
     payload.habits,
     payload.completionMap,
     now,
@@ -401,6 +491,10 @@ async function displayRemoteMessage(
       pressAction: {
         id: 'default',
       },
+      actions: isReminderData(payload.data) ? getReminderAndroidActions() : [],
+      style: isReminderData(payload.data)
+        ? getReminderAndroidStyle(payload.title)
+        : undefined,
       smallIcon: 'ic_launcher',
       importance:
         payload.channelId === TASK_REMINDER_CHANNEL_ID
@@ -408,6 +502,9 @@ async function displayRemoteMessage(
           : AndroidImportance.DEFAULT,
     },
     ios: {
+      categoryId: isReminderData(payload.data)
+        ? REMINDER_ACTIONS_CATEGORY_ID
+        : undefined,
       foregroundPresentationOptions: {
         badge: true,
         sound: true,
@@ -428,13 +525,246 @@ function handlePressedNotificationData(
   handleNotificationNavigation(data);
 }
 
-function handleNotifeeEvent(event: Event): void {
-  if (event.type === EventType.PRESS || event.type === EventType.ACTION_PRESS) {
+function getResolvedReminderTitle(
+  notification: Notification | undefined,
+  data: NotificationData,
+): string {
+  const title = notification?.title?.trim();
+  if (title) {
+    return title;
+  }
+  return data.entityTitle ?? data.title ?? 'DoDo Reminder';
+}
+
+async function getNotificationUserId(
+  data: NotificationData,
+): Promise<string | null> {
+  if (data.userId) {
+    return data.userId;
+  }
+
+  try {
+    const stored = await AsyncStorage.getItem(AUTH_USER_KEY);
+    if (!stored) {
+      return null;
+    }
+    const parsed = JSON.parse(stored) as {id?: unknown};
+    return typeof parsed?.id === 'string' ? parsed.id : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getDefaultSnoozeMinutes(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(PREFERENCES_KEY);
+    if (!raw) {
+      return DEFAULT_SNOOZE_MINUTES;
+    }
+
+    const parsed = JSON.parse(raw) as {defaultSnoozeMinutes?: unknown};
+    if (
+      typeof parsed.defaultSnoozeMinutes === 'number' &&
+      Number.isFinite(parsed.defaultSnoozeMinutes)
+    ) {
+      return Math.max(
+        1,
+        Math.min(1440, Math.round(parsed.defaultSnoozeMinutes)),
+      );
+    }
+
+    return DEFAULT_SNOOZE_MINUTES;
+  } catch {
+    return DEFAULT_SNOOZE_MINUTES;
+  }
+}
+
+function getTaskSnoozeNotificationId(taskId: string): string {
+  return `${TASK_SNOOZE_NOTIFICATION_PREFIX}${taskId}-${Date.now()}`;
+}
+
+function getHabitSnoozeNotificationId(habitId: string, date: string): string {
+  return `${HABIT_SNOOZE_NOTIFICATION_PREFIX}${habitId}-${date}-${Date.now()}`;
+}
+
+async function completeReminderFromData(data: NotificationData): Promise<void> {
+  const userId = await getNotificationUserId(data);
+  if (!userId) {
+    devWarn('Unable to complete reminder; missing user id', data);
+    return;
+  }
+
+  if (data.taskId) {
+    await updateTaskLocal(userId, data.taskId, {completed: true});
+    await runSync(userId, 'manual');
+    return;
+  }
+
+  if (data.habitId) {
+    const targetDate = data.date ?? localDateKey(new Date());
+    await setHabitCompletedLocal({
+      userId,
+      habitId: data.habitId,
+      date: targetDate,
+      completed: true,
+    });
+    await runSync(userId, 'manual');
+  }
+}
+
+async function cancelReminderNotificationsForData(
+  data: NotificationData,
+  currentNotificationId?: string,
+): Promise<void> {
+  const ids = new Set<string>();
+
+  if (currentNotificationId) {
+    ids.add(currentNotificationId);
+  }
+
+  if (data.taskId) {
+    ids.add(`${TASK_REMINDER_NOTIFICATION_PREFIX}${data.taskId}`);
+  }
+
+  if (data.habitId && data.date) {
+    ids.add(
+      `${HABIT_REMINDER_NOTIFICATION_PREFIX}${data.habitId}-${data.date}`,
+    );
+  }
+
+  const existingTriggers = await notifee.getTriggerNotifications();
+  for (const item of existingTriggers) {
+    const id = item.notification.id;
+    if (!id) {
+      continue;
+    }
+
+    if (
+      data.taskId &&
+      id.startsWith(`${TASK_SNOOZE_NOTIFICATION_PREFIX}${data.taskId}-`)
+    ) {
+      ids.add(id);
+    }
+
+    if (
+      data.habitId &&
+      data.date &&
+      id.startsWith(
+        `${HABIT_SNOOZE_NOTIFICATION_PREFIX}${data.habitId}-${data.date}-`,
+      )
+    ) {
+      ids.add(id);
+    }
+  }
+
+  await Promise.all(
+    Array.from(ids).map(id =>
+      notifee.cancelNotification(id).catch(error => {
+        devWarn('Unable to cancel reminder notification', error);
+      }),
+    ),
+  );
+}
+
+async function handleReminderActionPress(
+  actionId: string,
+  data: NotificationData,
+  notification: Notification | undefined,
+  context: NotificationContext,
+): Promise<void> {
+  if (actionId === REMINDER_ACTION_LOCK_IN) {
+    handlePressedNotificationData({...data, openFocus: '1'});
+    return;
+  }
+
+  if (actionId === REMINDER_ACTION_COMPLETE) {
+    await completeReminderFromData(data);
+    await cancelReminderNotificationsForData(data, notification?.id);
+    return;
+  }
+
+  if (actionId === REMINDER_ACTION_SNOOZE) {
+    await cancelReminderNotificationsForData(data, notification?.id);
+    const snoozeMinutes = await getDefaultSnoozeMinutes();
+    await scheduleSnoozedReminder(
+      data,
+      getResolvedReminderTitle(notification, data),
+      snoozeMinutes,
+    );
+    return;
+  }
+
+  handlePressedNotificationData(data);
+}
+
+async function handleNotifeeEventInternal(
+  event: Event,
+  context: NotificationContext,
+): Promise<void> {
+  if (event.type === EventType.ACTION_PRESS) {
+    const data = event.detail.notification?.data as
+      | NotificationData
+      | undefined;
+
+    if (!data) {
+      return;
+    }
+
+    const actionId = event.detail.pressAction?.id ?? 'default';
+    await handleReminderActionPress(
+      actionId,
+      data,
+      event.detail.notification,
+      context,
+    );
+    return;
+  }
+
+  if (event.type === EventType.PRESS) {
     const data = event.detail.notification?.data as
       | NotificationData
       | undefined;
     handlePressedNotificationData(data);
   }
+}
+
+export async function scheduleSnoozedReminder(
+  data: NotificationData,
+  title: string,
+  minutes: number,
+): Promise<void> {
+  const safeMinutes = Math.max(1, Math.min(1440, Math.round(minutes)));
+  const timestamp = Date.now() + safeMinutes * 60 * 1000;
+  const resolvedTitle = title.trim() || data.entityTitle || 'DoDo Reminder';
+  const reminderData: NotificationData = {
+    ...data,
+    snoozed: '1',
+  };
+
+  let id: string;
+  if (reminderData.taskId) {
+    id = getTaskSnoozeNotificationId(reminderData.taskId);
+  } else if (reminderData.habitId) {
+    const date = reminderData.date ?? localDateKey(new Date());
+    reminderData.date = date;
+    id = getHabitSnoozeNotificationId(reminderData.habitId, date);
+  } else {
+    id = `snooze-${Date.now()}`;
+  }
+
+  await scheduleReminderDefinition({
+    id,
+    title: resolvedTitle,
+    body: '',
+    timestamp,
+    data: reminderData,
+  });
+}
+
+function handleNotifeeEvent(event: Event): void {
+  void handleNotifeeEventInternal(event, 'foreground').catch(error => {
+    devWarn('Unable to handle notification event', error);
+  });
 }
 
 export async function getCurrentFcmToken(): Promise<string | null> {
@@ -462,6 +792,29 @@ export async function registerNotificationHandlers(
 
   await createNotificationChannels();
   await requestNotificationPermission();
+
+  await notifee.setNotificationCategories([
+    {
+      id: REMINDER_ACTIONS_CATEGORY_ID,
+      actions: [
+        {
+          id: REMINDER_ACTION_LOCK_IN,
+          title: 'Lock in',
+          foreground: true,
+        },
+        {
+          id: REMINDER_ACTION_COMPLETE,
+          title: 'Complete',
+          foreground: false,
+        },
+        {
+          id: REMINDER_ACTION_SNOOZE,
+          title: 'Snooze',
+          foreground: false,
+        },
+      ],
+    },
+  ]);
 
   const currentToken = await getCurrentFcmToken();
   if (currentToken) {
@@ -512,8 +865,15 @@ export async function registerNotificationHandlers(
   try {
     const initialNotifeeNotification = await notifee.getInitialNotification();
     if (initialNotifeeNotification?.notification?.data) {
-      handlePressedNotificationData(
-        initialNotifeeNotification.notification.data as NotificationData,
+      const data = initialNotifeeNotification.notification
+        .data as NotificationData;
+      const actionId = initialNotifeeNotification.pressAction?.id ?? 'default';
+
+      await handleReminderActionPress(
+        actionId,
+        data,
+        initialNotifeeNotification.notification,
+        'foreground',
       );
     }
   } catch (error) {
@@ -540,8 +900,12 @@ export async function handleBackgroundRemoteMessage(
   }
 }
 
-export function handleBackgroundNotificationPress(
-  data: NotificationData | undefined,
-): void {
-  handlePressedNotificationData(data);
+export async function handleBackgroundNotificationEvent(
+  event: Event,
+): Promise<void> {
+  try {
+    await handleNotifeeEventInternal(event, 'background');
+  } catch (error) {
+    devWarn('Unable to handle background notification event', error);
+  }
 }

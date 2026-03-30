@@ -11,6 +11,7 @@ import {AuthProvider} from './src/state/AuthContext';
 import {TasksProvider} from './src/state/TasksContext';
 import {CategoriesProvider} from './src/state/CategoriesContext';
 import {HabitsProvider} from './src/state/HabitsContext';
+import {NotesProvider} from './src/state/NotesContext';
 import {
   PreferencesProvider,
   usePreferences,
@@ -58,17 +59,19 @@ function AppNavigation() {
         <NotificationsBootstrap />
         <CategoriesProvider>
           <HabitsProvider>
-            <TasksProvider>
-              <SyncProvider>
-                <ReminderScheduleBootstrap />
-                <NavigationContainer
-                  ref={navigationRef}
-                  theme={navTheme}
-                  onReady={flushPendingNotificationNavigation}>
-                  <RootNavigator />
-                </NavigationContainer>
-              </SyncProvider>
-            </TasksProvider>
+            <NotesProvider>
+              <TasksProvider>
+                <SyncProvider>
+                  <ReminderScheduleBootstrap />
+                  <NavigationContainer
+                    ref={navigationRef}
+                    theme={navTheme}
+                    onReady={flushPendingNotificationNavigation}>
+                    <RootNavigator />
+                  </NavigationContainer>
+                </SyncProvider>
+              </TasksProvider>
+            </NotesProvider>
           </HabitsProvider>
         </CategoriesProvider>
       </AuthProvider>
