@@ -210,6 +210,7 @@ export function HabitForm({
       onSubmit={handleSubmit}
       busy={busy}
       submitLabel={mode === 'edit' ? 'Save' : 'Add'}
+      busyLabel={mode === 'edit' ? 'Saving...' : 'Adding...'}
       nameValue={title}
       onNameChange={setTitle}
       namePlaceholder="Habit name"

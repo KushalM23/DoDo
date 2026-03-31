@@ -469,7 +469,7 @@ export function TaskDetailScreen() {
           void handleExitFocus();
         }}
         actionLabel={task.completed ? 'Undo' : 'Complete'}
-        actionIconName="check"
+        actionIconName={task.completed ? 'rotate-ccw' : 'check'}
         onActionPress={handleComplete}
         actionDisabled={busy || savingDetails}
         actionDone={task.completed}
@@ -707,7 +707,7 @@ export function TaskDetailScreen() {
             onPress={handleComplete}
             disabled={busy || savingDetails}>
             <AppIcon
-              name="check"
+              name={task.completed ? 'rotate-ccw' : 'check'}
               size={18}
               color={task.completed ? colors.accent : '#fff'}
             />

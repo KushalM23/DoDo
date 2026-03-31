@@ -39,6 +39,7 @@ type FormPopupProps = {
   onSubmit: () => void;
   busy: boolean;
   submitLabel: string;
+  busyLabel?: string;
   nameValue: string;
   onNameChange: (text: string) => void;
   namePlaceholder: string;
@@ -79,6 +80,7 @@ export function FormPopup({
   onSubmit,
   busy,
   submitLabel,
+  busyLabel,
   nameValue,
   onNameChange,
   namePlaceholder,
@@ -236,7 +238,7 @@ export function FormPopup({
                 disabled={busy || !nameValue.trim()}>
                 <AppIcon name="plus" size={18} color="#fff" />
                 <Text style={styles.submitBtnText}>
-                  {busy ? 'Adding...' : submitLabel}
+                  {busy ? busyLabel ?? `${submitLabel}...` : submitLabel}
                 </Text>
               </Pressable>
             </View>
