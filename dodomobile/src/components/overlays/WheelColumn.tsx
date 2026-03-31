@@ -13,6 +13,7 @@ import {
 import {fontSize, spacing} from '../../theme/colors';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
+import {hapticImpact} from '../../utils/haptics';
 
 type WheelColumnProps = {
   items: string[];
@@ -207,6 +208,21 @@ export function WheelColumn({
   const sideItemCount = Math.floor(visibleRowCount / 2);
   const verticalPadding = (itemHeight * (visibleRowCount - 1)) / 2;
   const [layoutReady, setLayoutReady] = useState(false);
+
+  // Haptics during scroll
+  const lastHapticIndexRef = useRef(selectedIndex);
+  useEffect(() => {
+    const id = scrollOffsetY.addListener(({ value }) => {
+      const index = Math.round(value / itemHeight);
+      if (index !== lastHapticIndexRef.current && index >= 0 && index < items.length) {
+        lastHapticIndexRef.current = index;
+        hapticImpact('soft');
+      }
+    });
+    return () => {
+      scrollOffsetY.removeListener(id);
+    };
+  }, [scrollOffsetY, itemHeight, items.length]);
 
   const clampIndex = useCallback(
     (index: number) => Math.max(0, Math.min(items.length - 1, index)),

@@ -1,4 +1,5 @@
 import {AppRegistry, Platform, StyleSheet} from 'react-native';
+import TrackPlayer from 'react-native-track-player';
 import messaging from '@react-native-firebase/messaging';
 import notifee, {EventType} from '@notifee/react-native';
 import {name as appName} from './app.json';
@@ -48,3 +49,4 @@ notifee.onBackgroundEvent(async event => {
 });
 
 AppRegistry.registerComponent(appName, () => App);
+TrackPlayer.registerPlaybackService(() => require('./src/services/player-service'));

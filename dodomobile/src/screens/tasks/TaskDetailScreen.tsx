@@ -32,6 +32,8 @@ import {
   useThemeColors,
   useThemeMode,
 } from '../../theme/ThemeProvider';
+import {playFocusEnterSound, playFocusExitSound} from '../../utils/sounds';
+import {hapticImpact} from '../../utils/haptics';
 import type {RootStackParamList} from '../../navigation/RootNavigator';
 import type {CreateTaskInput, Priority, Task} from '../../types/task';
 import {formatDate, formatDateTime, formatTime} from '../../utils/dateTime';
@@ -163,6 +165,8 @@ export function TaskDetailScreen() {
     }
 
     setLockInMode(true);
+    playFocusEnterSound();
+    hapticImpact('heavy');
     navigation.setParams({openFocus: undefined});
   }, [lockInMode, navigation, openFocusFromNotification, task]);
 
@@ -322,6 +326,8 @@ export function TaskDetailScreen() {
     }
 
     setLockInMode(false);
+    playFocusExitSound();
+    hapticImpact('soft');
 
     try {
       if (!task.completed && task.timerStartedAt) {
@@ -690,7 +696,11 @@ export function TaskDetailScreen() {
       <View style={styles.floatingActions}>
         <HoldToConfirmButton
           iconName="lock"
-          onHoldComplete={() => setLockInMode(true)}
+          onHoldComplete={() => {
+            setLockInMode(true);
+            playFocusEnterSound();
+            hapticImpact('heavy');
+          }}
           holdDurationMs={1500}
           size={84}
           style={styles.lockInBtn}

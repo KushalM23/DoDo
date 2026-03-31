@@ -22,6 +22,7 @@ import {fontSize} from '../theme/colors';
 import {fonts} from '../theme/fonts';
 import {useThemeColors} from '../theme/ThemeProvider';
 import {AppIcon, type AppIconName} from '../components/AppIcon';
+import {hapticImpact} from '../utils/haptics';
 
 // Enable LayoutAnimation on Android
 if (
@@ -175,6 +176,9 @@ function CustomTabBar({state, navigation}: BottomTabBarProps) {
             const isFocused = state.index === index;
 
             const onPress = () => {
+              if (!isFocused) {
+                hapticImpact('light');
+              }
               const event = navigation.emit({
                 type: 'tabPress',
                 target: route.key,

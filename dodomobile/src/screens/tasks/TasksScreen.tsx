@@ -37,6 +37,8 @@ import {
 import {sortTasks} from '../../utils/taskSort';
 import {habitAppliesToDate, minuteToIso} from '../../utils/habits';
 import {toLocalDateKey} from '../../utils/dateTime';
+import {hapticImpact, hapticSuccess} from '../../utils/haptics';
+import {playTaskCompleteSound} from '../../utils/sounds';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import type {CreateTaskInput, Task} from '../../types/task';
@@ -627,6 +629,13 @@ export function TasksScreen() {
   }
 
   function handleToggle(task: DisplayTask) {
+    if (!task.completed) {
+      hapticSuccess();
+      playTaskCompleteSound();
+    } else {
+      hapticImpact('light');
+    }
+    
     if (task._isHabit) {
       void setHabitCompletedOn(
         task._habitId!,
@@ -704,7 +713,10 @@ export function TasksScreen() {
         style={[styles.fabContainer, {transform: [{scale: addBtnScale}]}]}>
         <Pressable
           style={styles.fab}
-          onPress={() => setFormVisible(true)}
+          onPress={() => {
+            hapticImpact('medium');
+            setFormVisible(true);
+          }}
           onPressIn={() =>
             Animated.spring(addBtnScale, {
               toValue: 0.9,
