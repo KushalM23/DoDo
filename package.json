@@ -3,14 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "workspaces": [
-    "dodomobile"
+    "dodomobile",
+    "dodoweb"
   ],
   "scripts": {
     "backend:dev": "cd backend && python run.py",
     "mobile:start": "npm --prefix dodomobile run start",
     "mobile:android": "npm --prefix dodomobile run android",
     "mobile:ios": "npm --prefix dodomobile run ios",
-    "mobile:typecheck": "npm --prefix dodomobile run typecheck"
+    "mobile:typecheck": "npm --prefix dodomobile run typecheck",
+    "web:dev": "npm --prefix dodoweb run dev",
+    "web:build": "npm --prefix dodoweb run build",
+    "web:typecheck": "npm --prefix dodoweb run typecheck"
   },
   "dependencies": {
     "react-native-shadow-2": "^7.1.2"
