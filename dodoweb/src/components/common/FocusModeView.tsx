@@ -1,4 +1,5 @@
 import React from 'react';
+import {cx, tw} from '@/lib/tw';
 import {darkColors} from '@/theme/ThemeProvider';
 import {AppIcon, type AppIconName} from './AppIcon';
 import {HoldToConfirmButton} from './HoldToConfirmButton';
@@ -53,41 +54,38 @@ export function FocusModeView({
 
   return (
     <div
-      className="focus-mode"
+      className="grid min-h-screen place-items-center gap-[18px] bg-background p-10 px-6 text-text"
       style={
         {
-          '--focus-background': darkColors.background,
-          '--focus-text': darkColors.text,
-          '--focus-muted': darkColors.mutedText,
-          '--focus-accent': darkColors.accent,
-          '--focus-surface': darkColors.surface,
+          background: darkColors.background,
+          color: darkColors.text,
         } as React.CSSProperties
       }>
-      <div className="focus-clock-wrap">
-        <div className="focus-clock-line">{twoDigits(hour)}</div>
-        <div className="focus-clock-line">{twoDigits(now.getMinutes())}</div>
+      <div className="grid place-items-center gap-3">
+        <div className="font-display text-[clamp(84px,16vw,140px)] leading-[0.95]">{twoDigits(hour)}</div>
+        <div className="font-display text-[clamp(84px,16vw,140px)] leading-[0.95]">{twoDigits(now.getMinutes())}</div>
       </div>
 
-      <div className="focus-info-block">
+      <div className="grid place-items-center gap-2 text-center">
         {infoIconName ? <AppIcon name={infoIconName} size={24} color={infoIconColor ?? darkColors.text} /> : null}
-        <h1>{title}</h1>
+        <h1 className="m-0 font-display-semibold text-[30px] tracking-[-0.7px]">{title}</h1>
         {metaLines.map((line, index) => (
-          <p key={`${line}-${index}`}>{line}</p>
+          <p key={`${line}-${index}`} className="m-0" style={{color: darkColors.mutedText}}>{line}</p>
         ))}
       </div>
 
       {clockSections ? (
-        <div className="focus-elapsed-clock" aria-label="Focus timer">
+        <div className="flex items-center gap-1.5" aria-label="Focus timer">
           {clockSections.map((section, index) => (
             <React.Fragment key={`${section}-${index}`}>
-              <span>{section}</span>
-              {index < clockSections.length - 1 ? <em>:</em> : null}
+              <span className="m-0 font-display-semibold text-[clamp(34px,5vw,52px)]">{section}</span>
+              {index < clockSections.length - 1 ? <em className="text-[34px] not-italic text-accent">:</em> : null}
             </React.Fragment>
           ))}
         </div>
       ) : null}
 
-      <div className="focus-actions">
+      <div className="grid place-items-center gap-3">
         <HoldToConfirmButton
           iconName="lock-open"
           onHoldComplete={onExitFocus}
@@ -101,7 +99,7 @@ export function FocusModeView({
 
         <button
           type="button"
-          className={`action-pill ${actionDone ? 'muted' : 'accent'}`}
+          className={cx(tw.action, actionDone ? tw.actionMuted : tw.actionAccent)}
           onClick={onActionPress}
           disabled={actionDisabled}>
           <AppIcon
@@ -115,3 +113,4 @@ export function FocusModeView({
     </div>
   );
 }
+

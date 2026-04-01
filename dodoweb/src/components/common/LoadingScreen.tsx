@@ -1,4 +1,5 @@
 import React from 'react';
+import {tw} from '@/lib/tw';
 
 export function LoadingScreen({
   title = 'Loading',
@@ -8,10 +9,13 @@ export function LoadingScreen({
   subtitle?: string;
 }) {
   return (
-    <div className="loading-screen">
-      <div className="loading-mark">DODO</div>
-      <h2>{title}</h2>
-      {subtitle ? <p>{subtitle}</p> : null}
+    <div className={tw.emptyCenter}>
+      <div className="grid gap-2 text-center">
+        <div className="font-display text-[56px] text-accent">DODO</div>
+        <h2 className={tw.h2}>{title}</h2>
+        {subtitle ? <p className={tw.muted}>{subtitle}</p> : null}
+      </div>
     </div>
   );
 }
+

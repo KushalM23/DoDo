@@ -5,6 +5,7 @@ import {AppIcon} from '@/components/common/AppIcon';
 import {FocusModeView} from '@/components/common/FocusModeView';
 import {HoldToConfirmButton} from '@/components/common/HoldToConfirmButton';
 import {LoadingScreen} from '@/components/common/LoadingScreen';
+import {cx, tw} from '@/lib/tw';
 import {useAlert} from '@/providers/AlertContext';
 import {useCategories} from '@/providers/CategoriesContext';
 import {usePreferences} from '@/providers/PreferencesContext';
@@ -222,10 +223,10 @@ export function TaskDetailScreen() {
 
   if (!task) {
     return (
-      <div className="detail-page">
-        <div className="detail-card empty-card">
-          <h1>Task not found</h1>
-          <Link href="/tasks" className="action-pill accent">
+      <div className="grid items-start justify-items-center">
+        <div className="grid w-full max-w-[1080px] gap-2 rounded-[28px] border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
+          <h1 className={tw.h1}>Task not found</h1>
+          <Link href="/tasks" className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55">
             Back to tasks
           </Link>
         </div>
@@ -327,14 +328,14 @@ export function TaskDetailScreen() {
 
   if (pendingDelete) {
     return (
-      <div className="detail-page">
-        <section className="detail-card empty-card">
-          <h1>Task deleted</h1>
-          <p>Removing task in a moment.</p>
-          <div className="action-row">
+      <div className="grid items-start justify-items-center">
+        <section className="grid w-full max-w-[1080px] gap-2 rounded-[28px] border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
+          <h1 className={tw.h1}>Task deleted</h1>
+          <p className={tw.muted}>Removing task in a moment.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
-              className="action-pill muted"
+              className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-surface-light px-[18px] font-sans-bold text-text transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
               onClick={() => {
                 clearUndoTimer();
                 setPendingDelete(false);
@@ -343,7 +344,7 @@ export function TaskDetailScreen() {
             </button>
             <button
               type="button"
-              className="action-pill danger"
+              className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-danger px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
               onClick={() => {
                 clearUndoTimer();
                 void removeTask(currentTask.id).then(() => router.push('/tasks'));
@@ -357,29 +358,29 @@ export function TaskDetailScreen() {
   }
 
   return (
-    <div className="detail-page">
-      <section className="detail-card">
-        <div className="detail-header">
+    <div className="grid items-start justify-items-center">
+      <section className="w-full max-w-[1080px] rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <Link href="/tasks" className="back-link">
+            <Link href="/tasks" className="mb-4 inline-flex items-center gap-1.5 text-muted-text">
               <AppIcon name="chevron-left" size={18} />
               <span>Back to tasks</span>
             </Link>
             <input
-              className="detail-title-input"
+              className="w-full border-0 bg-transparent p-0 font-display text-[40px] tracking-[-0.8px] text-text outline-none"
               value={titleDraft}
               onChange={event => setTitleDraft(event.target.value)}
             />
           </div>
-          <div className="row-actions">
-            <button type="button" className="icon-button subtle" onClick={() => router.push('/tasks')}>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px" onClick={() => router.push('/tasks')}>
               <AppIcon name="x" size={18} />
             </button>
           </div>
         </div>
 
-        <div className="detail-grid">
-          <label className="field">
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <label className="grid gap-2">
             <span>Date</span>
             <input
               type="date"
@@ -388,7 +389,7 @@ export function TaskDetailScreen() {
             />
           </label>
 
-          <label className="field">
+          <label className="grid gap-2">
             <span>Time</span>
             <input
               type="time"
@@ -397,7 +398,7 @@ export function TaskDetailScreen() {
             />
           </label>
 
-          <label className="field">
+          <label className="grid gap-2">
             <span>Duration</span>
             <input
               type="number"
@@ -407,7 +408,7 @@ export function TaskDetailScreen() {
             />
           </label>
 
-          <label className="field">
+          <label className="grid gap-2">
             <span>Category</span>
             <select
               value={categoryIdDraft ?? ''}
@@ -422,38 +423,38 @@ export function TaskDetailScreen() {
           </label>
         </div>
 
-        <div className="priority-row">
+        <div className="flex flex-wrap gap-3">
           {[1, 2, 3].map(value => (
             <button
               key={value}
               type="button"
-              className={`chip ${priorityDraft === value ? 'active' : ''}`}
+              className={cx(tw.chip, priorityDraft === value && tw.chipActive)}
               onClick={() => setPriorityDraft(value as Priority)}>
               {value === 1 ? 'Low' : value === 2 ? 'Medium' : 'High'}
             </button>
           ))}
         </div>
 
-        <div className="detail-summary-grid">
-          <div className="stat-card">
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
             <span>Scheduled</span>
             <strong>{formatDate(new Date(currentTask.scheduledAt), preferences.dateFormat)}</strong>
           </div>
-          <div className="stat-card">
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
             <span>Start</span>
             <strong>{formatTime(new Date(currentTask.scheduledAt), preferences.timeFormat)}</strong>
           </div>
-          <div className="stat-card">
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
             <span>Category</span>
             <strong>{selectedCategory?.name ?? 'None'}</strong>
           </div>
-          <div className="stat-card">
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
             <span>Progress</span>
             <strong>{currentTask.completed ? 'Done' : 'Active'}</strong>
           </div>
         </div>
 
-        <div className="detail-footer">
+        <div className="mt-6 grid gap-4">
           <HoldToConfirmButton
             iconName="lock"
             onHoldComplete={() => {
@@ -465,10 +466,14 @@ export function TaskDetailScreen() {
             size={84}
           />
 
-          <div className="action-row">
+          <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
-              className={`action-pill ${currentTask.completed ? 'muted accent-text' : 'accent'} wide`}
+              className={cx(
+                tw.action,
+                'w-full',
+                currentTask.completed ? 'bg-surface-light text-accent' : tw.actionAccent,
+              )}
               disabled={busy || pendingDelete || savingDetails}
               onClick={() => {
                 void handleComplete();
@@ -479,7 +484,7 @@ export function TaskDetailScreen() {
 
             <button
               type="button"
-              className="action-pill danger wide"
+              className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-danger px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
               disabled={busy || pendingDelete || savingDetails}
               onClick={handleDelete}>
               <AppIcon name="trash-2" size={18} />
@@ -491,3 +496,4 @@ export function TaskDetailScreen() {
     </div>
   );
 }
+

@@ -2,6 +2,7 @@ import React, {useEffect, useMemo} from 'react';
 import {useRouter} from 'next/navigation';
 import {AppIcon, type AppIconName} from '@/components/common/AppIcon';
 import {LoadingScreen} from '@/components/common/LoadingScreen';
+import {tw} from '@/lib/tw';
 import {useAuth} from '@/providers/AuthContext';
 import {useCategories} from '@/providers/CategoriesContext';
 import {useHabits} from '@/providers/HabitsContext';
@@ -68,8 +69,8 @@ function StatRow({
   icon: AppIconName;
 }) {
   return (
-    <div className="profile-stat-row">
-      <div className="profile-stat-label">
+    <div className="flex items-center justify-between gap-[14px] rounded-[22px] border border-transparent bg-surface p-4">
+      <div className="flex items-center gap-2.5">
         <AppIcon name={icon} size={18} color="var(--accent)" />
         <span>{label}</span>
       </div>
@@ -214,39 +215,39 @@ export function ProfileScreen() {
   const displayName = user?.display_name?.trim() || user?.email?.split('@')[0] || 'Guest';
 
   return (
-    <div className="page-grid profile-grid">
-      <section className="desktop-panel">
-        <div className="profile-hero">
-          <button type="button" className="icon-button subtle profile-settings-btn" onClick={() => router.push('/settings')}>
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">
+      <section className="rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="relative grid gap-[18px] text-center">
+          <button type="button" className="absolute right-0 top-0 inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px" onClick={() => router.push('/settings')}>
             <AppIcon name="settings" size={20} color="var(--accent)" />
           </button>
-          <h1>{displayName}</h1>
-          <div className="profile-level-row">
+          <h1 className={tw.h1}>{displayName}</h1>
+          <div className="flex items-center justify-between gap-3">
             <strong>Lv.{level}</strong>
-            <div className="profile-streak-pill">
+            <div className="inline-flex items-center gap-2">
               <AppIcon name="flame" size={20} color="var(--accent)" />
               <span>{currentStreak} day streak</span>
             </div>
           </div>
-          <div className="progress-bar profile-xp-bar">
-            <span style={{width: `${Math.round(levelProgress * 100)}%`}} />
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-light">
+            <span className="block h-full rounded-full bg-accent" style={{width: `${Math.round(levelProgress * 100)}%`}} />
           </div>
-          <div className="profile-xp-row">
-            <span>{xpIntoLevel} / {xpForNextLevel} XP</span>
-            <span>to level {level + 1}</span>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-muted-text">{xpIntoLevel} / {xpForNextLevel} XP</span>
+            <span className="text-muted-text">to level {level + 1}</span>
           </div>
         </div>
       </section>
 
-      <section className="desktop-panel">
-        <div className="panel-header">
+      <section className="rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h2>Stats</h2>
-            <p>Your recovered task and habit analytics.</p>
+            <h2 className={tw.h2}>Stats</h2>
+            <p className={tw.muted}>Your recovered task and habit analytics.</p>
           </div>
         </div>
 
-        <div className="profile-stats-list">
+        <div className="grid gap-3.5">
           <StatRow label="Tasks completed" value={totalCompleted} icon="check-square" />
           <StatRow label="Completion rate" value={`${completionPct}%`} icon="percent" />
           <StatRow label="Best streak" value={`${bestStreak}d`} icon="flame-kindling" />
@@ -263,3 +264,4 @@ export function ProfileScreen() {
     </div>
   );
 }
+

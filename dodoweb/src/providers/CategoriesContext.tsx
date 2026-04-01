@@ -281,3 +281,4 @@ export function useCategories(): CategoriesContextValue {
   }
   return context;
 }
+

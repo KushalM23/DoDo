@@ -6,6 +6,7 @@ import {AppIcon} from '@/components/common/AppIcon';
 import {FocusModeView} from '@/components/common/FocusModeView';
 import {HoldToConfirmButton} from '@/components/common/HoldToConfirmButton';
 import {LoadingScreen} from '@/components/common/LoadingScreen';
+import {cx, tw} from '@/lib/tw';
 import {useAlert} from '@/providers/AlertContext';
 import {useHabits} from '@/providers/HabitsContext';
 import {usePreferences} from '@/providers/PreferencesContext';
@@ -102,10 +103,10 @@ export function HabitDetailScreen() {
 
   if (!habit) {
     return (
-      <div className="detail-page">
-        <div className="detail-card empty-card">
-          <h1>Habit not found</h1>
-          <Link href="/habits" className="action-pill accent">
+      <div className="grid items-start justify-items-center">
+        <div className="grid w-full max-w-[1080px] gap-2 rounded-[28px] border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
+          <h1 className={tw.h1}>Habit not found</h1>
+          <Link href="/habits" className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55">
             Back to habits
           </Link>
         </div>
@@ -171,35 +172,35 @@ export function HabitDetailScreen() {
   }
 
   return (
-    <div className="detail-page">
-      <section className="detail-card">
-        <div className="detail-header">
+    <div className="grid items-start justify-items-center">
+      <section className="w-full max-w-[1080px] rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <Link href="/habits" className="back-link">
+            <Link href="/habits" className="mb-4 inline-flex items-center gap-1.5 text-muted-text">
               <AppIcon name="chevron-left" size={18} />
               <span>Back to habits</span>
             </Link>
-            <div className="detail-title-row">
+            <div className="flex items-center gap-3">
               <AppIcon name={currentHabit.icon as any} size={28} color="var(--habit-badge)" />
-              <h1>{currentHabit.title}</h1>
+              <h1 className={tw.h1}>{currentHabit.title}</h1>
             </div>
           </div>
         </div>
 
-        <div className="detail-summary-grid">
-          <div className="stat-card">
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
             <span>Current streak</span>
             <strong>{currentHabit.currentStreak}</strong>
           </div>
-          <div className="stat-card">
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
             <span>Best streak</span>
             <strong>{currentHabit.bestStreak}</strong>
           </div>
-          <div className="stat-card">
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
             <span>Time</span>
             <strong>{minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}</strong>
           </div>
-          <div className="stat-card">
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
             <span>Duration</span>
             <strong>
               {currentHabit.durationMinutes
@@ -209,28 +210,32 @@ export function HabitDetailScreen() {
           </div>
         </div>
 
-        <div className="tracker-card">
-          <div className="panel-header">
+        <div className="mt-6 rounded-[22px] bg-surface p-5">
+          <div className="flex items-start justify-between gap-4">
             <div>
               <h2>Tracker</h2>
               <p>{formatHabitFrequency(currentHabit)}</p>
             </div>
           </div>
-          <div className="tracker-grid">
+          <div className="mt-[18px] flex flex-wrap gap-3">
             {trackerDateKeys.map(key => {
               const completed = isHabitCompletedOn(currentHabit.id, key);
               const isToday = key === todayKey;
               return (
                 <span
                   key={key}
-                  className={`tracker-dot ${completed ? 'done' : ''} ${isToday ? 'today' : ''}`}
+                  className={cx(
+                    'aspect-square w-[calc(14.28%-11px)] rounded-full bg-surface-light',
+                    completed && 'bg-habit-badge',
+                    isToday && 'ring-2 ring-text',
+                  )}
                 />
               );
             })}
           </div>
         </div>
 
-        <div className="detail-footer">
+        <div className="mt-6 grid gap-4">
           <HoldToConfirmButton
             iconName="lock"
             onHoldComplete={() => setLockInMode(true)}
@@ -238,10 +243,14 @@ export function HabitDetailScreen() {
             size={84}
           />
 
-          <div className="action-row">
+          <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
-              className={`action-pill ${canCompleteToday && completedToday ? 'muted accent-text' : 'accent'} wide`}
+              className={cx(
+                tw.action,
+                'w-full',
+                canCompleteToday && completedToday ? 'bg-surface-light text-accent' : tw.actionAccent,
+              )}
               disabled={busy && canCompleteToday}
               onClick={() => {
                 if (canCompleteToday) {
@@ -258,7 +267,7 @@ export function HabitDetailScreen() {
 
             <button
               type="button"
-              className="action-pill danger wide"
+              className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-danger px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
               onClick={() =>
                 showAlert('Delete Habit', 'This will remove the habit and its history.', [
                   {text: 'Cancel', style: 'cancel'},
@@ -288,3 +297,4 @@ export function HabitDetailScreen() {
     </div>
   );
 }
+

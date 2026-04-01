@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import {cx} from '@/lib/tw';
 import {AppIcon, type AppIconName} from './AppIcon';
 
 type HoldToConfirmButtonProps = {
@@ -74,7 +75,10 @@ export function HoldToConfirmButton({
   return (
     <button
       type="button"
-      className={`hold-button ${className ?? ''}`.trim()}
+      className={cx(
+        'relative grid place-items-center overflow-hidden rounded-full bg-surface',
+        className,
+      )}
       disabled={disabled}
       onMouseDown={startHold}
       onMouseUp={() => clearHold()}
@@ -85,15 +89,22 @@ export function HoldToConfirmButton({
         width: size,
         height: size,
         background: backgroundColor,
-        '--progress-scale': String(progress),
-        '--progress-color': progressColor ?? 'var(--accent)',
       } as React.CSSProperties}>
-      <span className="hold-progress" />
-      <AppIcon
-        name={iconName}
-        size={24}
-        color={disabled ? disabledIconColor ?? 'var(--muted-text)' : iconColor ?? 'var(--text)'}
+      <span
+        className="absolute inset-0 rounded-[inherit]"
+        style={{
+          transform: `scale(${progress})`,
+          background: progressColor ?? 'var(--accent)',
+        }}
       />
+      <span className="relative z-10">
+        <AppIcon
+          name={iconName}
+          size={24}
+          color={disabled ? disabledIconColor ?? 'var(--muted-text)' : iconColor ?? 'var(--text)'}
+        />
+      </span>
     </button>
   );
 }
+

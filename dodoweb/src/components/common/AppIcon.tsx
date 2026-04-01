@@ -170,3 +170,4 @@ export function AppIcon({
   const Icon = ICON_NAME_MAP[name];
   return <Icon size={size} color={color} strokeWidth={strokeWidth} className={className} />;
 }
+

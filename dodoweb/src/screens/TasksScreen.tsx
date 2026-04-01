@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {AppIcon, type AppIconName} from '@/components/common/AppIcon';
+import {cx, tw} from '@/lib/tw';
 import {useAlert} from '@/providers/AlertContext';
 import {useCategories} from '@/providers/CategoriesContext';
 import {useHabits} from '@/providers/HabitsContext';
@@ -89,12 +90,12 @@ function formatDuration(minutes: number | null | undefined) {
 
 function priorityMeta(priority: number): {icon: AppIconName; className: string} {
   if (priority === 3) {
-    return {icon: 'arrow-up-circle', className: 'priority-high'};
+    return {icon: 'arrow-up-circle', className: 'text-high-priority'};
   }
   if (priority === 2) {
-    return {icon: 'minus-circle', className: 'priority-medium'};
+    return {icon: 'minus-circle', className: 'text-medium-priority'};
   }
-  return {icon: 'arrow-down-circle', className: 'priority-low'};
+  return {icon: 'arrow-down-circle', className: 'text-low-priority'};
 }
 
 function TaskComposer({
@@ -139,23 +140,23 @@ function TaskComposer({
   }
 
   return (
-    <div className="overlay-layer">
-      <div className="modal-backdrop" onClick={onClose} />
-      <div className="modal-card wide" role="dialog" aria-modal="true">
-        <div className="modal-header">
+    <div className="fixed inset-0 z-50 grid place-items-center">
+      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+      <div className="relative w-[min(100vw-32px,720px)] rounded-[28px] border border-border bg-surface p-[22px] shadow-[0_24px_60px_var(--shadow)]" role="dialog" aria-modal="true">
+        <div className="flex items-start justify-between gap-4">
           <h3>New Task</h3>
-          <button type="button" className="icon-button subtle" onClick={onClose}>
+          <button type="button" className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px" onClick={onClose}>
             <AppIcon name="x" />
           </button>
         </div>
 
-        <div className="form-stack">
-          <label className="field">
+        <div className="mt-4 grid gap-3.5">
+          <label className="grid gap-2">
             <span>Task Name</span>
             <input value={title} onChange={event => setTitle(event.target.value)} placeholder="Dodo's task" />
           </label>
 
-          <label className="field">
+          <label className="grid gap-2">
             <span>Description</span>
             <textarea
               rows={3}
@@ -165,19 +166,19 @@ function TaskComposer({
             />
           </label>
 
-          <div className="form-grid two">
-            <label className="field">
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <label className="grid gap-2">
               <span>Date</span>
               <input type="date" value={date} onChange={event => setDate(event.target.value)} />
             </label>
-            <label className="field">
+            <label className="grid gap-2">
               <span>Time</span>
               <input type="time" value={time} onChange={event => setTime(event.target.value)} />
             </label>
           </div>
 
-          <div className="form-grid two">
-            <label className="field">
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <label className="grid gap-2">
               <span>Duration</span>
               <input
                 type="number"
@@ -186,7 +187,7 @@ function TaskComposer({
                 onChange={event => setDurationMinutes(Number(event.target.value) || 1)}
               />
             </label>
-            <label className="field">
+            <label className="grid gap-2">
               <span>Category</span>
               <select
                 value={categoryId ?? ''}
@@ -201,12 +202,12 @@ function TaskComposer({
             </label>
           </div>
 
-          <div className="priority-row">
+          <div className="flex flex-wrap gap-3">
             {[1, 2, 3].map(value => (
               <button
                 key={value}
                 type="button"
-                className={`chip ${priority === value ? 'active' : ''}`}
+                className={cx(tw.chip, priority === value && tw.chipActive)}
                 onClick={() => setPriority(value as Priority)}>
                 {value === 1 ? 'Low' : value === 2 ? 'Medium' : 'High'}
               </button>
@@ -214,13 +215,13 @@ function TaskComposer({
           </div>
         </div>
 
-        <div className="modal-actions">
-          <button type="button" className="action-pill muted" onClick={onClose}>
+        <div className="mt-5 flex justify-end gap-3">
+          <button type="button" className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-surface-light px-[18px] font-sans-bold text-text transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55" onClick={onClose}>
             Cancel
           </button>
           <button
             type="button"
-            className="action-pill accent"
+            className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
             disabled={busy || !title.trim()}
             onClick={async () => {
               setBusy(true);
@@ -317,22 +318,22 @@ function CategoriesManager({
   }
 
   return (
-    <div className="overlay-layer">
-      <div className="modal-backdrop" onClick={onClose} />
-      <div className="modal-card wide" role="dialog" aria-modal="true">
-        <div className="modal-header">
+    <div className="fixed inset-0 z-50 grid place-items-center">
+      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+      <div className="relative w-[min(100vw-32px,720px)] rounded-[28px] border border-border bg-surface p-[22px] shadow-[0_24px_60px_var(--shadow)]" role="dialog" aria-modal="true">
+        <div className="flex items-start justify-between gap-4">
           <h3>Categories</h3>
-          <button type="button" className="icon-button subtle" onClick={onClose}>
+          <button type="button" className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px" onClick={onClose}>
             <AppIcon name="x" />
           </button>
         </div>
 
-        <div className="form-grid two">
-          <label className="field">
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <label className="grid gap-2">
             <span>Name</span>
             <input value={draft} onChange={event => setDraft(event.target.value)} placeholder="Category name" />
           </label>
-          <label className="field">
+          <label className="grid gap-2">
             <span>Icon</span>
             <select value={icon} onChange={event => setIcon(event.target.value as typeof icon)}>
               {CATEGORY_ICON_OPTIONS.map(option => (
@@ -344,26 +345,29 @@ function CategoriesManager({
           </label>
         </div>
 
-        <div className="color-row">
+        <div className="flex flex-wrap gap-3">
           {CATEGORY_COLOR_OPTIONS.map(option => (
             <button
               key={option}
               type="button"
-              className={`color-swatch ${color === option ? 'active' : ''}`}
+              className={cx(
+                'h-[42px] w-[42px] rounded-full border-[3px] border-transparent transition hover:-translate-y-px',
+                color === option && 'border-text',
+              )}
               style={{background: option}}
               onClick={() => setColor(option)}
             />
           ))}
         </div>
 
-        <div className="modal-actions align-start">
-          <button type="button" className="action-pill accent" onClick={() => void saveCategory()}>
+        <div className="mt-5 flex justify-start gap-3">
+          <button type="button" className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55" onClick={() => void saveCategory()}>
             {editingId ? 'Save Category' : 'Add Category'}
           </button>
           {editingId ? (
             <button
               type="button"
-              className="action-pill muted"
+              className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-surface-light px-[18px] font-sans-bold text-text transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
               onClick={() => {
                 setEditingId(null);
                 setDraft('');
@@ -375,24 +379,24 @@ function CategoriesManager({
           ) : null}
         </div>
 
-        <div className="category-list">
+        <div className="grid gap-3.5">
           {categories.map(category => (
-            <div key={category.id} className="category-row">
-              <div className="category-row-main">
-                <span className="category-dot" style={{background: category.color}} />
+            <div key={category.id} className="flex items-center gap-[14px] rounded-[22px] border border-transparent bg-surface p-4">
+              <div className="flex flex-1 items-center gap-3">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{background: category.color}} />
                 <AppIcon name={category.icon as AppIconName} size={16} color={category.color} />
                 <strong>{category.name}</strong>
               </div>
-              <div className="row-actions">
-                <button type="button" className="icon-button subtle" onClick={() => void moveCategory(category.id, -1)}>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px" onClick={() => void moveCategory(category.id, -1)}>
                   <AppIcon name="chevron-up" size={16} />
                 </button>
-                <button type="button" className="icon-button subtle" onClick={() => void moveCategory(category.id, 1)}>
+                <button type="button" className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px" onClick={() => void moveCategory(category.id, 1)}>
                   <AppIcon name="chevron-down" size={16} />
                 </button>
                 <button
                   type="button"
-                  className="icon-button subtle"
+                  className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px"
                   onClick={() => {
                     setEditingId(category.id);
                     setDraft(category.name);
@@ -403,7 +407,7 @@ function CategoriesManager({
                 </button>
                 <button
                   type="button"
-                  className="icon-button danger"
+                  className="inline-grid h-10 w-10 place-items-center rounded-full bg-danger-light text-danger transition hover:-translate-y-px"
                   onClick={() =>
                     showAlert('Delete category?', `Delete "${category.name}"?`, [
                       {text: 'Cancel', style: 'cancel'},
@@ -506,37 +510,40 @@ export function TasksScreen() {
   }
 
   return (
-    <div className="page-grid tasks-grid">
-      <section className="desktop-panel">
-        <div className="panel-header">
+    <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_280px]">
+      <section className="rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1>Tasks</h1>
-            <p>Daily work plus habit commitments for the selected date.</p>
+            <h1 className={tw.h1}>Tasks</h1>
+            <p className={tw.muted}>Daily work plus habit commitments for the selected date.</p>
           </div>
         </div>
 
-        <label className="field">
-          <span>Date</span>
+        <label className="grid gap-2">
+          <span className={tw.fieldLabel}>Date</span>
           <input type="date" value={selectedDate} onChange={event => setSelectedDate(event.target.value)} />
         </label>
 
-        <div className="action-stack">
-          <button type="button" className="action-pill accent wide" onClick={() => setFormVisible(true)}>
+        <div className="grid gap-3.5">
+          <button type="button" className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55" onClick={() => setFormVisible(true)}>
             <AppIcon name="plus" size={18} />
             <span>Add Task</span>
           </button>
-          <button type="button" className="action-pill muted wide" onClick={() => setCategoriesVisible(true)}>
+          <button type="button" className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-surface-light px-[18px] font-sans-bold text-text transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55" onClick={() => setCategoriesVisible(true)}>
             <AppIcon name="package" size={18} />
             <span>Manage Categories</span>
           </button>
         </div>
 
-        <div className="page-tab-list">
+        <div className="mt-5 flex flex-wrap gap-3">
           {pages.map(page => (
             <button
               key={page.key}
               type="button"
-              className={`page-tab ${currentPageKey === page.key ? 'active' : ''}`}
+              className={cx(
+                'min-h-[42px] rounded-full bg-surface-light px-4 text-muted-text transition hover:-translate-y-px',
+                currentPageKey === page.key && 'bg-accent text-white',
+              )}
               onClick={() => setCurrentPageKey(page.key)}>
               {page.heading}
             </button>
@@ -544,25 +551,25 @@ export function TasksScreen() {
         </div>
       </section>
 
-      <section className="desktop-panel flex-panel">
-        <div className="panel-header">
+      <section className="flex min-h-[72vh] flex-col rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h2>{currentPage.heading}</h2>
-            <p>{currentPage.completed.length} complete, {currentPage.tasks.length} remaining</p>
+            <h2 className={tw.h2}>{currentPage.heading}</h2>
+            <p className={tw.muted}>{currentPage.completed.length} complete, {currentPage.tasks.length} remaining</p>
           </div>
-          <button type="button" className="icon-button subtle" onClick={() => void refresh(selectedDate)}>
+          <button type="button" className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px" onClick={() => void refresh(selectedDate)}>
             <AppIcon name="rotate-ccw" size={18} />
           </button>
         </div>
 
-        <div className="progress-strip">
-          <div className="progress-bar">
-            <span style={{width: `${Math.round(progress * 100)}%`}} />
+        <div className="my-[18px] flex items-center gap-[14px]">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-light">
+            <span className="block h-full rounded-full bg-accent" style={{width: `${Math.round(progress * 100)}%`}} />
           </div>
           <strong>{currentPage.completed.length}/{totalCount || 0} done</strong>
         </div>
 
-        <div className="task-list">
+        <div className="grid gap-3.5">
           {[...currentPage.tasks, ...currentPage.completed].map(task => {
             const category = task.categoryId
               ? categories.find(entry => entry.id === task.categoryId) ?? null
@@ -574,19 +581,22 @@ export function TasksScreen() {
               ? 'var(--habit-badge)'
               : category?.color ?? 'var(--accent)';
             const rightMeta = task._isHabit
-              ? {icon: 'repeat' as AppIconName, className: 'habit-chip'}
+              ? {icon: 'repeat' as AppIconName, className: 'text-habit-badge'}
               : priorityMeta(task.priority);
 
             return (
               <article
                 key={task.id}
-                className={`task-card ${task.completed ? 'completed' : ''}`}
+                className={cx(
+                  'flex cursor-pointer items-center gap-[14px] rounded-[22px] border border-transparent bg-surface p-4',
+                  task.completed && 'opacity-65',
+                )}
                 onClick={() =>
                   router.push(task._isHabit && task._habitId ? `/habits/${task._habitId}` : `/tasks/${task.id}`)
                 }>
                 <button
                   type="button"
-                  className="task-toggle"
+                  className="grid h-[42px] w-[42px] place-items-center rounded-[14px] bg-transparent"
                   onClick={event => {
                     event.stopPropagation();
                     void handleToggle(task);
@@ -598,15 +608,15 @@ export function TasksScreen() {
                   />
                 </button>
 
-                <div className="task-copy">
-                  <h3>{task.title}</h3>
-                  <p>
+                <div className="flex-1">
+                  <h3 className="m-0 font-display-semibold tracking-[-0.3px]">{task.title}</h3>
+                  <p className={tw.muted}>
                     {formatTaskTime(task.scheduledAt)}
                     {formatDuration(task.durationMinutes) ? ` • ${formatDuration(task.durationMinutes)}` : ''}
                   </p>
                 </div>
 
-                <div className={`task-meta ${rightMeta.className}`}>
+                <div className={cx('text-muted-text', rightMeta.className)}>
                   <AppIcon
                     name={rightMeta.icon}
                     size={16}
@@ -618,37 +628,37 @@ export function TasksScreen() {
           })}
 
           {currentPage.tasks.length === 0 && currentPage.completed.length === 0 ? (
-            <div className="empty-block">
-              <h3>Nothing here.</h3>
-              <p>Full clear.</p>
+            <div className="grid gap-2 text-center">
+              <h3 className="m-0 font-display-semibold tracking-[-0.3px]">Nothing here.</h3>
+              <p className={tw.muted}>Full clear.</p>
             </div>
           ) : null}
         </div>
       </section>
 
-      <aside className="desktop-panel">
-        <div className="panel-header">
+      <aside className="rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h2>Overview</h2>
-            <p>Desktop summary for the selected page.</p>
+            <h2 className={tw.h2}>Overview</h2>
+            <p className={tw.muted}>Desktop summary for the selected page.</p>
           </div>
         </div>
 
-        <div className="stat-stack">
-          <div className="stat-card">
-            <span>Pending</span>
+        <div className="grid gap-3.5">
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
+            <span className={tw.muted}>Pending</span>
             <strong>{currentPage.tasks.length}</strong>
           </div>
-          <div className="stat-card">
-            <span>Completed</span>
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
+            <span className={tw.muted}>Completed</span>
             <strong>{currentPage.completed.length}</strong>
           </div>
-          <div className="stat-card">
-            <span>Categories</span>
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
+            <span className={tw.muted}>Categories</span>
             <strong>{categories.length}</strong>
           </div>
-          <div className="stat-card">
-            <span>Loading</span>
+          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
+            <span className={tw.muted}>Loading</span>
             <strong>{loading ? 'Yes' : 'No'}</strong>
           </div>
         </div>
@@ -667,3 +677,4 @@ export function TasksScreen() {
     </div>
   );
 }
+

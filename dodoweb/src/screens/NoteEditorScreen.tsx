@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import Link from 'next/link';
 import {useParams, useRouter} from 'next/navigation';
 import {AppIcon} from '@/components/common/AppIcon';
+import {cx, tw} from '@/lib/tw';
 import {useAlert} from '@/providers/AlertContext';
 import {useNotes} from '@/providers/NotesContext';
 
@@ -255,10 +256,10 @@ export function NoteEditorScreen() {
 
   if (!note) {
     return (
-      <div className="detail-page">
-        <div className="detail-card empty-card">
-          <h1>Note not found</h1>
-          <Link href="/notes" className="action-pill accent">
+      <div className="grid items-start justify-items-center">
+        <div className="grid w-full max-w-[1080px] gap-2 rounded-[28px] border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
+          <h1 className={tw.h1}>Note not found</h1>
+          <Link href="/notes" className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55">
             Back to notes
           </Link>
         </div>
@@ -267,24 +268,24 @@ export function NoteEditorScreen() {
   }
 
   return (
-    <div className="detail-page">
-      <section className="detail-card note-editor-page">
-        <div className="detail-header">
+    <div className="grid items-start justify-items-center">
+      <section className="w-full max-w-[1080px] min-h-[calc(100vh-56px)] rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <Link href="/notes" className="back-link" onClick={() => void finalizeOnExit()}>
+            <Link href="/notes" className="mb-4 inline-flex items-center gap-1.5 text-muted-text" onClick={() => void finalizeOnExit()}>
               <AppIcon name="chevron-left" size={18} />
               <span>Back to notes</span>
             </Link>
             <input
-              className="detail-title-input"
+              className="w-full border-0 bg-transparent p-0 font-display text-[40px] tracking-[-0.8px] text-text outline-none"
               value={headingDraft}
               onChange={event => setHeadingDraft(event.target.value)}
               placeholder="Title"
             />
           </div>
 
-          <div className="row-actions">
-            <button type="button" className="icon-button subtle" onClick={() => void updateNote(note.id, {
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px" onClick={() => void updateNote(note.id, {
               isPinned: !note.isPinned,
               pinnedAt: note.isPinned ? null : new Date().toISOString(),
             })}>
@@ -292,7 +293,7 @@ export function NoteEditorScreen() {
             </button>
             <button
               type="button"
-              className="icon-button danger"
+              className="inline-grid h-10 w-10 place-items-center rounded-full bg-danger-light text-danger transition hover:-translate-y-px"
               onClick={() =>
                 showAlert('Delete note?', 'This action cannot be undone.', [
                   {text: 'Cancel', style: 'cancel'},
@@ -311,19 +312,22 @@ export function NoteEditorScreen() {
           </div>
         </div>
 
-        <div className="note-toolbar">
-          <button type="button" className="chip" onClick={() => setFontMenuOpen(value => !value)}>
+        <div className="relative my-5 flex flex-wrap gap-2">
+          <button type="button" className="min-h-[42px] rounded-full bg-surface-light px-4 text-text transition hover:-translate-y-px" onClick={() => setFontMenuOpen(value => !value)}>
             <span>{fontSize}</span>
             <AppIcon name="chevron-down" size={14} />
           </button>
 
           {fontMenuOpen ? (
-            <div className="font-menu">
+            <div className="absolute left-0 top-12 z-10 grid max-h-[220px] w-[90px] gap-1.5 overflow-auto rounded-2xl border border-border bg-surface p-2">
               {FONT_SIZES.map(size => (
                 <button
                   key={size}
                   type="button"
-                  className={`font-option ${size === fontSize ? 'active' : ''}`}
+                  className={cx(
+                    'min-h-9 rounded-[10px] bg-surface-light text-text transition hover:-translate-y-px',
+                    size === fontSize && 'bg-accent text-white',
+                  )}
                   onClick={() => applyFontSize(size)}>
                   {size}
                 </button>
@@ -331,29 +335,29 @@ export function NoteEditorScreen() {
             </div>
           ) : null}
 
-          <button type="button" className={`tool-button ${activeState.bold ? 'active' : ''}`} onClick={() => exec('bold')}>
+          <button type="button" className={cx(tw.chip, activeState.bold && tw.chipActive)} onClick={() => exec('bold')}>
             B
           </button>
-          <button type="button" className={`tool-button ${activeState.italic ? 'active' : ''}`} onClick={() => exec('italic')}>
+          <button type="button" className={cx(tw.chip, activeState.italic && tw.chipActive)} onClick={() => exec('italic')}>
             <em>I</em>
           </button>
-          <button type="button" className={`tool-button ${activeState.underline ? 'active' : ''}`} onClick={() => exec('underline')}>
+          <button type="button" className={cx(tw.chip, activeState.underline && tw.chipActive)} onClick={() => exec('underline')}>
             <u>U</u>
           </button>
-          <button type="button" className="tool-button" onClick={cycleAlignment}>
+          <button type="button" className="min-h-[42px] rounded-full bg-surface-light px-4 text-text transition hover:-translate-y-px" onClick={cycleAlignment}>
             {ALIGNMENT_CYCLE[alignmentIndex]}
           </button>
-          <button type="button" className={`tool-button ${activeState.ordered ? 'active' : ''}`} onClick={() => exec('insertOrderedList')}>
+          <button type="button" className={cx(tw.chip, activeState.ordered && tw.chipActive)} onClick={() => exec('insertOrderedList')}>
             <AppIcon name="list-ordered" size={16} />
           </button>
-          <button type="button" className={`tool-button ${activeState.unordered ? 'active' : ''}`} onClick={() => exec('insertUnorderedList')}>
+          <button type="button" className={cx(tw.chip, activeState.unordered && tw.chipActive)} onClick={() => exec('insertUnorderedList')}>
             <AppIcon name="list" size={16} />
           </button>
         </div>
 
         <div
           ref={editorRef}
-          className="note-editor-surface"
+          className="min-h-[58vh] rounded-[22px] border border-border bg-background p-[18px] leading-[1.6] outline-none [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
           contentEditable
           suppressContentEditableWarning
           onInput={event => {
@@ -366,3 +370,4 @@ export function NoteEditorScreen() {
     </div>
   );
 }
+

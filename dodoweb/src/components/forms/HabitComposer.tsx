@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {AppIcon} from '@/components/common/AppIcon';
+import {cx, tw} from '@/lib/tw';
 import {useAlert} from '@/providers/AlertContext';
 import type {CreateHabitInput, Habit, HabitFrequencyType, HabitIcon} from '@/types/habit';
 import {DEFAULT_HABIT_ICON, HABIT_ICON_OPTIONS} from '@/types/habit';
@@ -55,25 +56,25 @@ export function HabitComposer({
   }
 
   return (
-    <div className="overlay-layer">
-      <div className="modal-backdrop" onClick={onClose} />
-      <div className="modal-card wide" role="dialog" aria-modal="true">
-        <div className="modal-header">
-          <h3>{mode === 'edit' ? 'Edit Habit' : 'New Habit'}</h3>
-          <button type="button" className="icon-button subtle" onClick={onClose}>
+    <div className={tw.modalOverlay}>
+      <div className={tw.modalBackdrop} onClick={onClose} />
+      <div className={cx(tw.modalCard, tw.modalCardWide)} role="dialog" aria-modal="true">
+        <div className={tw.header}>
+          <h3 className={tw.h2}>{mode === 'edit' ? 'Edit Habit' : 'New Habit'}</h3>
+          <button type="button" className={tw.iconBtn} onClick={onClose}>
             <AppIcon name="x" />
           </button>
         </div>
 
-        <div className="form-stack">
-          <label className="field">
-            <span>Habit Name</span>
-            <input value={title} onChange={event => setTitle(event.target.value)} placeholder="Habit name" />
+        <div className="mt-4 grid gap-3.5">
+          <label className={tw.fieldWrap}>
+            <span className={tw.fieldLabel}>Habit Name</span>
+            <input className={tw.fieldInput} value={title} onChange={event => setTitle(event.target.value)} placeholder="Habit name" />
           </label>
 
-          <label className="field">
-            <span>Icon</span>
-            <select value={icon} onChange={event => setIcon(event.target.value as HabitIcon)}>
+          <label className={tw.fieldWrap}>
+            <span className={tw.fieldLabel}>Icon</span>
+            <select className={tw.fieldInput} value={icon} onChange={event => setIcon(event.target.value as HabitIcon)}>
               {HABIT_ICON_OPTIONS.map(option => (
                 <option key={option} value={option}>
                   {option}
@@ -82,12 +83,12 @@ export function HabitComposer({
             </select>
           </label>
 
-          <div className="priority-row">
+          <div className="flex flex-wrap gap-3">
             {(['daily', 'interval', 'custom_days'] as HabitFrequencyType[]).map(value => (
               <button
                 key={value}
                 type="button"
-                className={`chip ${frequencyType === value ? 'active' : ''}`}
+                className={cx(tw.chip, frequencyType === value && tw.chipActive)}
                 onClick={() => setFrequencyType(value)}>
                 {value === 'daily' ? 'Every day' : value === 'interval' ? 'Every X days' : 'Custom days'}
               </button>
@@ -95,9 +96,10 @@ export function HabitComposer({
           </div>
 
           {frequencyType === 'interval' ? (
-            <label className="field">
-              <span>Interval Days</span>
+            <label className={tw.fieldWrap}>
+              <span className={tw.fieldLabel}>Interval Days</span>
               <input
+                className={tw.fieldInput}
                 type="number"
                 min={2}
                 max={365}
@@ -108,12 +110,12 @@ export function HabitComposer({
           ) : null}
 
           {frequencyType === 'custom_days' ? (
-            <div className="weekday-row">
+            <div className="flex flex-wrap gap-2.5">
               {WEEKDAY_LABELS.map((label, index) => (
                 <button
                   key={label}
                   type="button"
-                  className={`weekday-chip ${customDays.includes(index) ? 'active' : ''}`}
+                  className={cx(tw.chip, customDays.includes(index) && tw.chipActive)}
                   onClick={() =>
                     setCustomDays(prev =>
                       prev.includes(index)
@@ -127,14 +129,15 @@ export function HabitComposer({
             </div>
           ) : null}
 
-          <div className="form-grid two">
-            <label className="field">
-              <span>Time</span>
-              <input type="time" value={timeValue} onChange={event => setTimeValue(event.target.value)} />
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <label className={tw.fieldWrap}>
+              <span className={tw.fieldLabel}>Time</span>
+              <input className={tw.fieldInput} type="time" value={timeValue} onChange={event => setTimeValue(event.target.value)} />
             </label>
-            <label className="field">
-              <span>Duration</span>
+            <label className={tw.fieldWrap}>
+              <span className={tw.fieldLabel}>Duration</span>
               <input
+                className={tw.fieldInput}
                 type="number"
                 min={1}
                 value={durationMinutes}
@@ -144,13 +147,13 @@ export function HabitComposer({
           </div>
         </div>
 
-        <div className="modal-actions">
-          <button type="button" className="action-pill muted" onClick={onClose}>
+        <div className={tw.modalActions}>
+          <button type="button" className={cx(tw.action, tw.actionMuted)} onClick={onClose}>
             Cancel
           </button>
           <button
             type="button"
-            className="action-pill accent"
+            className={cx(tw.action, tw.actionAccent)}
             disabled={busy || !title.trim()}
             onClick={async () => {
               if (frequencyType === 'custom_days' && customDays.length === 0) {
@@ -182,3 +185,4 @@ export function HabitComposer({
     </div>
   );
 }
+

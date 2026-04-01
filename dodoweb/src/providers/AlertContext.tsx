@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import {cx, tw} from '@/lib/tw';
 
 export type AlertButton = {
   text: string;
@@ -67,18 +68,23 @@ export function AlertProvider({children}: {children: React.ReactNode}) {
     <AlertContext.Provider value={value}>
       {children}
       {visible ? (
-        <div className="overlay-layer" role="presentation">
-          <div className="modal-backdrop" onClick={handleDismiss} />
-          <div className="alert-card" role="dialog" aria-modal="true" aria-label={config.title}>
-            <div className="alert-body">
-              <h3 className="alert-title">{config.title}</h3>
-              {config.message ? <p className="alert-message">{config.message}</p> : null}
+        <div className={tw.modalOverlay} role="presentation">
+          <div className={tw.modalBackdrop} onClick={handleDismiss} />
+          <div className={tw.modalCard} role="dialog" aria-modal="true" aria-label={config.title}>
+            <div className="grid gap-2.5">
+              <h3 className={tw.h2}>{config.title}</h3>
+              {config.message ? <p className={tw.muted}>{config.message}</p> : null}
             </div>
-            <div className={`alert-actions ${buttons.length === 1 ? 'single' : ''}`}>
+            <div className={cx('mt-5 flex gap-3', buttons.length === 1 ? 'justify-stretch' : 'justify-end')}>
               {buttons.map((button, index) => (
                 <button
                   key={`${button.text}-${index}`}
-                  className={`alert-button ${button.style ?? 'default'}`}
+                  className={cx(
+                    'min-h-12 flex-1 rounded-full font-sans-bold',
+                    button.style === 'cancel' && 'bg-surface-light text-text',
+                    button.style === 'destructive' && 'bg-danger-light text-danger',
+                    (!button.style || button.style === 'default') && 'bg-accent text-white',
+                  )}
                   onClick={() => {
                     handleDismiss();
                     button.onPress?.();
@@ -101,3 +107,4 @@ export function useAlert(): AlertContextValue {
   }
   return context;
 }
+

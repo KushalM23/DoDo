@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {AppIcon} from '@/components/common/AppIcon';
+import {cx, tw} from '@/lib/tw';
 import {useAuth} from '@/providers/AuthContext';
 import {useHabits} from '@/providers/HabitsContext';
 import {usePreferences} from '@/providers/PreferencesContext';
@@ -201,27 +202,27 @@ export function CalendarScreen() {
   }, [completionMap, habits, monthTasks, selectedDate]);
 
   return (
-    <div className="page-grid calendar-grid">
-      <section className="desktop-panel">
-        <div className="panel-header">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">
+      <section className="rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1>Calendar</h1>
-            <p>Weekly and monthly scheduling overview.</p>
+            <h1 className={tw.h1}>Calendar</h1>
+            <p className={tw.muted}>Weekly and monthly scheduling overview.</p>
           </div>
-          <div className="row-actions">
-            <button type="button" className={`chip ${mode === 'week' ? 'active' : ''}`} onClick={() => setMode('week')}>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className={cx(tw.chip, mode === 'week' && tw.chipActive)} onClick={() => setMode('week')}>
               Week
             </button>
-            <button type="button" className={`chip ${mode === 'month' ? 'active' : ''}`} onClick={() => setMode('month')}>
+            <button type="button" className={cx(tw.chip, mode === 'month' && tw.chipActive)} onClick={() => setMode('month')}>
               Month
             </button>
           </div>
         </div>
 
-        <div className="calendar-header">
+        <div className="mb-3.5 flex items-center justify-between">
           <button
             type="button"
-            className="icon-button subtle"
+            className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px"
             onClick={() => {
               const nextDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
               setCurrentDate(nextDate);
@@ -229,12 +230,12 @@ export function CalendarScreen() {
             }}>
             <AppIcon name="chevron-left" size={18} />
           </button>
-          <h2>
+          <h2 className={tw.h2}>
             {currentDate.toLocaleDateString(undefined, {month: 'long', year: 'numeric'})}
           </h2>
           <button
             type="button"
-            className="icon-button subtle"
+            className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px"
             onClick={() => {
               const nextDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
               setCurrentDate(nextDate);
@@ -244,13 +245,13 @@ export function CalendarScreen() {
           </button>
         </div>
 
-        <div className="calendar-weekdays">
+        <div className="mb-2.5 flex flex-wrap justify-between gap-3">
           {getWeekdayLabels(preferences.weekStart).map(day => (
-            <span key={day}>{day}</span>
+            <span key={day} className="w-[calc(14.28%-10px)] text-center text-xs text-muted-text">{day}</span>
           ))}
         </div>
 
-        <div className="calendar-cell-grid">
+        <div className="grid grid-cols-7 gap-2.5 sm:gap-2.5">
           {visibleCells.map(cell => {
             const taskStatus = statusMap[cell.dateKey] ?? 'none';
             const habitStatus = habitStatusMap[cell.dateKey] ?? 'none';
@@ -258,17 +259,24 @@ export function CalendarScreen() {
               <button
                 key={cell.key}
                 type="button"
-                className={`calendar-cell ${cell.dateKey === selectedDate ? 'selected' : ''} ${
-                  cell.isToday ? 'today' : ''
-                } ${!cell.inCurrentMonth && mode === 'month' ? 'muted' : ''}`}
+                className={cx(
+                  'grid min-h-[92px] place-items-center rounded-3xl bg-surface-light px-1.5 py-3 text-text',
+                  cell.dateKey === selectedDate && 'bg-text text-background',
+                  cell.isToday && 'ring-1 ring-accent/60',
+                  !cell.inCurrentMonth && mode === 'month' && 'opacity-40',
+                )}
                 onClick={() => {
                   setSelectedDate(cell.dateKey);
                   setCurrentDate(cell.date);
                 }}>
                 <strong>{cell.dayNum}</strong>
-                <div className="calendar-status-row">
-                  {taskStatus !== 'none' ? <span className={`status-dot ${taskStatus}`} /> : null}
-                  {habitStatus !== 'none' ? <span className={`status-dot habit ${habitStatus}`} /> : null}
+                <div className="flex flex-wrap gap-3">
+                  {taskStatus !== 'none' ? (
+                    <span className={cx('h-2 w-2 rounded-full border-2 border-accent', taskStatus === 'done' && 'bg-accent')} />
+                  ) : null}
+                  {habitStatus !== 'none' ? (
+                    <span className={cx('h-2 w-2 rounded-full border-2 border-habit-badge', habitStatus === 'done' && 'bg-habit-badge')} />
+                  ) : null}
                 </div>
               </button>
             );
@@ -276,11 +284,11 @@ export function CalendarScreen() {
         </div>
       </section>
 
-      <section className="desktop-panel">
-        <div className="panel-header">
+      <section className="rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h2>Timeline</h2>
-            <p>{new Date(`${selectedDate}T00:00:00`).toLocaleDateString(undefined, {
+            <h2 className={tw.h2}>Timeline</h2>
+            <p className={tw.muted}>{new Date(`${selectedDate}T00:00:00`).toLocaleDateString(undefined, {
               weekday: 'long',
               month: 'long',
               day: 'numeric',
@@ -288,28 +296,31 @@ export function CalendarScreen() {
           </div>
         </div>
 
-        <div className="timeline-list">
+        <div className="grid gap-3.5">
           {tasksForSelectedDate.map(event => (
             <article
               key={event.id}
-              className={`timeline-card ${event.completed ? 'completed' : ''} ${
-                event.isHabit ? 'habit' : 'task'
-              }`}
+              className={cx(
+                'flex cursor-pointer items-center gap-[14px] rounded-[22px] border border-transparent p-4',
+                event.completed && 'bg-surface-light text-text opacity-65',
+                !event.completed && event.isHabit && 'bg-habit-badge text-white',
+                !event.completed && !event.isHabit && 'bg-accent text-white',
+              )}
               onClick={() =>
                 router.push(event.isHabit && event.habitId ? `/habits/${event.habitId}` : `/tasks/${event.taskId}`)
               }>
               <div>
-                <h3>{event.title}</h3>
-                <p>{event.timeLabel}</p>
+                <h3 className="m-0 font-display-semibold tracking-[-0.3px]">{event.title}</h3>
+                <p className={tw.muted}>{event.timeLabel}</p>
               </div>
               <AppIcon name={event.isHabit ? 'repeat' : 'check-square'} size={18} />
             </article>
           ))}
 
           {tasksForSelectedDate.length === 0 ? (
-            <div className="empty-block">
-              <h3>Nothing scheduled</h3>
-              <p>No tasks or habits for this date.</p>
+            <div className="grid gap-2 text-center">
+              <h3 className="m-0 font-display-semibold tracking-[-0.3px]">Nothing scheduled</h3>
+              <p className={tw.muted}>No tasks or habits for this date.</p>
             </div>
           ) : null}
         </div>
@@ -317,3 +328,4 @@ export function CalendarScreen() {
     </div>
   );
 }
+

@@ -1,6 +1,7 @@
 import React from 'react';
 import {useRouter} from 'next/navigation';
 import {AppIcon} from '@/components/common/AppIcon';
+import {cx, tw} from '@/lib/tw';
 import {useAlert} from '@/providers/AlertContext';
 import {useNotes} from '@/providers/NotesContext';
 
@@ -32,41 +33,41 @@ export function NotesScreen() {
   }
 
   return (
-    <div className="page-grid single">
-      <section className="desktop-panel">
-        <div className="panel-header">
+    <div className={tw.pageGrid}>
+      <section className={tw.panel}>
+        <div className={tw.header}>
           <div>
-            <h1>Note Down</h1>
-            <p>Rich desktop notes synced to the same backend as mobile.</p>
+            <h1 className={tw.h1}>Note Down</h1>
+            <p className={tw.muted}>Rich desktop notes synced to the same backend as mobile.</p>
           </div>
-          <div className="row-actions">
-            <button type="button" className="icon-button subtle" onClick={() => void refresh()}>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className={tw.iconBtn} onClick={() => void refresh()}>
               <AppIcon name="rotate-ccw" size={18} />
             </button>
-            <button type="button" className="action-pill accent" onClick={() => void handleCreateNote()}>
+            <button type="button" className={cx(tw.action, tw.actionAccent)} onClick={() => void handleCreateNote()}>
               <AppIcon name="plus" size={18} />
               <span>New Note</span>
             </button>
           </div>
         </div>
 
-        <div className="notes-grid">
+        <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
           {notes.map(note => {
             const displayHeading = note.heading.trim() || deriveHeadingFallback(note.contentPlain);
             return (
               <article
                 key={note.id}
-                className="note-card"
+                className={cx(tw.card, 'cursor-pointer')}
                 onClick={() => router.push(`/notes/${note.id}`)}>
-                <div className="note-card-header">
-                  <h3>{displayHeading}</h3>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="m-0 font-display-semibold tracking-[-0.3px]">{displayHeading}</h3>
                   {note.isPinned ? <AppIcon name="pin" size={15} color="var(--accent)" /> : null}
                 </div>
-                <p>{note.contentPlain || 'Tap to start writing...'}</p>
-                <div className="row-actions">
+                <p className={tw.muted}>{note.contentPlain || 'Tap to start writing...'}</p>
+                <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
-                    className="icon-button subtle"
+                    className={tw.iconBtn}
                     onClick={event => {
                       event.stopPropagation();
                       void togglePin(note.id);
@@ -75,7 +76,7 @@ export function NotesScreen() {
                   </button>
                   <button
                     type="button"
-                    className="icon-button danger"
+                    className={cx(tw.iconBtn, tw.iconBtnDanger)}
                     onClick={event => {
                       event.stopPropagation();
                       showAlert('Delete note?', 'This action cannot be undone.', [
@@ -97,9 +98,9 @@ export function NotesScreen() {
           })}
 
           {!loading && notes.length === 0 ? (
-            <div className="empty-block">
-              <h3>No notes yet</h3>
-              <p>Hit the plus button to start.</p>
+            <div className="grid gap-2 text-center">
+              <h3 className="m-0 font-display-semibold tracking-[-0.3px]">No notes yet</h3>
+              <p className={tw.muted}>Hit the plus button to start.</p>
             </div>
           ) : null}
         </div>
@@ -107,3 +108,4 @@ export function NotesScreen() {
     </div>
   );
 }
+
