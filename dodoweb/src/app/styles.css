@@ -3,43 +3,43 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: 'Oswald-Bold';
-  src: url('/fonts/Oswald-Bold.ttf') format('truetype');
+  font-family: "Oswald-Bold";
+  src: url("/fonts/Oswald-Bold.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: 'Oswald-SemiBold';
-  src: url('/fonts/Oswald-SemiBold.ttf') format('truetype');
+  font-family: "Oswald-SemiBold";
+  src: url("/fonts/Oswald-SemiBold.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: 'Oswald-Medium';
-  src: url('/fonts/Oswald-Medium.ttf') format('truetype');
+  font-family: "Oswald-Medium";
+  src: url("/fonts/Oswald-Medium.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: 'Oswald-Regular';
-  src: url('/fonts/Oswald-Regular.ttf') format('truetype');
+  font-family: "Oswald-Regular";
+  src: url("/fonts/Oswald-Regular.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: 'Poppins-Regular';
-  src: url('/fonts/Poppins-Regular.ttf') format('truetype');
+  font-family: "Poppins-Regular";
+  src: url("/fonts/Poppins-Regular.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: 'Poppins-Medium';
-  src: url('/fonts/Poppins-Medium.ttf') format('truetype');
+  font-family: "Poppins-Medium";
+  src: url("/fonts/Poppins-Medium.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: 'Poppins-SemiBold';
-  src: url('/fonts/Poppins-SemiBold.ttf') format('truetype');
+  font-family: "Poppins-SemiBold";
+  src: url("/fonts/Poppins-SemiBold.ttf") format("truetype");
 }
 
 @font-face {
-  font-family: 'Poppins-Bold';
-  src: url('/fonts/Poppins-Bold.ttf') format('truetype');
+  font-family: "Poppins-Bold";
+  src: url("/fonts/Poppins-Bold.ttf") format("truetype");
 }
 
 @layer base {
@@ -72,6 +72,7 @@
 
   * {
     @apply box-border;
+    -webkit-tap-highlight-color: transparent;
   }
 
   html,
@@ -99,7 +100,28 @@
   input:focus,
   textarea:focus,
   select:focus {
-    @apply border-accent;
+    @apply border-border;
+    outline: none;
+    box-shadow: none;
+  }
+
+  button:focus,
+  input:focus,
+  textarea:focus,
+  select:focus,
+  a:focus {
+    outline: none;
+    box-shadow: none;
+  }
+
+  button:focus,
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  a:focus-visible {
+    outline: none;
+    box-shadow: none;
   }
 
   textarea {

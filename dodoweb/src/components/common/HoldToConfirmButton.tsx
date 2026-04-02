@@ -1,6 +1,6 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {cx} from '@/lib/tw';
-import {AppIcon, type AppIconName} from './AppIcon';
+import React, { useEffect, useRef, useState } from "react";
+import { cx } from "@/lib/tw";
+import { AppIcon, type AppIconName } from "./AppIcon";
 
 type HoldToConfirmButtonProps = {
   iconName: AppIconName;
@@ -76,7 +76,7 @@ export function HoldToConfirmButton({
     <button
       type="button"
       className={cx(
-        'relative grid place-items-center overflow-hidden rounded-full bg-surface',
+        "relative grid place-items-center overflow-hidden rounded-full bg-surface",
         className,
       )}
       disabled={disabled}
@@ -85,26 +85,32 @@ export function HoldToConfirmButton({
       onMouseLeave={() => clearHold()}
       onTouchStart={startHold}
       onTouchEnd={() => clearHold()}
-      style={{
-        width: size,
-        height: size,
-        background: backgroundColor,
-      } as React.CSSProperties}>
+      style={
+        {
+          width: size,
+          height: size,
+          background: backgroundColor,
+        } as React.CSSProperties
+      }
+    >
       <span
         className="absolute inset-0 rounded-[inherit]"
         style={{
           transform: `scale(${progress})`,
-          background: progressColor ?? 'var(--accent)',
+          background: progressColor ?? "var(--accent)",
         }}
       />
       <span className="relative z-10">
         <AppIcon
           name={iconName}
           size={24}
-          color={disabled ? disabledIconColor ?? 'var(--muted-text)' : iconColor ?? 'var(--text)'}
+          color={
+            disabled
+              ? disabledIconColor ?? "var(--muted-text)"
+              : iconColor ?? "var(--text)"
+          }
         />
       </span>
     </button>
   );
 }
-

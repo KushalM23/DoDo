@@ -1,0 +1,4 @@
+function CategoriesManager({
+  open,
+  onClose,
+}: {

@@ -1,23 +1,58 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
-import Link from 'next/link';
-import {useParams, useRouter} from 'next/navigation';
-import {AppIcon} from '@/components/common/AppIcon';
-import {FocusModeView} from '@/components/common/FocusModeView';
-import {HoldToConfirmButton} from '@/components/common/HoldToConfirmButton';
-import {LoadingScreen} from '@/components/common/LoadingScreen';
-import {cx, tw} from '@/lib/tw';
-import {useAlert} from '@/providers/AlertContext';
-import {useCategories} from '@/providers/CategoriesContext';
-import {usePreferences} from '@/providers/PreferencesContext';
-import {useTasks} from '@/providers/TasksContext';
-import {playFocusEnterSound, playFocusExitSound} from '@/utils/sounds';
-import {hapticImpact} from '@/utils/haptics';
-import {formatDate, formatDateTime, formatTime} from '@/utils/dateTime';
-import {getTaskTrackedSeconds} from '@/utils/taskTiming';
-import type {CreateTaskInput, Priority, Task} from '@/types/task';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { AppIcon, type AppIconName } from "@/components/common/AppIcon";
+import { FocusModeView } from "@/components/common/FocusModeView";
+import { HoldToConfirmButton } from "@/components/common/HoldToConfirmButton";
+import { LoadingScreen } from "@/components/common/LoadingScreen";
+import { CustomDatePicker } from "@/components/forms/pickers/CustomDatePicker";
+import { CustomDurationPicker } from "@/components/forms/pickers/CustomDurationPicker";
+import { CustomTimePicker } from "@/components/forms/pickers/CustomTimePicker";
+import { cx, tw } from "@/lib/tw";
+import { useAlert } from "@/providers/AlertContext";
+import { useCategories } from "@/providers/CategoriesContext";
+import { usePreferences } from "@/providers/PreferencesContext";
+import { useTasks } from "@/providers/TasksContext";
+import { playFocusEnterSound, playFocusExitSound } from "@/utils/sounds";
+import { hapticImpact } from "@/utils/haptics";
+import { formatDate, formatDateTime, formatTime } from "@/utils/dateTime";
+import { getTaskTrackedSeconds } from "@/utils/taskTiming";
+import type { CreateTaskInput, Priority, Task } from "@/types/task";
 
 function priorityLabel(priority: Priority) {
-  return priority === 3 ? 'High' : priority === 2 ? 'Medium' : 'Low';
+  return priority === 3 ? "High" : priority === 2 ? "Medium" : "Low";
+}
+
+function priorityIcon(priority: Priority): AppIconName {
+  if (priority === 3) {
+    return "arrow-up-circle";
+  }
+  if (priority === 2) {
+    return "minus-circle";
+  }
+  return "arrow-down-circle";
+}
+
+function priorityColor(priority: Priority) {
+  if (priority === 3) {
+    return "var(--high-priority)";
+  }
+  if (priority === 2) {
+    return "var(--medium-priority)";
+  }
+  return "var(--low-priority)";
+}
+
+function formatDurationSmart(mins: number): string {
+  if (mins < 60) {
+    return `${mins}m`;
+  }
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (m === 0) {
+    return `${h}h`;
+  }
+  return `${h}h ${m}m`;
 }
 
 function getTaskDurationMinutes(task: Task): number {
@@ -25,16 +60,17 @@ function getTaskDurationMinutes(task: Task): number {
     return Math.max(1, task.durationMinutes);
   }
   const inferred = Math.round(
-    (new Date(task.deadline).getTime() - new Date(task.scheduledAt).getTime()) / 60000,
+    (new Date(task.deadline).getTime() - new Date(task.scheduledAt).getTime()) /
+      60000,
   );
   return Math.max(1, inferred || 60);
 }
 
 export function TaskDetailScreen() {
-  const params = useParams<{taskId: string}>();
-  const taskId = typeof params.taskId === 'string' ? params.taskId : '';
+  const params = useParams<{ taskId: string }>();
+  const taskId = typeof params.taskId === "string" ? params.taskId : "";
   const router = useRouter();
-  const {showAlert} = useAlert();
+  const { showAlert } = useAlert();
   const {
     tasks,
     loading,
@@ -45,14 +81,14 @@ export function TaskDetailScreen() {
     removeTask,
     updateTaskDetails,
   } = useTasks();
-  const {categories, initialized: categoriesInitialized} = useCategories();
-  const {preferences} = usePreferences();
+  const { categories, initialized: categoriesInitialized } = useCategories();
+  const { preferences } = usePreferences();
 
-  const task = tasks.find(entry => entry.id === taskId);
-  const [titleDraft, setTitleDraft] = useState('');
+  const task = tasks.find((entry) => entry.id === taskId);
+  const [titleDraft, setTitleDraft] = useState("");
   const [priorityDraft, setPriorityDraft] = useState<Priority>(2);
-  const [scheduledDateDraft, setScheduledDateDraft] = useState('');
-  const [scheduledTimeDraft, setScheduledTimeDraft] = useState('');
+  const [scheduledDateDraft, setScheduledDateDraft] = useState("");
+  const [scheduledTimeDraft, setScheduledTimeDraft] = useState("");
   const [durationMinutesDraft, setDurationMinutesDraft] = useState(60);
   const [categoryIdDraft, setCategoryIdDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,7 +99,7 @@ export function TaskDetailScreen() {
 
   const autoSaveTimerRef = useRef<number | null>(null);
   const undoTimerRef = useRef<number | null>(null);
-  const lastAutoSavedSignatureRef = useRef('');
+  const lastAutoSavedSignatureRef = useRef("");
   const autoSaveErrorShownRef = useRef(false);
 
   useEffect(() => {
@@ -75,11 +111,13 @@ export function TaskDetailScreen() {
     setPriorityDraft(task.priority);
     setScheduledDateDraft(scheduledAt.toISOString().slice(0, 10));
     setScheduledTimeDraft(
-      `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`,
+      `${String(scheduledAt.getHours()).padStart(2, "0")}:${String(
+        scheduledAt.getMinutes(),
+      ).padStart(2, "0")}`,
     );
     setDurationMinutesDraft(getTaskDurationMinutes(task));
     setCategoryIdDraft(task.categoryId);
-    lastAutoSavedSignatureRef.current = '';
+    lastAutoSavedSignatureRef.current = "";
     autoSaveErrorShownRef.current = false;
   }, [task]);
 
@@ -109,9 +147,11 @@ export function TaskDetailScreen() {
     };
   }, []);
 
-  const category = task?.categoryId ? categories.find(entry => entry.id === task.categoryId) ?? null : null;
+  const category = task?.categoryId
+    ? categories.find((entry) => entry.id === task.categoryId) ?? null
+    : null;
   const selectedCategory = categoryIdDraft
-    ? categories.find(entry => entry.id === categoryIdDraft) ?? null
+    ? categories.find((entry) => entry.id === categoryIdDraft) ?? null
     : null;
   const focusElapsedSeconds = useMemo(
     () => (task ? getTaskTrackedSeconds(task, lockTime) : 0),
@@ -125,9 +165,10 @@ export function TaskDetailScreen() {
     const originalDuration = getTaskDurationMinutes(task);
     const scheduledAt = new Date(task.scheduledAt);
     const originalDate = scheduledAt.toISOString().slice(0, 10);
-    const originalTime = `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(
-      scheduledAt.getMinutes(),
-    ).padStart(2, '0')}`;
+    const originalTime = `${String(scheduledAt.getHours()).padStart(
+      2,
+      "0",
+    )}:${String(scheduledAt.getMinutes()).padStart(2, "0")}`;
 
     return (
       titleDraft.trim() !== task.title ||
@@ -148,7 +189,14 @@ export function TaskDetailScreen() {
   ]);
 
   useEffect(() => {
-    if (!task || busy || pendingDelete || savingDetails || !hasChanges || !titleDraft.trim()) {
+    if (
+      !task ||
+      busy ||
+      pendingDelete ||
+      savingDetails ||
+      !hasChanges ||
+      !titleDraft.trim()
+    ) {
       return;
     }
     if (autoSaveTimerRef.current != null) {
@@ -158,23 +206,27 @@ export function TaskDetailScreen() {
     const signature = [
       titleDraft.trim(),
       priorityDraft,
-      categoryIdDraft ?? 'none',
+      categoryIdDraft ?? "none",
       durationMinutesDraft,
       scheduledDateDraft,
       scheduledTimeDraft,
-    ].join('|');
+    ].join("|");
 
     if (signature === lastAutoSavedSignatureRef.current) {
       return;
     }
 
     autoSaveTimerRef.current = window.setTimeout(() => {
-      const scheduledAt = new Date(`${scheduledDateDraft}T${scheduledTimeDraft}:00`);
-      const deadline = new Date(scheduledAt.getTime() + durationMinutesDraft * 60 * 1000);
+      const scheduledAt = new Date(
+        `${scheduledDateDraft}T${scheduledTimeDraft}:00`,
+      );
+      const deadline = new Date(
+        scheduledAt.getTime() + durationMinutesDraft * 60 * 1000,
+      );
 
       const input: CreateTaskInput = {
         title: titleDraft.trim(),
-        description: task.description ?? '',
+        description: task.description ?? "",
         categoryId: categoryIdDraft,
         scheduledAt: scheduledAt.toISOString(),
         deadline: deadline.toISOString(),
@@ -188,11 +240,11 @@ export function TaskDetailScreen() {
           lastAutoSavedSignatureRef.current = signature;
           autoSaveErrorShownRef.current = false;
         })
-        .catch(error => {
+        .catch((error) => {
           if (!autoSaveErrorShownRef.current) {
             showAlert(
-              'Failed to update task',
-              error instanceof Error ? error.message : 'Unknown error',
+              "Failed to update task",
+              error instanceof Error ? error.message : "Unknown error",
             );
             autoSaveErrorShownRef.current = true;
           }
@@ -217,7 +269,11 @@ export function TaskDetailScreen() {
     updateTaskDetails,
   ]);
 
-  if (!initialized || !categoriesInitialized || (loading && tasks.length === 0)) {
+  if (
+    !initialized ||
+    !categoriesInitialized ||
+    (loading && tasks.length === 0)
+  ) {
     return <LoadingScreen title="Loading task" />;
   }
 
@@ -226,14 +282,25 @@ export function TaskDetailScreen() {
       <div className="grid items-start justify-items-center">
         <div className="grid w-full max-w-[1080px] gap-2 rounded-[28px] border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
           <h1 className={tw.h1}>Task not found</h1>
-          <Link href="/tasks" className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55">
-            Back to tasks
+          <Link
+            href="/tasks"
+            className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            Back
           </Link>
         </div>
       </div>
     );
   }
   const currentTask = task;
+  const fallbackScheduledAt = new Date(currentTask.scheduledAt);
+  const safeScheduledDate =
+    scheduledDateDraft || fallbackScheduledAt.toISOString().slice(0, 10);
+  const safeScheduledTime =
+    scheduledTimeDraft ||
+    `${String(fallbackScheduledAt.getHours()).padStart(2, "0")}:${String(
+      fallbackScheduledAt.getMinutes(),
+    ).padStart(2, "0")}`;
 
   function clearUndoTimer() {
     if (undoTimerRef.current != null) {
@@ -246,7 +313,7 @@ export function TaskDetailScreen() {
     clearUndoTimer();
     setPendingDelete(true);
     undoTimerRef.current = window.setTimeout(() => {
-      void removeTask(taskId).then(() => router.push('/tasks'));
+      void removeTask(taskId).then(() => router.push("/tasks"));
       setPendingDelete(false);
       undoTimerRef.current = null;
     }, 3000);
@@ -267,14 +334,16 @@ export function TaskDetailScreen() {
   async function handleExitFocus() {
     setLockInMode(false);
     playFocusExitSound();
-    hapticImpact('soft');
+    hapticImpact("soft");
     if (!currentTask.completed && currentTask.timerStartedAt) {
       try {
         await pauseTimer(currentTask);
       } catch (error) {
         showAlert(
-          'Failed to pause timer',
-          error instanceof Error ? error.message : 'Unable to pause focus timer.',
+          "Failed to pause timer",
+          error instanceof Error
+            ? error.message
+            : "Unable to pause focus timer.",
         );
       }
     }
@@ -285,11 +354,11 @@ export function TaskDetailScreen() {
       return;
     }
 
-    showAlert('Delete task?', 'This action cannot be undone.', [
-      {text: 'Cancel', style: 'cancel'},
+    showAlert("Delete task?", "This action cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
       {
-        text: 'Delete',
-        style: 'destructive',
+        text: "Delete",
+        style: "destructive",
         onPress: () => {
           scheduleDelete(currentTask.id);
         },
@@ -304,7 +373,9 @@ export function TaskDetailScreen() {
         timeFormat={preferences.timeFormat}
         title={currentTask.title}
         metaLines={[
-          `${category?.name ?? 'None'} | ${priorityLabel(currentTask.priority)}`,
+          `${category?.name ?? "None"} · ${priorityLabel(
+            currentTask.priority,
+          )}`,
           `Due ${formatDateTime(currentTask.deadline, {
             dateFormat: preferences.dateFormat,
             timeFormat: preferences.timeFormat,
@@ -315,8 +386,8 @@ export function TaskDetailScreen() {
         onExitFocus={() => {
           void handleExitFocus();
         }}
-        actionLabel={currentTask.completed ? 'Undo' : 'Complete'}
-        actionIconName={currentTask.completed ? 'rotate-ccw' : 'check'}
+        actionLabel={currentTask.completed ? "Undo" : "Complete"}
+        actionIconName={currentTask.completed ? "rotate-ccw" : "check"}
         onActionPress={() => {
           void handleComplete();
         }}
@@ -331,27 +402,7 @@ export function TaskDetailScreen() {
       <div className="grid items-start justify-items-center">
         <section className="grid w-full max-w-[1080px] gap-2 rounded-[28px] border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
           <h1 className={tw.h1}>Task deleted</h1>
-          <p className={tw.muted}>Removing task in a moment.</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-surface-light px-[18px] font-sans-bold text-text transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
-              onClick={() => {
-                clearUndoTimer();
-                setPendingDelete(false);
-              }}>
-              Undo
-            </button>
-            <button
-              type="button"
-              className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-danger px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
-              onClick={() => {
-                clearUndoTimer();
-                void removeTask(currentTask.id).then(() => router.push('/tasks'));
-              }}>
-              Delete Now
-            </button>
-          </div>
+          <p className={tw.muted}>Removing task...</p>
         </section>
       </div>
     );
@@ -359,141 +410,180 @@ export function TaskDetailScreen() {
 
   return (
     <div className="grid items-start justify-items-center">
-      <section className="w-full max-w-[1080px] rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <Link href="/tasks" className="mb-4 inline-flex items-center gap-1.5 text-muted-text">
-              <AppIcon name="chevron-left" size={18} />
-              <span>Back to tasks</span>
-            </Link>
-            <input
-              className="w-full border-0 bg-transparent p-0 font-display text-[40px] tracking-[-0.8px] text-text outline-none"
-              value={titleDraft}
-              onChange={event => setTitleDraft(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button type="button" className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px" onClick={() => router.push('/tasks')}>
-              <AppIcon name="x" size={18} />
-            </button>
-          </div>
-        </div>
+      <section className="w-full max-w-[1240px] rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)] md:p-8 xl:h-[760px]">
+        <div className="grid h-full gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
+          <div className="flex h-full flex-col rounded-[24px] bg-surface p-4 md:p-6">
+            <div className="flex items-center justify-center gap-4">
+              <Link
+                href="/tasks"
+                className="inline-flex items-center gap-1.5 text-muted-text"
+              >
+                <AppIcon name="chevron-left" size={24} />
+              </Link>
 
-        <div className="grid gap-3.5 sm:grid-cols-2">
-          <label className="grid gap-2">
-            <span>Date</span>
-            <input
-              type="date"
-              value={scheduledDateDraft}
-              onChange={event => setScheduledDateDraft(event.target.value)}
-            />
-          </label>
+              <input
+                className="w-full border-0 bg-transparent p-0 font-display text-[34px] tracking-[-0.8px] text-text outline-none focus:ring-0 md:text-[42px]"
+                value={titleDraft}
+                onChange={(event) => setTitleDraft(event.target.value)}
+              />
+            </div>
+            <div className="mt-6 grid flex-1 content-start gap-5 overflow-y-auto pr-1">
+              <div>
+                <span className={tw.fieldLabel}>Time</span>
+                <CustomTimePicker
+                  value={safeScheduledTime}
+                  onChange={setScheduledTimeDraft}
+                  timeFormat={preferences.timeFormat}
+                />
+              </div>
 
-          <label className="grid gap-2">
-            <span>Time</span>
-            <input
-              type="time"
-              value={scheduledTimeDraft}
-              onChange={event => setScheduledTimeDraft(event.target.value)}
-            />
-          </label>
+              <div>
+                <CustomDurationPicker
+                  value={durationMinutesDraft}
+                  onChange={setDurationMinutesDraft}
+                />
+              </div>
 
-          <label className="grid gap-2">
-            <span>Duration</span>
-            <input
-              type="number"
-              min={1}
-              value={durationMinutesDraft}
-              onChange={event => setDurationMinutesDraft(Number(event.target.value) || 1)}
-            />
-          </label>
+              <div>
+                <span className={tw.fieldLabel}>Priority Level</span>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  {([1, 2, 3] as Priority[]).map((value) => {
+                    const active = priorityDraft === value;
+                    const chipColor = priorityColor(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        className={cx(
+                          "flex min-w-[30%] flex-1 items-center justify-center gap-2 rounded-full py-4 transition hover:-translate-y-px",
+                          active
+                            ? "text-white"
+                            : "bg-surface-light text-muted-text hover:brightness-110",
+                        )}
+                        style={
+                          active ? { backgroundColor: chipColor } : undefined
+                        }
+                        onClick={() => setPriorityDraft(value)}
+                      >
+                        <AppIcon
+                          name={priorityIcon(value)}
+                          size={18}
+                          color={active ? "#fff" : "currentColor"}
+                        />
+                        <span className="font-sans-bold text-sm">
+                          {priorityLabel(value)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-          <label className="grid gap-2">
-            <span>Category</span>
-            <select
-              value={categoryIdDraft ?? ''}
-              onChange={event => setCategoryIdDraft(event.target.value || null)}>
-              <option value="">None</option>
-              {categories.map(entry => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          {[1, 2, 3].map(value => (
-            <button
-              key={value}
-              type="button"
-              className={cx(tw.chip, priorityDraft === value && tw.chipActive)}
-              onClick={() => setPriorityDraft(value as Priority)}>
-              {value === 1 ? 'Low' : value === 2 ? 'Medium' : 'High'}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid gap-3.5 sm:grid-cols-2">
-          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
-            <span>Scheduled</span>
-            <strong>{formatDate(new Date(currentTask.scheduledAt), preferences.dateFormat)}</strong>
-          </div>
-          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
-            <span>Start</span>
-            <strong>{formatTime(new Date(currentTask.scheduledAt), preferences.timeFormat)}</strong>
-          </div>
-          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
-            <span>Category</span>
-            <strong>{selectedCategory?.name ?? 'None'}</strong>
-          </div>
-          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
-            <span>Progress</span>
-            <strong>{currentTask.completed ? 'Done' : 'Active'}</strong>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-4">
-          <HoldToConfirmButton
-            iconName="lock"
-            onHoldComplete={() => {
-              setLockInMode(true);
-              playFocusEnterSound();
-              hapticImpact('heavy');
-            }}
-            holdDurationMs={1500}
-            size={84}
-          />
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              className={cx(
-                tw.action,
-                'w-full',
-                currentTask.completed ? 'bg-surface-light text-accent' : tw.actionAccent,
+              {categories.length > 0 && (
+                <div>
+                  <span className={tw.fieldLabel}>Category</span>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {categories.map((entry) => {
+                      const active = categoryIdDraft === entry.id;
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          className="flex items-center gap-2.5 rounded-full px-5 py-3.5 transition hover:-translate-y-px"
+                          style={{
+                            backgroundColor: active
+                              ? entry.color
+                              : "var(--surface-light)",
+                            color: active ? "#fff" : "var(--muted-text)",
+                          }}
+                          onClick={() => {
+                            setCategoryIdDraft(active ? null : entry.id);
+                          }}
+                        >
+                          <AppIcon
+                            name={entry.icon as AppIconName}
+                            size={16}
+                            color={active ? "#fff" : "currentColor"}
+                          />
+                          <span
+                            className={cx(
+                              "text-sm",
+                              active
+                                ? "font-sans-bold text-white"
+                                : "font-sans-medium text-text",
+                            )}
+                          >
+                            {entry.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-              disabled={busy || pendingDelete || savingDetails}
-              onClick={() => {
-                void handleComplete();
-              }}>
-              <AppIcon name={currentTask.completed ? 'rotate-ccw' : 'check'} size={18} />
-              <span>{currentTask.completed ? 'Undo' : 'Complete'}</span>
-            </button>
-
-            <button
-              type="button"
-              className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-danger px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
-              disabled={busy || pendingDelete || savingDetails}
-              onClick={handleDelete}>
-              <AppIcon name="trash-2" size={18} />
-              <span>Delete</span>
-            </button>
+            </div>
           </div>
+
+          <aside className="flex h-full flex-col p-5">
+            <div>
+              <span className={tw.fieldLabel}>Date</span>
+              <CustomDatePicker
+                value={safeScheduledDate}
+                onChange={setScheduledDateDraft}
+                weekStart={preferences.weekStart}
+              />
+            </div>
+
+            <div className="flex-1" />
+
+            <div className="grid gap-4">
+              <div className="grid place-items-center">
+                <HoldToConfirmButton
+                  iconName="lock"
+                  onHoldComplete={() => {
+                    setLockInMode(true);
+                    playFocusEnterSound();
+                    hapticImpact("heavy");
+                  }}
+                  holdDurationMs={1500}
+                  size={84}
+                />
+              </div>
+
+              <button
+                type="button"
+                className={cx(
+                  tw.action,
+                  "w-full justify-center",
+                  currentTask.completed
+                    ? "bg-surface text-accent"
+                    : tw.actionAccent,
+                )}
+                disabled={busy || pendingDelete || savingDetails}
+                onClick={() => {
+                  void handleComplete();
+                }}
+              >
+                <AppIcon
+                  name={currentTask.completed ? "rotate-ccw" : "check"}
+                  size={18}
+                />
+                <span>{currentTask.completed ? "Undo" : "Complete"}</span>
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-danger px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
+                disabled={busy || pendingDelete || savingDetails}
+                onClick={handleDelete}
+              >
+                <AppIcon name="trash-2" size={18} />
+                <span>Delete</span>
+              </button>
+            </div>
+          </aside>
         </div>
       </section>
     </div>
   );
 }
-
