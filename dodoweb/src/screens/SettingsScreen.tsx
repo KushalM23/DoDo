@@ -178,7 +178,8 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
     <section
       className={cx(
         "w-full xl:min-h-[760px]",
-        !embedded && "max-w-[560px] rounded-[28px] border border-border bg-surface shadow-[0_24px_60px_var(--shadow)]",
+        !embedded &&
+          "max-w-[560px] rounded-[28px] border border-border bg-surface shadow-[0_24px_60px_var(--shadow)]",
       )}
     >
       <div className="flex items-center justify-between px-7 py-1">
