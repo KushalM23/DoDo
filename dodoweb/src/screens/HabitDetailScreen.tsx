@@ -1,31 +1,36 @@
-import React, {useEffect, useMemo, useState} from 'react';
-import Link from 'next/link';
-import {useParams, useRouter} from 'next/navigation';
-import {HabitComposer} from '@/components/forms/HabitComposer';
-import {AppIcon} from '@/components/common/AppIcon';
-import {FocusModeView} from '@/components/common/FocusModeView';
-import {HoldToConfirmButton} from '@/components/common/HoldToConfirmButton';
-import {LoadingScreen} from '@/components/common/LoadingScreen';
-import {cx, tw} from '@/lib/tw';
-import {useAlert} from '@/providers/AlertContext';
-import {useHabits} from '@/providers/HabitsContext';
-import {usePreferences} from '@/providers/PreferencesContext';
-import {buildHabitTrackerDateKeys, formatHabitFrequency, habitAppliesToDate, minuteToLabel} from '@/utils/habits';
-import {formatClockDuration} from '@/utils/taskTiming';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { HabitComposer } from "@/components/forms/HabitComposer";
+import { AppIcon } from "@/components/common/AppIcon";
+import { FocusModeView } from "@/components/common/FocusModeView";
+import { HoldToConfirmButton } from "@/components/common/HoldToConfirmButton";
+import { LoadingScreen } from "@/components/common/LoadingScreen";
+import { cx, tw } from "@/lib/tw";
+import { useAlert } from "@/providers/AlertContext";
+import { useHabits } from "@/providers/HabitsContext";
+import { usePreferences } from "@/providers/PreferencesContext";
+import {
+  buildHabitTrackerDateKeys,
+  formatHabitFrequency,
+  habitAppliesToDate,
+  minuteToLabel,
+} from "@/utils/habits";
+import { formatClockDuration } from "@/utils/taskTiming";
 
 function dateKey(date: Date): string {
   const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
 }
 
 export function HabitDetailScreen() {
-  const params = useParams<{habitId: string}>();
-  const habitId = typeof params.habitId === 'string' ? params.habitId : '';
+  const params = useParams<{ habitId: string }>();
+  const habitId = typeof params.habitId === "string" ? params.habitId : "";
   const router = useRouter();
-  const {showAlert} = useAlert();
-  const {preferences} = usePreferences();
+  const { showAlert } = useAlert();
+  const { preferences } = usePreferences();
   const {
     habits,
     loading,
@@ -42,9 +47,9 @@ export function HabitDetailScreen() {
   const [lockInMode, setLockInMode] = useState(false);
   const [lockTime, setLockTime] = useState(() => new Date());
   const [busy, setBusy] = useState(false);
-  const [editVisible, setEditVisible] = useState(false);
+  const composerPanelRef = useRef<HTMLElement | null>(null);
 
-  const habit = habits.find(entry => entry.id === habitId);
+  const habit = habits.find((entry) => entry.id === habitId);
   const today = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => dateKey(today), [today]);
   const trackerDateKeys = useMemo(
@@ -60,7 +65,11 @@ export function HabitDetailScreen() {
     if (!historyStartDate) {
       return;
     }
-    void loadHistory({habitId: habit.id, startDate: historyStartDate, endDate: todayKey});
+    void loadHistory({
+      habitId: habit.id,
+      startDate: historyStartDate,
+      endDate: todayKey,
+    });
   }, [habit, loadHistory, todayKey, trackerDateKeys]);
 
   useEffect(() => {
@@ -75,11 +84,24 @@ export function HabitDetailScreen() {
   const canCompleteToday = habit ? habitAppliesToDate(habit, todayKey) : false;
 
   useEffect(() => {
-    if (!lockInMode || !habit || !canCompleteToday || completedToday || habit.timerStartedAt) {
+    if (
+      !lockInMode ||
+      !habit ||
+      !canCompleteToday ||
+      completedToday ||
+      habit.timerStartedAt
+    ) {
       return;
     }
     void startHabitTimer(habit.id, todayKey);
-  }, [canCompleteToday, completedToday, habit, lockInMode, startHabitTimer, todayKey]);
+  }, [
+    canCompleteToday,
+    completedToday,
+    habit,
+    lockInMode,
+    startHabitTimer,
+    todayKey,
+  ]);
 
   const focusElapsedSeconds = useMemo(() => {
     if (!habit) {
@@ -106,7 +128,10 @@ export function HabitDetailScreen() {
       <div className="grid items-start justify-items-center">
         <div className="grid w-full max-w-[1080px] gap-2 rounded-[28px] border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
           <h1 className={tw.h1}>Habit not found</h1>
-          <Link href="/habits" className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55">
+          <Link
+            href="/habits"
+            className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
+          >
             Back to habits
           </Link>
         </div>
@@ -120,7 +145,10 @@ export function HabitDetailScreen() {
     try {
       await setHabitCompletedOn(currentHabit.id, todayKey, !completedToday);
     } catch (error) {
-      showAlert('Failed', error instanceof Error ? error.message : 'Unable to update completion.');
+      showAlert(
+        "Failed",
+        error instanceof Error ? error.message : "Unable to update completion.",
+      );
     } finally {
       setBusy(false);
     }
@@ -133,11 +161,20 @@ export function HabitDetailScreen() {
         await pauseHabitTimer(currentHabit.id, todayKey);
       } catch (error) {
         showAlert(
-          'Failed to pause timer',
-          error instanceof Error ? error.message : 'Unable to pause focus timer.',
+          "Failed to pause timer",
+          error instanceof Error
+            ? error.message
+            : "Unable to pause focus timer.",
         );
       }
     }
+  }
+
+  function focusComposerPanel() {
+    composerPanelRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }
 
   if (lockInMode) {
@@ -156,86 +193,117 @@ export function HabitDetailScreen() {
         onExitFocus={() => {
           void handleExitFocus();
         }}
-        actionLabel={canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
-        actionIconName={canCompleteToday ? (completedToday ? 'rotate-ccw' : 'check') : 'edit'}
+        actionLabel={
+          canCompleteToday ? (completedToday ? "Undo" : "Complete") : "Edit"
+        }
+        actionIconName={
+          canCompleteToday ? (completedToday ? "rotate-ccw" : "check") : "edit"
+        }
+        actionDisabled={busy && canCompleteToday}
+        actionDone={canCompleteToday && completedToday}
         onActionPress={() => {
           if (canCompleteToday) {
             void toggleTodayCompletion();
             return;
           }
-          setEditVisible(true);
+          focusComposerPanel();
         }}
-        actionDisabled={busy && canCompleteToday}
-        actionDone={canCompleteToday && completedToday}
       />
     );
   }
 
   return (
-    <div className="grid items-start justify-items-center">
-      <section className="w-full max-w-[1080px] rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <Link href="/habits" className="mb-4 inline-flex items-center gap-1.5 text-muted-text">
-              <AppIcon name="chevron-left" size={18} />
-              <span>Back to habits</span>
-            </Link>
-            <div className="flex items-center gap-3">
-              <AppIcon name={currentHabit.icon as any} size={28} color="var(--habit-badge)" />
-              <h1 className={tw.h1}>{currentHabit.title}</h1>
-            </div>
-          </div>
+    <div className="grid mt-10 gap-6 xl:grid-cols-[minmax(0,1fr)_560px]">
+      <section className="relative flex h-[760px] flex-col overflow-hidden rounded-[28px] bg-surface px-7 pb-28 pt-6 shadow-[0_24px_60px_var(--shadow)]">
+        <div className="flex items-center justify-start gap-3">
+          <Link
+            href="/habits"
+            className="inline-flex items-center gap-1.5 text-muted-text"
+          >
+            <AppIcon name="chevron-left" size={18} />
+            <span>Back to habits</span>
+          </Link>
         </div>
 
-        <div className="grid gap-3.5 sm:grid-cols-2">
-          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
-            <span>Current streak</span>
-            <strong>{currentHabit.currentStreak}</strong>
-          </div>
-          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
-            <span>Best streak</span>
-            <strong>{currentHabit.bestStreak}</strong>
-          </div>
-          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
-            <span>Time</span>
-            <strong>{minuteToLabel(currentHabit.timeMinute, preferences.timeFormat)}</strong>
-          </div>
-          <div className="grid gap-1.5 rounded-[22px] bg-surface p-4">
-            <span>Duration</span>
-            <strong>
-              {currentHabit.durationMinutes
-                ? `${currentHabit.durationMinutes}m`
-                : formatClockDuration(focusElapsedSeconds)}
-            </strong>
-          </div>
+        <div className="mt-2 flex items-center justify-center gap-3 text-center">
+          <AppIcon
+            name={currentHabit.icon as any}
+            size={28}
+            color="var(--habit-badge)"
+          />
+          <h1 className={tw.h1}>{currentHabit.title}</h1>
         </div>
 
-        <div className="mt-6 rounded-[22px] bg-surface p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2>Tracker</h2>
-              <p>{formatHabitFrequency(currentHabit)}</p>
+        <div className="mt-6 flex-1 overflow-y-auto pb-52 pr-1">
+          <div className="grid gap-3">
+            <div className="flex gap-3">
+              <div className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-surface-light px-3">
+                <AppIcon name="flame" size={14} color="var(--muted-text)" />
+                <span className="font-sans-bold text-xs text-muted-text">
+                  {currentHabit.currentStreak} Current
+                </span>
+              </div>
+              <div className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-surface-light px-3">
+                <AppIcon name="flame" size={14} color="var(--muted-text)" />
+                <span className="font-sans-bold text-xs text-muted-text">
+                  {currentHabit.bestStreak} Best
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="mt-[18px] flex flex-wrap gap-3">
-            {trackerDateKeys.map(key => {
-              const completed = isHabitCompletedOn(currentHabit.id, key);
-              const isToday = key === todayKey;
-              return (
-                <span
-                  key={key}
-                  className={cx(
-                    'aspect-square w-[calc(14.28%-11px)] rounded-full bg-surface-light',
-                    completed && 'bg-habit-badge',
-                    isToday && 'ring-2 ring-text',
+
+            <div className="flex gap-3">
+              <div className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-surface-light px-3">
+                <AppIcon name="clock" size={14} color="var(--muted-text)" />
+                <span className="font-sans-bold text-xs text-muted-text">
+                  {minuteToLabel(
+                    currentHabit.timeMinute,
+                    preferences.timeFormat,
                   )}
-                />
-              );
-            })}
+                </span>
+              </div>
+              <div className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-surface-light px-3">
+                <AppIcon name="hourglass" size={14} color="var(--muted-text)" />
+                <span className="font-sans-bold text-xs text-muted-text">
+                  {currentHabit.durationMinutes
+                    ? `${currentHabit.durationMinutes}m`
+                    : formatClockDuration(focusElapsedSeconds)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex min-h-11 items-center justify-center gap-2 rounded-full bg-surface-light px-3">
+              <AppIcon name="repeat" size={14} color="var(--muted-text)" />
+              <span className="font-sans-bold text-xs text-muted-text">
+                {formatHabitFrequency(currentHabit)}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[20px] p-4">
+            <div className="flex flex-wrap gap-y-[22px]">
+              {trackerDateKeys.map((key) => {
+                const completed = isHabitCompletedOn(currentHabit.id, key);
+                const isFuture = key > todayKey;
+                const isToday = key === todayKey;
+                return (
+                  <div key={key} className="grid w-[14.28%] place-items-center">
+                    <span
+                      className={cx(
+                        "h-6 w-6 rounded-full bg-surface-light",
+                        completed && !isFuture && "bg-habit-badge",
+                        isToday && "border-[3px] border-text",
+                      )}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4">
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-28 bg-gradient-to-t from-surface via-surface/95 to-transparent" />
+
+        <div className="absolute bottom-6 left-0 right-0 z-20 grid justify-items-center gap-5 px-6">
           <HoldToConfirmButton
             iconName="lock"
             onHoldComplete={() => setLockInMode(true)}
@@ -243,13 +311,15 @@ export function HabitDetailScreen() {
             size={84}
           />
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid w-full gap-3 sm:grid-cols-2">
             <button
               type="button"
               className={cx(
                 tw.action,
-                'w-full',
-                canCompleteToday && completedToday ? 'bg-surface-light text-accent' : tw.actionAccent,
+                "w-full",
+                canCompleteToday && completedToday
+                  ? "bg-surface-light text-accent"
+                  : tw.actionAccent,
               )}
               disabled={busy && canCompleteToday}
               onClick={() => {
@@ -257,11 +327,25 @@ export function HabitDetailScreen() {
                   void toggleTodayCompletion();
                   return;
                 }
-                setEditVisible(true);
-              }}>
-              <AppIcon name={canCompleteToday && completedToday ? 'rotate-ccw' : canCompleteToday ? 'check' : 'edit'} size={18} />
+                focusComposerPanel();
+              }}
+            >
+              <AppIcon
+                name={
+                  canCompleteToday && completedToday
+                    ? "rotate-ccw"
+                    : canCompleteToday
+                    ? "check"
+                    : "edit"
+                }
+                size={18}
+              />
               <span>
-                {canCompleteToday ? (completedToday ? 'Undo' : 'Complete') : 'Edit'}
+                {canCompleteToday
+                  ? completedToday
+                    ? "Undo"
+                    : "Complete"
+                  : "Edit"}
               </span>
             </button>
 
@@ -269,17 +353,24 @@ export function HabitDetailScreen() {
               type="button"
               className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-danger px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
               onClick={() =>
-                showAlert('Delete Habit', 'This will remove the habit and its history.', [
-                  {text: 'Cancel', style: 'cancel'},
-                  {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () => {
-                      void removeHabit(currentHabit.id).then(() => router.push('/habits'));
+                showAlert(
+                  "Delete Habit",
+                  "This will remove the habit and its history.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: () => {
+                        void removeHabit(currentHabit.id).then(() =>
+                          router.push("/habits"),
+                        );
+                      },
                     },
-                  },
-                ])
-              }>
+                  ],
+                )
+              }
+            >
               <AppIcon name="trash-2" size={18} />
               <span>Delete</span>
             </button>
@@ -287,14 +378,22 @@ export function HabitDetailScreen() {
         </div>
       </section>
 
-      <HabitComposer
-        open={editVisible}
-        mode="edit"
-        initialValues={currentHabit}
-        onClose={() => setEditVisible(false)}
-        onSubmit={input => editHabit(currentHabit.id, input)}
-      />
+      <aside
+        ref={(node) => {
+          composerPanelRef.current = node;
+        }}
+        className="h-[760px] overflow-hidden rounded-[28px] bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]"
+      >
+        <HabitComposer
+          open
+          variant="panel"
+          mode="edit"
+          initialValues={currentHabit}
+          timeFormat={preferences.timeFormat}
+          onClose={() => {}}
+          onSubmit={(input) => editHabit(currentHabit.id, input)}
+        />
+      </aside>
     </div>
   );
 }
-

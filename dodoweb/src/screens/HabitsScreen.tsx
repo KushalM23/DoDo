@@ -1,15 +1,69 @@
-import React, {useMemo, useState} from 'react';
-import {useRouter} from 'next/navigation';
-import {HabitComposer} from '@/components/forms/HabitComposer';
-import {AppIcon, type AppIconName} from '@/components/common/AppIcon';
-import {LoadingScreen} from '@/components/common/LoadingScreen';
-import {cx, tw} from '@/lib/tw';
-import {useHabits} from '@/providers/HabitsContext';
+import React, { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { HabitComposer } from "@/components/forms/HabitComposer";
+import { AppIcon, type AppIconName } from "@/components/common/AppIcon";
+import { LoadingScreen } from "@/components/common/LoadingScreen";
+import { cx } from "@/lib/tw";
+import { useHabits } from "@/providers/HabitsContext";
+import { usePreferences } from "@/providers/PreferencesContext";
+import type { Habit } from "@/types/habit";
+
+function HabitGridItem({
+  habit,
+  onPress,
+}: {
+  habit: Habit;
+  onPress: () => void;
+}) {
+  const [pressed, setPressed] = useState(false);
+
+  let frequencyLabel = "daily";
+  if (habit.frequencyType === "interval") {
+    frequencyLabel = `every ${habit.intervalDays} days`;
+  } else if (habit.frequencyType === "custom_days") {
+    frequencyLabel = `${habit.customDays.length}x / week`;
+  }
+
+  return (
+    <article
+      style={{
+        transform: `scale(${pressed ? 0.95 : 1})`,
+        transition: "transform 170ms cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+    >
+      <button
+        type="button"
+        className="flex h-[130px] w-full flex-col items-center justify-center gap-2.5 rounded-[16px] bg-surface px-4 text-center"
+        onMouseDown={() => setPressed(true)}
+        onMouseUp={() => setPressed(false)}
+        onMouseLeave={() => setPressed(false)}
+        onBlur={() => setPressed(false)}
+        onClick={onPress}
+      >
+        <AppIcon
+          name={habit.icon as AppIconName}
+          size={32}
+          color="var(--habit-badge)"
+        />
+
+        <div className="grid justify-items-center gap-0.5 px-1">
+          <strong className="line-clamp-2 font-sans-bold text-base tracking-[-0.2px] text-text">
+            {habit.title}
+          </strong>
+          <span className="font-sans-semibold text-xs text-muted-text">
+            {frequencyLabel}
+          </span>
+        </div>
+      </button>
+    </article>
+  );
+}
 
 export function HabitsScreen() {
   const router = useRouter();
-  const {habits, addHabit, initialized} = useHabits();
-  const [formVisible, setFormVisible] = useState(false);
+  const { preferences } = usePreferences();
+  const { habits, addHabit, initialized } = useHabits();
+  const [resetSignal, setResetSignal] = useState(0);
 
   const sortedHabits = useMemo(
     () => [...habits].sort((a, b) => a.title.localeCompare(b.title)),
@@ -21,56 +75,51 @@ export function HabitsScreen() {
   }
 
   return (
-    <div className={tw.pageGrid}>
-      <section className={tw.panel}>
-        <div className={tw.header}>
-          <div>
-            <h1 className={tw.h1}>Your Habits</h1>
-            <p className={tw.muted}>Desktop view of your recurring routines and streak builders.</p>
-          </div>
-          <button type="button" className={cx(tw.action, tw.actionAccent)} onClick={() => setFormVisible(true)}>
-            <AppIcon name="plus" size={18} />
-            <span>Add Habit</span>
-          </button>
-        </div>
+    <div className="grid mt-10 gap-6 xl:grid-cols-[minmax(0,1fr)_560px]">
+      <section className="relative flex h-[760px] flex-col overflow-hidden rounded-[28px] bg-surface px-7 pb-28 pt-6 shadow-[0_24px_60px_var(--shadow)]">
+        <h1 className="text-center font-display text-[40px] tracking-[-0.8px] text-text">
+          Your Habits
+        </h1>
 
-        <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-          {sortedHabits.map(habit => {
-            const frequencyLabel =
-              habit.frequencyType === 'daily'
-                ? 'Every day'
-                : habit.frequencyType === 'interval'
-                ? `Every ${habit.intervalDays} days`
-                : `${habit.customDays.length}x / week`;
-
-            return (
-              <article
-                key={habit.id}
-                className={cx(
-                  tw.card,
-                  'min-h-[130px] flex-1 cursor-pointer flex-col justify-center text-center',
-                )}
-                onClick={() => router.push(`/habits/${habit.id}`)}>
-                <AppIcon name={habit.icon as AppIconName} size={32} color="var(--habit-badge)" />
-                <div>
-                  <h3 className="m-0 font-display-semibold tracking-[-0.3px]">{habit.title}</h3>
-                  <p className={tw.muted}>{frequencyLabel}</p>
-                </div>
-              </article>
-            );
-          })}
-
-          {sortedHabits.length === 0 ? (
-            <div className="grid gap-2 text-center">
-              <h3 className="m-0 font-display-semibold tracking-[-0.3px]">No habits active</h3>
-              <p className={tw.muted}>Hit the plus button to start.</p>
+        <div className="mt-4 flex-1 overflow-y-auto pb-24 pr-1">
+          {sortedHabits.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {sortedHabits.map((habit) => (
+                <HabitGridItem
+                  key={habit.id}
+                  habit={habit}
+                  onPress={() => router.push(`/habits/${habit.id}`)}
+                />
+              ))}
             </div>
-          ) : null}
+          ) : (
+            <div className="grid h-full place-items-center">
+              <div className="grid gap-1.5 text-center">
+                <h3 className="m-0 font-display text-[26px] tracking-[-0.5px] text-text">
+                  No habits active
+                </h3>
+                <p className="m-0 font-sans-semibold text-base text-muted-text">
+                  Hit the plus button to start
+                </p>
+              </div>
+            </div>
+          )}
         </div>
+
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-24 bg-gradient-to-t from-surface via-surface/95 to-transparent" />
       </section>
 
-      <HabitComposer open={formVisible} onClose={() => setFormVisible(false)} onSubmit={addHabit} />
+      <aside className="h-[760px] overflow-hidden rounded-[28px] bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+        <HabitComposer
+          open
+          variant="panel"
+          mode="create"
+          timeFormat={preferences.timeFormat}
+          resetSignal={resetSignal}
+          onClose={() => setResetSignal((signal) => signal + 1)}
+          onSubmit={addHabit}
+        />
+      </aside>
     </div>
   );
 }
-
