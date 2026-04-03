@@ -60,6 +60,7 @@ export type AppIconName =
   | "play"
   | "plus"
   | "repeat"
+  | "rotate-cw"
   | "rotate-ccw"
   | "save"
   | "settings"
@@ -136,6 +137,7 @@ const ICON_NAME_MAP: Record<AppIconName, React.ComponentType<any>> = {
   play: Icons.Play,
   plus: Icons.Plus,
   repeat: Icons.Repeat,
+  "rotate-cw": Icons.RotateCw,
   "rotate-ccw": Icons.RotateCcw,
   save: Icons.Save,
   settings: Icons.Settings,

@@ -1,14 +1,14 @@
-type HapticType = 'light' | 'medium' | 'heavy' | 'soft' | 'rigid';
+type HapticType = "light" | "medium" | "heavy" | "soft" | "rigid";
 
 function vibrate(duration: number) {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
     navigator.vibrate(duration);
   }
 }
 
-export function hapticImpact(type: HapticType = 'light') {
+export function hapticImpact(type: HapticType = "light") {
   const duration =
-    type === 'heavy' ? 24 : type === 'medium' ? 18 : type === 'rigid' ? 14 : 10;
+    type === "heavy" ? 24 : type === "medium" ? 18 : type === "rigid" ? 14 : 10;
   vibrate(duration);
 }
 

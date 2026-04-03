@@ -208,6 +208,7 @@ export function TasksScreen() {
   const { preferences } = usePreferences();
   const [categoriesVisible, setCategoriesVisible] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() =>
     toLocalDateKey(new Date()),
   );
@@ -380,6 +381,21 @@ export function TasksScreen() {
           {currentPage.heading}
         </button>
 
+        <button
+          type="button"
+          className="absolute left-24 top-4 grid h-11 w-11 place-items-center rounded-full sm:right-3 xl:right-4"
+          onClick={async () => {
+            setIsRefreshing(true);
+            await refresh();
+            setTimeout(() => setIsRefreshing(false), 1000);
+          }}
+          style={{
+            animation: isRefreshing ? "spin 600ms linear forwards" : "none",
+          }}
+        >
+          <AppIcon name="rotate-cw" size={24} color="var(--accent)" />
+        </button>
+
         {currentPageIndex !== 0 && (
           <button
             type="button"
@@ -391,7 +407,7 @@ export function TasksScreen() {
         )}
 
         {totalCount > 0 && (
-          <div className="mx-auto mt-1 flex w-full max-w-[460px] items-center gap-3">
+          <div className="mx-auto mt-2 flex w-full max-w-[460px] items-center gap-3">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-light">
               <div
                 className="h-full rounded-full bg-accent"
@@ -404,7 +420,7 @@ export function TasksScreen() {
           </div>
         )}
 
-        <div className="mt-5 flex-1 overflow-hidden">
+        <div className="mt-8 flex-1 overflow-hidden">
           <div
             ref={pageRailRef}
             className="hide-scrollbar scrollbar-none flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth"
@@ -445,7 +461,7 @@ export function TasksScreen() {
 
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-24 bg-gradient-to-t from-background via-background/90 to-transparent" />
 
-        <div className="absolute bottom-20 left-0 right-0 z-20 flex items-center justify-center gap-6">
+        <div className="absolute bottom-10 left-0 right-0 z-20 flex items-center justify-center gap-6">
           <button
             type="button"
             className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-muted-text transition disabled:opacity-30"

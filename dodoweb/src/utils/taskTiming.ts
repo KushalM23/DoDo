@@ -1,4 +1,4 @@
-import type {Task} from '@/types/task';
+import type { Task } from "@/types/task";
 
 function normalizeSeconds(seconds: number | null | undefined): number {
   if (seconds == null || !Number.isFinite(seconds)) {
@@ -18,7 +18,7 @@ function parseTimestamp(value: string | null | undefined): number | null {
 export function getTaskTrackedSeconds(
   task: Pick<
     Task,
-    'actualDurationSeconds' | 'actualDurationMinutes' | 'timerStartedAt'
+    "actualDurationSeconds" | "actualDurationMinutes" | "timerStartedAt"
   >,
   now: Date = new Date(),
 ): number {
@@ -35,7 +35,7 @@ export function getTaskTrackedSeconds(
 }
 
 export function getTaskPlannedSeconds(
-  task: Pick<Task, 'durationMinutes' | 'scheduledAt' | 'deadline'>,
+  task: Pick<Task, "durationMinutes" | "scheduledAt" | "deadline">,
 ): number {
   if (
     task.durationMinutes != null &&
