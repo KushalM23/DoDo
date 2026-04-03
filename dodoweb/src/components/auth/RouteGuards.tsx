@@ -1,6 +1,6 @@
 'use client';
 
-import React, {useEffect} from 'react';
+import React, {Suspense, useEffect} from 'react';
 import {usePathname, useRouter, useSearchParams} from 'next/navigation';
 import {LoadingScreen} from '@/components/common/LoadingScreen';
 import {useAuth} from '@/providers/AuthContext';
@@ -10,7 +10,7 @@ import {useNotes} from '@/providers/NotesContext';
 import {useTasks} from '@/providers/TasksContext';
 import {sanitizeRedirectPath} from '@/utils/navigation';
 
-export function RequireAuth({children}: {children: React.ReactNode}) {
+function RequireAuthContent({children}: {children: React.ReactNode}) {
   const {user, loading} = useAuth();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -19,9 +19,8 @@ export function RequireAuth({children}: {children: React.ReactNode}) {
   useEffect(() => {
     if (!loading && !user) {
       const query = searchParams.toString();
-      const currentPath = pathname
-        ? `${pathname}${query ? `?${query}` : ''}`
-        : '/tasks';
+      const targetPath = pathname && pathname !== '/' ? pathname : '/tasks';
+      const currentPath = `${targetPath}${query ? `?${query}` : ''}`;
       const from = sanitizeRedirectPath(currentPath, '/tasks');
       router.replace(`/login?from=${encodeURIComponent(from)}`);
     }
@@ -32,6 +31,14 @@ export function RequireAuth({children}: {children: React.ReactNode}) {
   }
 
   return <>{children}</>;
+}
+
+export function RequireAuth({children}: {children: React.ReactNode}) {
+  return (
+    <Suspense fallback={<LoadingScreen variant="app" title="DODO" />}>
+      <RequireAuthContent>{children}</RequireAuthContent>
+    </Suspense>
+  );
 }
 
 export function RequireAppReady({children}: {children: React.ReactNode}) {
@@ -55,7 +62,7 @@ export function RequireAppReady({children}: {children: React.ReactNode}) {
   return <>{children}</>;
 }
 
-export function GuestOnly({children}: {children: React.ReactNode}) {
+function GuestOnlyContent({children}: {children: React.ReactNode}) {
   const {user, loading} = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -74,3 +81,10 @@ export function GuestOnly({children}: {children: React.ReactNode}) {
   return <>{children}</>;
 }
 
+export function GuestOnly({children}: {children: React.ReactNode}) {
+  return (
+    <Suspense fallback={<LoadingScreen variant="app" title="DODO" />}>
+      <GuestOnlyContent>{children}</GuestOnlyContent>
+    </Suspense>
+  );
+}

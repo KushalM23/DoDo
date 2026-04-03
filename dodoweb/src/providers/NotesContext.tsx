@@ -1,4 +1,5 @@
 import React, {
+  startTransition,
   createContext,
   useCallback,
   useContext,
@@ -13,6 +14,7 @@ import {
   updateNoteLocal,
 } from '@/lib/local/repository';
 import {runSync} from '@/lib/local/syncEngine';
+import {subscribeToSyncCompleted} from '@/lib/local/syncEvents';
 import {useAuth} from './AuthContext';
 import type {CreateNoteInput, Note, UpdateNoteInput} from '@/types/note';
 
@@ -62,6 +64,13 @@ export function NotesProvider({children}: {children: React.ReactNode}) {
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
+  const reconcileLocalState = useCallback(async (userId: string) => {
+    const next = await listNotesLocal(userId);
+    startTransition(() => {
+      setNotes(sortNotes(next));
+    });
+  }, []);
+
   const refresh = useCallback(async () => {
     if (!user?.id) {
       setNotes([]);
@@ -70,24 +79,32 @@ export function NotesProvider({children}: {children: React.ReactNode}) {
     }
     setLoading(true);
     try {
-      const next = await listNotesLocal(user.id);
-      setNotes(sortNotes(next));
+      await reconcileLocalState(user.id);
       void runSync(user.id, 'manual').then(async didSync => {
         if (!didSync) {
           return;
         }
-        const reconciled = await listNotesLocal(user.id);
-        setNotes(sortNotes(reconciled));
+        await reconcileLocalState(user.id);
       });
     } finally {
       setLoading(false);
       setInitialized(true);
     }
-  }, [user?.id]);
+  }, [reconcileLocalState, user?.id]);
 
   useEffect(() => {
     setInitialized(false);
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    return subscribeToSyncCompleted(user.id, () => {
+      void reconcileLocalState(user.id);
+    });
+  }, [reconcileLocalState, user?.id]);
 
   const addNote = useCallback(
     async (input: CreateNoteInput = {}) => {
@@ -163,10 +180,9 @@ export function NotesProvider({children}: {children: React.ReactNode}) {
     if (!didSync) {
       return false;
     }
-    const reconciled = await listNotesLocal(user.id);
-    setNotes(sortNotes(reconciled));
+    await reconcileLocalState(user.id);
     return true;
-  }, [user?.id]);
+  }, [reconcileLocalState, user?.id]);
 
   useEffect(() => {
     void refresh();

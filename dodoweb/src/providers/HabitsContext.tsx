@@ -1,4 +1,5 @@
 import React, {
+  startTransition,
   createContext,
   useCallback,
   useContext,
@@ -16,6 +17,7 @@ import {
   updateHabitLocal,
 } from '@/lib/local/repository';
 import {runSync} from '@/lib/local/syncEngine';
+import {subscribeToSyncCompleted} from '@/lib/local/syncEvents';
 import {useAuth} from './AuthContext';
 import {
   DEFAULT_HABIT_ICON,
@@ -69,8 +71,10 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
       listHabitsLocal(userId),
       listHabitCompletionMapLocal(userId),
     ]);
-    setHabits(nextHabits);
-    setCompletionMap(nextCompletionMap);
+    startTransition(() => {
+      setHabits(nextHabits);
+      setCompletionMap(nextCompletionMap);
+    });
   }, []);
 
   const syncAndReconcile = useCallback(
@@ -108,6 +112,16 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
   useEffect(() => {
     setInitialized(false);
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    return subscribeToSyncCompleted(user.id, () => {
+      void reconcileLocalState(user.id);
+    });
+  }, [reconcileLocalState, user?.id]);
 
   const addHabit = useCallback(
     async (input: CreateHabitInput) => {

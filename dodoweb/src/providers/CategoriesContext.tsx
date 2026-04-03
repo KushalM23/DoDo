@@ -1,4 +1,5 @@
 import React, {
+  startTransition,
   createContext,
   useCallback,
   useContext,
@@ -13,6 +14,7 @@ import {
   updateCategoryLocal,
 } from '@/lib/local/repository';
 import {runSync} from '@/lib/local/syncEngine';
+import {subscribeToSyncCompleted} from '@/lib/local/syncEvents';
 import {useAuth} from './AuthContext';
 import {
   DEFAULT_CATEGORY_COLOR,
@@ -97,6 +99,39 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
     [user?.id],
   );
 
+  const reconcileLocalState = useCallback(
+    async (userId: string, preferredOrder?: string[]) => {
+      const nextCategories = (await listCategoriesLocal(userId)).map(category => ({
+        ...category,
+        color: normalizeCategoryColor(category.color),
+        icon: category.icon || DEFAULT_CATEGORY_ICON,
+      }));
+
+      let storedOrder = preferredOrder ?? [];
+      if (!preferredOrder) {
+        const storedOrderRaw = localStorage.getItem(orderKey(userId));
+        if (storedOrderRaw) {
+          try {
+            storedOrder = JSON.parse(storedOrderRaw) as string[];
+          } catch {
+            storedOrder = [];
+          }
+        }
+      }
+
+      const orderedState = buildOrderedCategoryState(nextCategories, storedOrder);
+      startTransition(() => {
+        setOrderedIds(orderedState.orderedIds);
+        setCategories(orderedState.categories);
+      });
+
+      if (JSON.stringify(storedOrder) !== JSON.stringify(orderedState.orderedIds)) {
+        await persistOrder(orderedState.orderedIds);
+      }
+    },
+    [persistOrder],
+  );
+
   const refresh = useCallback(async () => {
     if (!user?.id) {
       setCategories([]);
@@ -117,12 +152,6 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
         }
       }
 
-      nextCategories = nextCategories.map(category => ({
-        ...category,
-        color: normalizeCategoryColor(category.color),
-        icon: category.icon || DEFAULT_CATEGORY_ICON,
-      }));
-
       const storedOrderRaw = localStorage.getItem(orderKey(user.id));
       let storedOrder: string[] = [];
       if (storedOrderRaw) {
@@ -133,7 +162,14 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
         }
       }
 
-      const orderedState = buildOrderedCategoryState(nextCategories, storedOrder);
+      const orderedState = buildOrderedCategoryState(
+        nextCategories.map(category => ({
+          ...category,
+          color: normalizeCategoryColor(category.color),
+          icon: category.icon || DEFAULT_CATEGORY_ICON,
+        })),
+        storedOrder,
+      );
       setOrderedIds(orderedState.orderedIds);
       setCategories(orderedState.categories);
 
@@ -149,24 +185,28 @@ export function CategoriesProvider({children}: {children: React.ReactNode}) {
           if (!didSync) {
             return;
           }
-          const reconciled = await listCategoriesLocal(user.id);
-          const reconciledState = buildOrderedCategoryState(
-            reconciled,
-            orderedState.orderedIds,
-          );
-          setOrderedIds(reconciledState.orderedIds);
-          setCategories(reconciledState.categories);
+          await reconcileLocalState(user.id, orderedState.orderedIds);
         });
       }
     } finally {
       setLoading(false);
       setInitialized(true);
     }
-  }, [persistOrder, user?.id]);
+  }, [persistOrder, reconcileLocalState, user?.id]);
 
   useEffect(() => {
     setInitialized(false);
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    return subscribeToSyncCompleted(user.id, () => {
+      void reconcileLocalState(user.id, orderedIds);
+    });
+  }, [orderedIds, reconcileLocalState, user?.id]);
 
   const addCategory = useCallback(
     async (input: CreateCategoryInput) => {

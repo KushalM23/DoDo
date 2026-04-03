@@ -49,6 +49,7 @@ import {
   upsertNoteFromRemote,
   upsertTaskFromRemote,
 } from './repository';
+import {publishSyncCompleted} from './syncEvents';
 import type {SyncQueueItem} from './types';
 
 type RunSyncReason = 'startup' | 'periodic' | 'foreground' | 'logout' | 'manual';
@@ -267,6 +268,7 @@ export async function runSync(userId: string, _reason: RunSyncReason): Promise<b
 
   activeSync = (async () => {
     let overallOk = true;
+    let didPullRemote = false;
     try {
       do {
         rerunRequested = false;
@@ -279,8 +281,13 @@ export async function runSync(userId: string, _reason: RunSyncReason): Promise<b
 
         if (pushOk) {
           await pullRemote(userId);
+          didPullRemote = true;
         }
       } while (rerunRequested);
+
+      if (didPullRemote) {
+        publishSyncCompleted(userId);
+      }
 
       return overallOk;
     } finally {

@@ -1,4 +1,5 @@
 import React, {
+  startTransition,
   createContext,
   useCallback,
   useContext,
@@ -13,6 +14,7 @@ import {
   updateTaskLocal,
 } from '@/lib/local/repository';
 import {runSync} from '@/lib/local/syncEngine';
+import {subscribeToSyncCompleted} from '@/lib/local/syncEvents';
 import {useAuth} from './AuthContext';
 import type {CreateTaskInput, Task} from '@/types/task';
 import {sortTasks, type SortMode} from '@/utils/taskSort';
@@ -51,6 +53,16 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
   const [error, setError] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>('smart');
 
+  const reconcileLocalState = useCallback(
+    async (userId: string) => {
+      const nextTasks = await listTasksLocal(userId);
+      startTransition(() => {
+        setTasks(sortTasks(nextTasks, sortMode));
+      });
+    },
+    [sortMode],
+  );
+
   const refresh = useCallback(
     async (_date?: string) => {
       if (!user) {
@@ -61,15 +73,13 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
       setLoading(true);
       setError(null);
       try {
-        const nextTasks = await listTasksLocal(user.id);
-        setTasks(sortTasks(nextTasks, sortMode));
+        await reconcileLocalState(user.id);
 
         void runSync(user.id, 'manual').then(async didPushAndPull => {
           if (!didPushAndPull) {
             return;
           }
-          const reconciled = await listTasksLocal(user.id);
-          setTasks(sortTasks(reconciled, sortMode));
+          await reconcileLocalState(user.id);
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load tasks.');
@@ -78,12 +88,22 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
         setInitialized(true);
       }
     },
-    [user, sortMode],
+    [reconcileLocalState, user],
   );
 
   useEffect(() => {
     setInitialized(false);
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    return subscribeToSyncCompleted(user.id, () => {
+      void reconcileLocalState(user.id);
+    });
+  }, [reconcileLocalState, user?.id]);
 
   const addTask = useCallback(
     async (input: CreateTaskInput) => {
