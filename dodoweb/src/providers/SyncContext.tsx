@@ -1,18 +1,24 @@
-import React, {createContext, useEffect, useMemo, useRef} from 'react';
-import {initializeLocalDb} from '@/lib/local/db';
-import {runSync} from '@/lib/local/syncEngine';
-import {getSupabaseRealtimeClient} from '@/lib/realtime/supabaseBrowser';
-import {useAuth} from './AuthContext';
+import React, { createContext, useEffect, useMemo, useRef } from "react";
+import { initializeLocalDb } from "@/lib/local/db";
+import { runSync } from "@/lib/local/syncEngine";
+import { getSupabaseRealtimeClient } from "@/lib/realtime/supabaseBrowser";
+import { useAuth } from "./AuthContext";
 
 type SyncContextValue = {
   runManualSync: () => Promise<boolean>;
 };
 
 const SyncContext = createContext<SyncContextValue | undefined>(undefined);
-const REALTIME_TABLES = ['tasks', 'categories', 'habits', 'notes', 'habit_completions'] as const;
+const REALTIME_TABLES = [
+  "tasks",
+  "categories",
+  "habits",
+  "notes",
+  "habit_completions",
+] as const;
 
-export function SyncProvider({children}: {children: React.ReactNode}) {
-  const {token, user} = useAuth();
+export function SyncProvider({ children }: { children: React.ReactNode }) {
+  const { token, user } = useAuth();
   const realtimeTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -24,31 +30,31 @@ export function SyncProvider({children}: {children: React.ReactNode}) {
       return;
     }
 
-    void runSync(user.id, 'startup');
+    void runSync(user.id, "startup");
 
     const interval = window.setInterval(() => {
-      void runSync(user.id, 'periodic');
+      void runSync(user.id, "periodic");
     }, 5 * 60 * 1000);
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void runSync(user.id, 'foreground');
+      if (document.visibilityState === "visible") {
+        void runSync(user.id, "foreground");
       } else {
-        void runSync(user.id, 'manual');
+        void runSync(user.id, "manual");
       }
     };
 
     const handleOnline = () => {
-      void runSync(user.id, 'foreground');
+      void runSync(user.id, "foreground");
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('online', handleOnline);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
 
     return () => {
       window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('online', handleOnline);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
     };
   }, [user?.id]);
 
@@ -70,7 +76,7 @@ export function SyncProvider({children}: {children: React.ReactNode}) {
 
       realtimeTimerRef.current = window.setTimeout(() => {
         realtimeTimerRef.current = null;
-        void runSync(user.id, 'foreground');
+        void runSync(user.id, "foreground");
       }, 120);
     };
 
@@ -79,10 +85,10 @@ export function SyncProvider({children}: {children: React.ReactNode}) {
     const channel = REALTIME_TABLES.reduce(
       (currentChannel, table) =>
         currentChannel.on(
-          'postgres_changes',
+          "postgres_changes",
           {
-            event: '*',
-            schema: 'public',
+            event: "*",
+            schema: "public",
             table,
             filter: `user_id=eq.${user.id}`,
           },
@@ -113,7 +119,7 @@ export function SyncProvider({children}: {children: React.ReactNode}) {
         if (!user?.id) {
           return false;
         }
-        return runSync(user.id, 'manual');
+        return runSync(user.id, "manual");
       },
     }),
     [user?.id],
