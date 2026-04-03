@@ -73,6 +73,14 @@
   * {
     @apply box-border;
     -webkit-tap-highlight-color: transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
   }
 
   html,
@@ -94,7 +102,7 @@
   input,
   textarea,
   select {
-    @apply min-h-12 w-full rounded-[18px] border border-border bg-surface-light px-4 py-3 text-text outline-none;
+    @apply min-h-12 w-full rounded-control border border-border bg-surface-light px-4 py-3 text-text outline-none;
   }
 
   input:focus,
@@ -138,5 +146,66 @@
 
   img {
     @apply block max-w-full;
+  }
+}
+
+@layer utilities {
+  .hide-scrollbar,
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar,
+  .scrollbar-none::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+}
+
+@keyframes dodo-loading-wipe {
+  0% {
+    clip-path: circle(0 at 50% 50%);
+    -webkit-clip-path: circle(0 at 50% 50%);
+  }
+
+  72% {
+    clip-path: circle(112vmax at 50% 50%);
+    -webkit-clip-path: circle(112vmax at 50% 50%);
+  }
+
+  100% {
+    clip-path: circle(160vmax at 50% 50%);
+    -webkit-clip-path: circle(160vmax at 50% 50%);
+  }
+}
+
+.dodo-loading-wipe {
+  clip-path: circle(160vmax at 50% 50%);
+  -webkit-clip-path: circle(160vmax at 50% 50%);
+  animation: dodo-loading-wipe 260ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes dodo-loading-brand {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.dodo-loading-brand {
+  animation: dodo-loading-brand 180ms cubic-bezier(0.22, 1, 0.36, 1) 110ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dodo-loading-wipe,
+  .dodo-loading-brand {
+    animation: none;
   }
 }

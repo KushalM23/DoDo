@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppIcon, type AppIconName } from "@/components/common/AppIcon";
 import { cx } from "@/lib/tw";
@@ -6,6 +6,7 @@ import { deleteAccount, changePassword } from "@/services/api";
 import { useAlert } from "@/providers/AlertContext";
 import { useAuth } from "@/providers/AuthContext";
 import { usePreferences } from "@/providers/PreferencesContext";
+import { backOrReplace } from "@/utils/navigation";
 
 type ToggleOption<T extends string> = {
   value: T;
@@ -27,10 +28,10 @@ function PillToggle<T extends string>({
 
   return (
     <div className="mb-5">
-      <div className="relative overflow-hidden rounded-[28px] bg-surface p-1">
+      <div className="relative overflow-hidden rounded-panel bg-surface p-1">
         <div className="pointer-events-none absolute inset-1">
           <span
-            className="block h-full rounded-[24px] bg-accent transition-transform duration-300 [transition-timing-function:cubic-bezier(0.2,0.9,0.2,1)]"
+            className="block h-full rounded-3xl bg-accent transition-transform duration-300 [transition-timing-function:cubic-bezier(0.2,0.9,0.2,1)]"
             style={{
               width: `${100 / options.length}%`,
               transform: `translateX(${safeIdx * 100}%)`,
@@ -46,7 +47,7 @@ function PillToggle<T extends string>({
               <button
                 key={option.value}
                 type="button"
-                className="flex min-h-[46px] flex-1 items-center justify-center gap-1.5 rounded-[24px] px-3 py-2.5 focus:outline-none xl:min-h-[50px]"
+                className="flex min-h-[46px] flex-1 items-center justify-center gap-1.5 rounded-3xl px-3 py-2.5 focus:outline-none xl:min-h-12.5"
                 onClick={() => onChange(option.value)}
               >
                 {option.icon ? (
@@ -58,7 +59,7 @@ function PillToggle<T extends string>({
                 ) : null}
                 <span
                   className={cx(
-                    "text-[14px] font-sans-bold",
+                    "text-sm font-sans-bold",
                     active ? "text-white" : "text-muted-text",
                   )}
                 >
@@ -78,10 +79,10 @@ type SettingsPanelProps = {
 };
 
 const actionButtonBase =
-  "flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[28px] px-4 py-3.5 transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55 disabled:transform-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/45 xl:min-h-[60px]";
+  "flex min-h-[56px] w-full items-center justify-center gap-2 rounded-panel px-4 py-3.5 transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55 disabled:transform-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/45 xl:min-h-[60px]";
 
 const modalInputClass =
-  "w-full rounded-full bg-surface-light px-5 py-2 text-[16px] font-sans text-text placeholder:text-muted-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/45";
+  "w-full rounded-full bg-surface-light px-5 py-2 text-base font-sans text-text placeholder:text-muted-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/45";
 
 export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
   const router = useRouter();
@@ -174,31 +175,46 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
     }
   }
 
+  async function handleSignOut() {
+    try {
+      await signOut();
+      router.replace("/login");
+    } catch (error) {
+      showAlert(
+        "Logout failed",
+        error instanceof Error ? error.message : "Unknown error",
+      );
+    }
+  }
+
+  function handleBack() {
+    backOrReplace(router, "/tasks");
+  }
+
   return (
     <section
       className={cx(
-        "w-full xl:min-h-[760px]",
-        !embedded &&
-          "max-w-[560px] rounded-[28px] border border-border bg-surface shadow-[0_24px_60px_var(--shadow)]",
+        "w-full xl:h-full",
+        !embedded && "max-w-[560px]",
       )}
     >
       <div className="flex items-center justify-between px-7 py-1">
         {embedded ? (
-          <div className="h-[22px] w-[22px]" />
+          <div className="h-5.5 w-5.5" />
         ) : (
           <button
             type="button"
-            onClick={() => router.back()}
-            className="inline-grid h-[22px] w-[22px] place-items-center text-text focus:outline-none"
+            onClick={handleBack}
+            className="inline-grid h-5.5 w-5.5 place-items-center text-text focus:outline-none"
             aria-label="Back"
           >
             <AppIcon name="chevron-left" size={22} />
           </button>
         )}
-        <div className="h-[22px] w-[22px]" />
+        <div className="h-5.5 w-5.5" />
       </div>
 
-      <div className="px-7 pb-[120px] xl:pb-[140px]">
+      <div className="px-7 pb-6 xl:pb-8">
         <div className="mb-6 mt-6 flex items-center justify-between">
           <h3 className="m-0 font-display-semibold text-[20px] uppercase tracking-[1px] text-text">
             Preferences
@@ -206,7 +222,7 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
           <button
             type="button"
             onClick={() => void resetPreferences()}
-            className="inline-grid h-[22px] w-[22px] place-items-center text-text focus:outline-none"
+            className="inline-grid h-5.5 w-5.5 place-items-center text-text focus:outline-none"
             aria-label="Reset preferences"
           >
             <AppIcon name="rotate-ccw" size={20} />
@@ -254,10 +270,10 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
           <button
             type="button"
             className={cx(actionButtonBase, "bg-surface text-text")}
-            onClick={() => void signOut()}
+            onClick={() => void handleSignOut()}
           >
             <AppIcon name="log-out" size={14} />
-            <span className="text-[14px] font-sans-bold">Logout</span>
+            <span className="text-sm font-sans-bold">Logout</span>
           </button>
 
           <button
@@ -266,7 +282,7 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
             onClick={openPasswordModal}
           >
             <AppIcon name="key-round" size={14} />
-            <span className="text-[14px] font-sans-bold">Change password</span>
+            <span className="text-sm font-sans-bold">Change password</span>
           </button>
 
           <button
@@ -275,7 +291,7 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
             onClick={openDeleteModal}
           >
             <AppIcon name="trash-2" size={14} />
-            <span className="text-[14px] font-sans-bold">Delete account</span>
+            <span className="text-sm font-sans-bold">Delete account</span>
           </button>
         </div>
       </div>
@@ -287,7 +303,7 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
             onClick={() => setPasswordModalVisible(false)}
           />
           <div
-            className="relative w-full max-w-[360px] rounded-[18px] bg-surface shadow-[0_20px_40px_var(--shadow)]"
+            className="relative w-full max-w-[360px] rounded-control bg-surface shadow-[0_20px_40px_var(--shadow)]"
             role="dialog"
             aria-modal="true"
           >
@@ -341,7 +357,7 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
                 onClick={() => void handlePasswordChange()}
               >
                 <AppIcon name="key-round" size={14} />
-                <span className="text-[14px] font-sans-bold">
+                <span className="text-sm font-sans-bold">
                   {changingPassword ? "Saving..." : "Change password"}
                 </span>
               </button>
@@ -357,7 +373,7 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
             onClick={() => setDeleteModalVisible(false)}
           />
           <div
-            className="relative w-full max-w-[360px] rounded-[18px] bg-surface shadow-[0_20px_40px_var(--shadow)]"
+            className="relative w-full max-w-[360px] rounded-control bg-surface shadow-[0_20px_40px_var(--shadow)]"
             role="dialog"
             aria-modal="true"
           >
@@ -375,7 +391,7 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
             </div>
 
             <div className="grid gap-3 px-4 pb-5 pt-3">
-              <p className="m-0 font-sans text-[16px] text-muted-text">
+              <p className="m-0 font-sans text-base text-muted-text">
                 This permanently deletes your account and all related data. This
                 action cannot be undone.
               </p>
@@ -400,7 +416,7 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
                 onClick={() => void handleDeleteAccount()}
               >
                 <AppIcon name="trash-2" size={14} />
-                <span className="text-[14px] font-sans-bold">
+                <span className="text-sm font-sans-bold">
                   {deletingAccount ? "Deleting..." : "Delete account"}
                 </span>
               </button>
@@ -414,7 +430,7 @@ export function SettingsPanel({ embedded = false }: SettingsPanelProps) {
 
 export function SettingsScreen() {
   return (
-    <div className="grid items-start justify-items-center">
+    <div className="grid h-full min-h-0 items-start justify-items-center pt-4">
       <SettingsPanel />
     </div>
   );

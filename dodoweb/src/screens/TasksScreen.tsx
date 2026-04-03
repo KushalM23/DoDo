@@ -20,7 +20,7 @@ import { toLocalDateKey } from "@/utils/dateTime";
 import {
   formatTaskTriggerLabel,
   parseDateKey,
-} from "@/components/overlays/dateWheelPickerUtils";
+} from "@/components/overlays/DateWheelPickerUtils";
 
 type DisplayTask = Task & {
   _isHabit?: boolean;
@@ -132,7 +132,7 @@ function TaskSlab({
 
   return (
     <article
-      className="mb-3 px-1 py-[18px]"
+      className="mb-3 px-1 py-4.5"
       style={{
         opacity: task.completed ? 0.5 : 1,
         transform: `scale(${pressed ? 0.98 : 1})`,
@@ -142,7 +142,7 @@ function TaskSlab({
       <div
         role="button"
         tabIndex={0}
-        className="flex w-full items-center gap-[14px] bg-transparent text-left"
+        className="flex w-full items-center gap-3.5 bg-transparent text-left"
         onMouseDown={() => setPressed(true)}
         onMouseUp={() => setPressed(false)}
         onMouseLeave={() => setPressed(false)}
@@ -366,8 +366,8 @@ export function TasksScreen() {
   }
 
   return (
-    <div className="grid mt-10 gap-6 xl:grid-cols-[minmax(0,1fr)_560px]">
-      <section className="relative flex h-[760px] flex-col overflow-hidden rounded-[28px] bg-surface px-7 pb-28 pt-6 shadow-[0_24px_60px_var(--shadow)]">
+    <div className="grid h-full min-h-0 gap-6 pt-4 xl:grid-cols-[minmax(0,1fr)_560px]">
+      <section className="relative flex min-h-0 flex-col overflow-hidden px-2 pb-28 pt-2 sm:px-3 xl:px-4">
         <button
           type="button"
           onClick={() => {
@@ -383,7 +383,7 @@ export function TasksScreen() {
         {currentPageIndex !== 0 && (
           <button
             type="button"
-            className="absolute right-7 top-8 inline-grid h-11 w-11 place-items-center rounded-full"
+            className="absolute right-2 top-3 inline-grid h-11 w-11 place-items-center rounded-full sm:right-3 xl:right-4"
             onClick={() => setCategoriesVisible(true)}
           >
             <AppIcon name="package" size={24} color="var(--accent)" />
@@ -443,7 +443,7 @@ export function TasksScreen() {
           </div>
         </div>
 
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-24 bg-gradient-to-t from-surface via-surface/95 to-transparent" />
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-24 bg-gradient-to-t from-background via-background/90 to-transparent" />
 
         <div className="absolute bottom-20 left-0 right-0 z-20 flex items-center justify-center gap-6">
           <button
@@ -485,7 +485,7 @@ export function TasksScreen() {
         </div>
       </section>
 
-      <aside className="h-[760px] overflow-hidden rounded-[28px] bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+      <aside className="min-h-0 overflow-hidden xl:border-l xl:border-border xl:pl-6">
         <TaskForm
           visible
           variant="panel"

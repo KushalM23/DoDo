@@ -1,9 +1,8 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HabitComposer } from "@/components/forms/HabitComposer";
 import { AppIcon, type AppIconName } from "@/components/common/AppIcon";
 import { LoadingScreen } from "@/components/common/LoadingScreen";
-import { cx } from "@/lib/tw";
 import { useHabits } from "@/providers/HabitsContext";
 import { usePreferences } from "@/providers/PreferencesContext";
 import type { Habit } from "@/types/habit";
@@ -33,7 +32,7 @@ function HabitGridItem({
     >
       <button
         type="button"
-        className="flex h-[130px] w-full flex-col items-center justify-center gap-2.5 rounded-[16px] bg-surface px-4 text-center"
+        className="flex h-[130px] w-full flex-col items-center justify-center gap-2.5 rounded-[16px] bg-surface-light px-4 text-center"
         onMouseDown={() => setPressed(true)}
         onMouseUp={() => setPressed(false)}
         onMouseLeave={() => setPressed(false)}
@@ -63,7 +62,6 @@ export function HabitsScreen() {
   const router = useRouter();
   const { preferences } = usePreferences();
   const { habits, addHabit, initialized } = useHabits();
-  const [resetSignal, setResetSignal] = useState(0);
 
   const sortedHabits = useMemo(
     () => [...habits].sort((a, b) => a.title.localeCompare(b.title)),
@@ -75,8 +73,8 @@ export function HabitsScreen() {
   }
 
   return (
-    <div className="grid mt-10 gap-6 xl:grid-cols-[minmax(0,1fr)_560px]">
-      <section className="relative flex h-[760px] flex-col overflow-hidden rounded-[28px] bg-surface px-7 pb-28 pt-6 shadow-[0_24px_60px_var(--shadow)]">
+    <div className="grid h-full min-h-0 gap-6 pt-4 xl:grid-cols-[minmax(0,1fr)_560px]">
+      <section className="relative flex min-h-0 flex-col overflow-hidden px-2 pb-28 pt-2 sm:px-3 xl:px-4">
         <h1 className="text-center font-display text-[40px] tracking-[-0.8px] text-text">
           Your Habits
         </h1>
@@ -106,17 +104,13 @@ export function HabitsScreen() {
           )}
         </div>
 
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-24 bg-gradient-to-t from-surface via-surface/95 to-transparent" />
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-24 bg-gradient-to-t from-background via-background/90 to-transparent" />
       </section>
 
-      <aside className="h-[760px] overflow-hidden rounded-[28px] bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
+      <aside className="min-h-0 overflow-hidden xl:border-l xl:border-border xl:pl-6">
         <HabitComposer
-          open
-          variant="panel"
           mode="create"
           timeFormat={preferences.timeFormat}
-          resetSignal={resetSignal}
-          onClose={() => setResetSignal((signal) => signal + 1)}
           onSubmit={addHabit}
         />
       </aside>

@@ -38,6 +38,21 @@ module.exports = {
       boxShadow: {
         panel: '0 24px 60px var(--shadow)',
       },
+      spacing: {
+        '4.5': '1.125rem',
+        '5.5': '1.375rem',
+        '12.5': '3.125rem',
+        '13': '3.25rem',
+        '19': '4.75rem',
+        '21': '5.25rem',
+        '100': '25rem',
+        '180': '45rem',
+      },
+      borderRadius: {
+        panel: '1.75rem',
+        card: '1.375rem',
+        control: '1.125rem',
+      },
     },
   },
   plugins: [],

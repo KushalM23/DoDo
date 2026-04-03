@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import {GuestOnly} from '@/components/auth/RouteGuards';
 import {AuthScreen} from '@/screens/AuthScreen';
 

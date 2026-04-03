@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { WheelColumn } from "./WheelColumn";
 import {
   CalendarMonthWheelItem,
@@ -10,7 +10,7 @@ import {
   findCalendarMonthIndex,
   findTaskDateIndex,
   startOfLocalDay,
-} from "./dateWheelPickerUtils";
+} from "./DateWheelPickerUtils";
 
 type TaskDatePickerProps = {
   mode: "task-date";
@@ -82,11 +82,11 @@ export function DateWheelPickerModal(props: DateWheelPickerModalProps) {
       <div className="absolute inset-0 bg-black/90" onClick={props.onClose} />
 
       <div
-        className="relative w-full max-w-[360px] animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-sm animate-in fade-in zoom-in-95 duration-200"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="rounded-[24px] bg-surface p-4 shadow-2xl">
-          <div className="rounded-[24px] bg-surface-light px-3 py-3">
+        <div className="rounded-3xl bg-surface p-4 shadow-2xl">
+          <div className="rounded-3xl bg-surface-light px-3 py-3">
             {props.mode === "task-date" ? (
               <WheelColumn
                 items={taskDateItems.map((v) => v.label)}
@@ -118,7 +118,7 @@ export function DateWheelPickerModal(props: DateWheelPickerModalProps) {
 
           <div className="mt-6">
             <button
-              className="flex w-full items-center justify-center rounded-full bg-accent py-[14px]"
+              className="flex w-full items-center justify-center rounded-full bg-accent py-3.5"
               onClick={() => {
                 if (props.mode === "task-date") {
                   props.onConfirm(taskTempDate);

@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useEffect, useMemo} from 'react';
+import React, {createContext, useEffect, useMemo} from 'react';
 
 export type ThemeMode = 'dark' | 'light';
 
@@ -134,13 +134,5 @@ export function ThemeColorsProvider({
       </ThemeColorsContext.Provider>
     </ThemeModeContext.Provider>
   );
-}
-
-export function useThemeColors(): ThemeColors {
-  return useContext(ThemeColorsContext);
-}
-
-export function useThemeMode(): ThemeMode {
-  return useContext(ThemeModeContext);
 }
 

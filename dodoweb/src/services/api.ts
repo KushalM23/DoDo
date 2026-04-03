@@ -20,15 +20,6 @@ type SessionRefreshHandler = (
   session: {token: string; refreshToken: string} | null,
 ) => Promise<void>;
 
-export type PushPlatform = 'android' | 'ios' | 'web';
-
-export type UpsertPushTokenInput = {
-  token: string;
-  platform: PushPlatform;
-  deviceId?: string;
-  appVersion?: string;
-};
-
 export type HabitCompletionMutationResponse = {
   habit: Habit;
   completion: HabitCompletionRecord;
@@ -50,10 +41,6 @@ let sessionRefreshHandler: SessionRefreshHandler | null = null;
 
 export function setSessionRefreshHandler(handler: SessionRefreshHandler | null) {
   sessionRefreshHandler = handler;
-}
-
-export function setAuthToken(token: string | null) {
-  authToken = token;
 }
 
 export function setAuthSession(

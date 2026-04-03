@@ -15,7 +15,6 @@ type FocusModeViewProps = {
   onActionPress: () => void;
   actionDisabled?: boolean;
   actionDone?: boolean;
-  infoIconName?: AppIconName;
   infoIconColor?: string;
   elapsedSeconds?: number;
 };
@@ -45,8 +44,6 @@ export function FocusModeView({
   onActionPress,
   actionDisabled = false,
   actionDone = false,
-  infoIconName,
-  infoIconColor,
   elapsedSeconds,
 }: FocusModeViewProps) {
   const hour24 = now.getHours();
@@ -81,13 +78,6 @@ export function FocusModeView({
 
         <div className="flex w-full max-w-[460px] flex-col gap-4">
           <div className="grid gap-3 text-center">
-            {infoIconName ? (
-              <AppIcon
-                name={infoIconName}
-                size={24}
-                color={infoIconColor ?? darkColors.text}
-              />
-            ) : null}
             <h1 className="m-0 font-display-semibold text-[40px] leading-[0.95] tracking-[-0.8px]">
               {title}
             </h1>
@@ -128,7 +118,7 @@ export function FocusModeView({
                 iconName="lock-open"
                 onHoldComplete={onExitFocus}
                 holdDurationMs={3000}
-                size={84}
+                size={64}
                 backgroundColor={darkColors.surface}
                 progressColor={darkColors.accent}
                 iconColor={darkColors.text}

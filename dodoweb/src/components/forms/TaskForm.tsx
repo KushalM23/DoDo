@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppIcon, type AppIconName } from "@/components/common/AppIcon";
 import { CustomDatePicker } from "@/components/forms/pickers/CustomDatePicker";
 import { CustomDurationPicker } from "@/components/forms/pickers/CustomDurationPicker";
@@ -174,7 +174,8 @@ export function TaskForm({
     <div>
       <div
         className={cx(
-          "relative w-full max-w-[760px] h-[720px] overflow-hidden rounded-[24px] bg-surface px-5 pb-5 pt-5 sm:px-7 sm:pb-7 flex flex-col",
+          "relative flex w-full max-w-[760px] flex-col overflow-hidden rounded-3xl bg-surface px-5 pb-5 pt-5 sm:px-7 sm:pb-7",
+          isPanel ? "h-180 max-h-full" : "h-180",
         )}
       >
         <div className="mb-4 grid gap-3 flex-shrink-0">
@@ -183,7 +184,7 @@ export function TaskForm({
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Dodo's task"
             autoFocus
-            className="h-[50px] w-full rounded-full bg-surface-light px-8 font-display font-bold text-[26px] tracking-[-0.5px] text-text outline-none placeholder:text-muted-text focus:ring-0"
+            className="h-12.5 w-full rounded-full bg-surface-light px-8 font-display font-bold text-[26px] tracking-[-0.5px] text-text outline-none placeholder:text-muted-text focus:ring-0"
           />
         </div>
 
@@ -454,7 +455,7 @@ export function TaskForm({
             onClick={() => {
               void handleSubmit();
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-accent py-[14px] text-white disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-accent py-3.5 text-white disabled:opacity-60"
             disabled={busy || !title.trim()}
           >
             <AppIcon name="plus" size={18} color="#fff" />

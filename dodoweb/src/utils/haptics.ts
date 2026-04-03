@@ -15,7 +15,3 @@ export function hapticImpact(type: HapticType = 'light') {
 export function hapticSuccess() {
   vibrate(28);
 }
-
-export function hapticError() {
-  vibrate(36);
-}

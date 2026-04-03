@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import {HabitDetailScreen} from '@/screens/HabitDetailScreen';
 
 export default function HabitDetailPage() {

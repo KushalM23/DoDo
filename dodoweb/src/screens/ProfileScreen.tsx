@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppIcon, type AppIconName } from "@/components/common/AppIcon";
 import { LoadingScreen } from "@/components/common/LoadingScreen";
 import { cx } from "@/lib/tw";
@@ -79,7 +79,7 @@ function StatRow({
         <AppIcon name={icon} size={18} color="var(--accent)" />
       </div>
       <div className="flex-1">
-        <span className="font-sans-semibold text-[16px] text-text">
+        <span className="font-sans-semibold text-base text-text">
           {label}
         </span>
       </div>
@@ -312,7 +312,7 @@ export function ProfileScreen() {
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="font-sans-bold text-[14px] tracking-[-0.3px] text-text">
+            <span className="font-sans-bold text-sm tracking-[-0.3px] text-text">
               {xpIntoLevel} / {xpForNextLevel} XP
             </span>
             <span className="font-sans-semibold text-[13px] text-muted-text">
@@ -377,8 +377,6 @@ export function ProfileScreen() {
             />
           </div>
         </div>
-
-        <div className="pointer-events-none mt-6 h-24 bg-gradient-to-t from-background via-background/95 to-transparent" />
       </section>
 
       <aside

@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useEffect, useMemo} from 'react';
+import React, {createContext, useEffect, useMemo} from 'react';
 import {initializeLocalDb} from '@/lib/local/db';
 import {runSync} from '@/lib/local/syncEngine';
 import {useAuth} from './AuthContext';
@@ -62,13 +62,5 @@ export function SyncProvider({children}: {children: React.ReactNode}) {
   );
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
-}
-
-export function useSync(): SyncContextValue {
-  const context = useContext(SyncContext);
-  if (!context) {
-    throw new Error('useSync must be used inside SyncProvider');
-  }
-  return context;
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, {useEffect, useRef, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {AppIcon} from '@/components/common/AppIcon';
 import {cx} from '@/lib/tw';
 import {useAlert} from '@/providers/AlertContext';
@@ -137,7 +137,7 @@ export function CategoriesManager({open, onClose}: ManageCategoriesModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
       <button type="button" className="absolute inset-0 bg-black/90" onClick={onClose} />
 
-      <div className="relative w-full max-w-[420px] rounded-[24px] bg-surface px-6 py-6 shadow-2xl">
+      <div className="relative w-full max-w-[420px] rounded-3xl bg-surface px-6 py-6 shadow-2xl">
         {!isEditingFormVisible ? (
           <>
             <div className="mb-3 flex items-center justify-between">
@@ -212,7 +212,7 @@ export function CategoriesManager({open, onClose}: ManageCategoriesModalProps) {
 
             <button
               type="button"
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-accent py-[14px]"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-accent py-3.5"
               onClick={openCreate}
             >
               <AppIcon name="plus" size={16} color="#fff" />
@@ -226,7 +226,7 @@ export function CategoriesManager({open, onClose}: ManageCategoriesModalProps) {
             </h2>
 
             <input
-              className="mb-3 h-[50px] w-full rounded-full bg-surface-light px-6 font-sans-bold text-lg text-text outline-none placeholder:text-muted-text"
+              className="mb-3 h-12.5 w-full rounded-full bg-surface-light px-6 font-sans-bold text-lg text-text outline-none placeholder:text-muted-text"
               value={draft}
               onChange={event => setDraft(event.target.value)}
               placeholder="Category name"

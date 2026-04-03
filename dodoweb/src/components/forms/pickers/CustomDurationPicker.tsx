@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { cx } from "@/lib/tw";
 
 const DURATION_OPTIONS = [
@@ -45,41 +45,39 @@ export function CustomDurationPicker({
     <div className="grid gap-4">
       {showQuickSelect && (
         <>
-          <label className="mb-[-4px] block font-sans-bold text-[12px] uppercase tracking-[0.5px] text-muted-text">
+          <label className="-mb-1 block font-sans-bold text-xs uppercase tracking-[0.5px] text-muted-text">
             Duration
           </label>
-          <div className="flex -mx-4 overflow-x-auto px-4 scrollbar-none">
-            <div className="flex flex-nowrap items-center gap-2.5 pb-2">
-              {DURATION_OPTIONS.map((opt) => {
-                const active = value === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={cx(
-                      "shrink-0 rounded-full px-4 py-3 font-sans-medium text-sm",
-                      active
-                        ? "bg-accent text-white"
-                        : "bg-surface-light text-text",
-                    )}
-                    onClick={() => onChange(opt.value)}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
+            {DURATION_OPTIONS.map((opt) => {
+              const active = value === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={cx(
+                    "shrink-0 rounded-full px-4 py-3 font-sans-medium text-sm",
+                    active
+                      ? "bg-accent text-white"
+                      : "bg-surface-light text-text",
+                  )}
+                  onClick={() => onChange(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         </>
       )}
 
       {!showQuickSelect && (
-        <label className="mb-[-2px] block font-sans-bold text-[12px] uppercase tracking-[0.5px] text-muted-text">
+        <label className="-mb-0.5 block font-sans-bold text-xs uppercase tracking-[0.5px] text-muted-text">
           Duration
         </label>
       )}
 
-      <div className="flex overflow-hidden rounded-[28px] border border-border bg-surface-light p-1 pl-4">
+      <div className="flex overflow-hidden rounded-panel border border-border bg-surface-light p-1 pl-4">
         <input
           className="min-h-0 w-full min-w-0 flex-1 appearance-none border-0 bg-transparent px-2 py-2 text-lg font-sans-medium text-text outline-none focus:ring-0 placeholder:text-muted-text"
           value={customText}
@@ -106,11 +104,11 @@ export function CustomDurationPicker({
           }}
           placeholder="Custom"
         />
-        <div className="flex rounded-full bg-surface p-1">
+        <div className="flex shrink-0 rounded-full bg-surface p-1">
           <button
             type="button"
             className={cx(
-              "rounded-full px-4 font-sans-bold text-sm transition duration-200",
+              "flex h-11 min-w-19 items-center justify-center rounded-full px-4 font-sans-bold text-sm transition duration-200",
               unit === "min"
                 ? "bg-accent text-white"
                 : "text-muted-text hover:text-text",
@@ -127,7 +125,7 @@ export function CustomDurationPicker({
           <button
             type="button"
             className={cx(
-              "rounded-full px-4 font-sans-bold text-sm transition duration-200",
+              "flex h-11 min-w-21 items-center justify-center rounded-full px-4 font-sans-bold text-sm transition duration-200",
               unit === "hour"
                 ? "bg-accent text-white"
                 : "text-muted-text hover:text-text",

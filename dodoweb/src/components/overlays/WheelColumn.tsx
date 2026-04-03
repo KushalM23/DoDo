@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cx } from "@/lib/tw";
 import { hapticImpact } from "@/utils/haptics";
 
@@ -92,11 +92,11 @@ export function WheelColumn({
       style={{ height: containerHeight }}
     >
       <div
-        className="pointer-events-none absolute left-0 right-0 top-1/2 z-10 -translate-y-1/2 rounded-[18px]"
+        className="pointer-events-none absolute left-0 right-0 top-1/2 z-10 -translate-y-1/2 rounded-control"
         style={{ height: itemHeight }}
       >
         <div
-          className="absolute inset-0 rounded-[18px]"
+          className="absolute inset-0 rounded-control"
           style={{ backgroundColor: "var(--accent-light)" }}
         />
       </div>

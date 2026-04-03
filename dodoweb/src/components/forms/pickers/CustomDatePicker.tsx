@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AppIcon } from "@/components/common/AppIcon";
 import { cx } from "@/lib/tw";
 import { getCalendarOffset, getWeekdayLabels } from "@/utils/dateTime";
@@ -76,7 +76,7 @@ export function CustomDatePicker({
   }
 
   return (
-    <div className="mt-1 rounded-[24px] bg-surface-light p-6 h-[400px] flex flex-col">
+    <div className="mt-1 flex h-100 flex-col rounded-3xl bg-surface-light p-6">
       <div className="mb-4 flex items-center justify-between">
         <button
           type="button"
@@ -90,7 +90,7 @@ export function CustomDatePicker({
         >
           <AppIcon name="chevron-left" size={20} />
         </button>
-        <span className="font-heading text-[28px] tracking-[-0.5px] text-text">
+        <span className="font-heading text-3xl tracking-tight text-text">
           {MONTHS[viewMonth]} {viewYear}
         </span>
         <button
@@ -111,7 +111,7 @@ export function CustomDatePicker({
         {dayLabels.map((lbl, i) => (
           <div
             key={i}
-            className="text-center font-sans-medium text-[11px] uppercase leading-[14px] text-muted-text"
+            className="text-center font-sans-medium text-xs uppercase leading-3.5 text-muted-text"
           >
             {lbl}
           </div>

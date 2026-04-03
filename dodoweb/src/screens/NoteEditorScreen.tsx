@@ -1,26 +1,26 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import Link from 'next/link';
-import {useParams, useRouter} from 'next/navigation';
-import {AppIcon} from '@/components/common/AppIcon';
-import {cx, tw} from '@/lib/tw';
-import {useAlert} from '@/providers/AlertContext';
-import {useNotes} from '@/providers/NotesContext';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { AppIcon } from "@/components/common/AppIcon";
+import { cx } from "@/lib/tw";
+import { useAlert } from "@/providers/AlertContext";
+import { useNotes } from "@/providers/NotesContext";
+import { backOrReplace } from "@/utils/navigation";
 
 const FONT_SIZES = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32] as const;
-const ALIGNMENT_CYCLE = ['left', 'center', 'right'] as const;
+const ALIGNMENT_CYCLE = ["left", "center", "right"] as const;
 
 function htmlToPlain(html: string) {
   return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, ' ')
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -31,35 +31,99 @@ function initialRichContent(contentRich: string | null | undefined) {
   return '<div style="font-size:20px"></div>';
 }
 
+function AlignmentGlyph({
+  mode,
+  color,
+}: {
+  mode: (typeof ALIGNMENT_CYCLE)[number];
+  color: string;
+}) {
+  const lineAlign =
+    mode === "left" ? "flex-start" : mode === "center" ? "center" : "flex-end";
+
+  return (
+    <span className="inline-flex w-[18px] flex-col gap-[2px]">
+      <span
+        style={{
+          width: 14,
+          height: 2,
+          borderRadius: 1,
+          alignSelf: lineAlign,
+          backgroundColor: color,
+        }}
+      />
+      <span
+        style={{
+          width: 10,
+          height: 2,
+          borderRadius: 1,
+          alignSelf: lineAlign,
+          backgroundColor: color,
+        }}
+      />
+      <span
+        style={{
+          width: 12,
+          height: 2,
+          borderRadius: 1,
+          alignSelf: lineAlign,
+          backgroundColor: color,
+        }}
+      />
+    </span>
+  );
+}
+
 export function NoteEditorScreen() {
-  const params = useParams<{noteId: string}>();
-  const noteId = typeof params.noteId === 'string' ? params.noteId : '';
+  const params = useParams<{ noteId: string }>();
+  const rawNoteParam = (params as Record<string, string | string[] | undefined>)
+    .noteId;
+  const noteId =
+    typeof rawNoteParam === "string"
+      ? decodeURIComponent(rawNoteParam)
+      : Array.isArray(rawNoteParam)
+      ? decodeURIComponent(rawNoteParam[0] ?? "")
+      : "";
   const router = useRouter();
-  const {showAlert} = useAlert();
-  const {notes, updateNote, removeNote, syncNow} = useNotes();
-  const note = notes.find(item => item.id === noteId) ?? null;
+  const { showAlert } = useAlert();
+  const {
+    notes,
+    loading,
+    initialized,
+    refresh,
+    updateNote,
+    removeNote,
+    syncNow,
+  } = useNotes();
+  const note = notes.find((item) => item.id === noteId) ?? null;
 
   const editorRef = useRef<HTMLDivElement | null>(null);
   const saveTimerRef = useRef<number | null>(null);
+  const cleanupArmTimerRef = useRef<number | null>(null);
+  const cleanupArmedRef = useRef(false);
+  const finalizeOnExitRef = useRef<() => Promise<void>>(async () => {});
+  const missingRefreshAttemptedRef = useRef<string | null>(null);
   const finalizingRef = useRef(false);
   const saveErrorShownRef = useRef(false);
-  const lastSavedSignatureRef = useRef('');
-  const headingRef = useRef('');
-  const richRef = useRef('');
-  const plainRef = useRef('');
+  const lastSavedSignatureRef = useRef("");
+  const headingRef = useRef("");
+  const richRef = useRef("");
+  const plainRef = useRef("");
 
-  const [headingDraft, setHeadingDraft] = useState('');
-  const [contentRichDraft, setContentRichDraft] = useState('');
-  const [contentPlainDraft, setContentPlainDraft] = useState('');
+  const [headingDraft, setHeadingDraft] = useState("");
+  const [contentRichDraft, setContentRichDraft] = useState("");
+  const [contentPlainDraft, setContentPlainDraft] = useState("");
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
   const [fontSize, setFontSize] = useState(20);
   const [alignmentIndex, setAlignmentIndex] = useState(0);
+  const [editorFocused, setEditorFocused] = useState(false);
   const [activeState, setActiveState] = useState({
     bold: false,
     italic: false,
     underline: false,
     ordered: false,
     unordered: false,
+    align: false,
   });
 
   useEffect(() => {
@@ -67,16 +131,37 @@ export function NoteEditorScreen() {
       return;
     }
     const rich = initialRichContent(note.contentRich);
-    setHeadingDraft(note.heading ?? '');
+    setHeadingDraft(note.heading ?? "");
     setContentRichDraft(rich);
-    setContentPlainDraft(note.contentPlain ?? '');
-    headingRef.current = note.heading ?? '';
+    setContentPlainDraft(note.contentPlain ?? "");
+    headingRef.current = note.heading ?? "";
     richRef.current = rich;
-    plainRef.current = note.contentPlain ?? '';
-    lastSavedSignatureRef.current = [headingRef.current, richRef.current, plainRef.current].join('|');
+    plainRef.current = note.contentPlain ?? "";
+    lastSavedSignatureRef.current = [
+      headingRef.current,
+      richRef.current,
+      plainRef.current,
+    ].join("|");
     saveErrorShownRef.current = false;
     finalizingRef.current = false;
   }, [note?.id]);
+
+  useEffect(() => {
+    if (!initialized || !noteId || note) {
+      return;
+    }
+    if (missingRefreshAttemptedRef.current === noteId) {
+      return;
+    }
+    missingRefreshAttemptedRef.current = noteId;
+    void refresh();
+  }, [initialized, note, noteId, refresh]);
+
+  useEffect(() => {
+    if (note) {
+      missingRefreshAttemptedRef.current = null;
+    }
+  }, [note]);
 
   useEffect(() => {
     headingRef.current = headingDraft;
@@ -94,23 +179,30 @@ export function NoteEditorScreen() {
     if (!editorRef.current) {
       return;
     }
-    editorRef.current.innerHTML = contentRichDraft;
+    if (editorRef.current.innerHTML !== contentRichDraft) {
+      editorRef.current.innerHTML = contentRichDraft;
+    }
   }, [contentRichDraft]);
 
   const refreshToolbarState = useCallback(() => {
     if (!document.hasFocus()) {
       return;
     }
+    const alignCenter = document.queryCommandState("justifyCenter");
+    const alignRight = document.queryCommandState("justifyRight");
+    const alignLeft = !alignCenter && !alignRight;
+
     setActiveState({
-      bold: document.queryCommandState('bold'),
-      italic: document.queryCommandState('italic'),
-      underline: document.queryCommandState('underline'),
-      ordered: document.queryCommandState('insertOrderedList'),
-      unordered: document.queryCommandState('insertUnorderedList'),
+      bold: document.queryCommandState("bold"),
+      italic: document.queryCommandState("italic"),
+      underline: document.queryCommandState("underline"),
+      ordered: document.queryCommandState("insertOrderedList"),
+      unordered: document.queryCommandState("insertUnorderedList"),
+      align: alignLeft || alignCenter || alignRight,
     });
-    if (document.queryCommandState('justifyCenter')) {
+    if (alignCenter) {
       setAlignmentIndex(1);
-    } else if (document.queryCommandState('justifyRight')) {
+    } else if (alignRight) {
       setAlignmentIndex(2);
     } else {
       setAlignmentIndex(0);
@@ -118,9 +210,30 @@ export function NoteEditorScreen() {
   }, []);
 
   useEffect(() => {
-    document.addEventListener('selectionchange', refreshToolbarState);
-    return () => document.removeEventListener('selectionchange', refreshToolbarState);
+    document.addEventListener("selectionchange", refreshToolbarState);
+    return () =>
+      document.removeEventListener("selectionchange", refreshToolbarState);
   }, [refreshToolbarState]);
+
+  useEffect(() => {
+    if (!fontMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest("[data-note-font-menu]") ||
+        target?.closest("[data-note-font-dropdown]")
+      ) {
+        return;
+      }
+      setFontMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [fontMenuOpen]);
 
   const persistDraft = useCallback(
     async (syncAfterSave: boolean) => {
@@ -130,7 +243,7 @@ export function NoteEditorScreen() {
       const heading = headingRef.current;
       const contentRich = initialRichContent(richRef.current);
       const contentPlain = plainRef.current;
-      const signature = [heading, contentRich, contentPlain].join('|');
+      const signature = [heading, contentRich, contentPlain].join("|");
 
       if (signature === lastSavedSignatureRef.current) {
         if (syncAfterSave) {
@@ -147,7 +260,7 @@ export function NoteEditorScreen() {
             contentRich,
             contentPlain,
           },
-          {sync: false},
+          { sync: false },
         );
 
         if (updated) {
@@ -161,8 +274,10 @@ export function NoteEditorScreen() {
       } catch (error) {
         if (!saveErrorShownRef.current) {
           showAlert(
-            'Autosave failed',
-            error instanceof Error ? error.message : 'Unable to save this note right now.',
+            "Autosave failed",
+            error instanceof Error
+              ? error.message
+              : "Unable to save this note right now.",
           );
           saveErrorShownRef.current = true;
         }
@@ -193,6 +308,10 @@ export function NoteEditorScreen() {
   }, [note, persistDraft, removeNote]);
 
   useEffect(() => {
+    finalizeOnExitRef.current = finalizeOnExit;
+  }, [finalizeOnExit]);
+
+  useEffect(() => {
     if (!note) {
       return;
     }
@@ -212,14 +331,27 @@ export function NoteEditorScreen() {
   }, [contentPlainDraft, contentRichDraft, headingDraft, note, persistDraft]);
 
   useEffect(() => {
+    cleanupArmedRef.current = false;
+    cleanupArmTimerRef.current = window.setTimeout(() => {
+      cleanupArmedRef.current = true;
+      cleanupArmTimerRef.current = null;
+    }, 0);
+
     return () => {
-      void finalizeOnExit();
+      if (cleanupArmTimerRef.current != null) {
+        window.clearTimeout(cleanupArmTimerRef.current);
+        cleanupArmTimerRef.current = null;
+      }
+      if (!cleanupArmedRef.current) {
+        return;
+      }
+      void finalizeOnExitRef.current();
     };
-  }, [finalizeOnExit]);
+  }, []);
 
   function exec(command: string, value?: string) {
     editorRef.current?.focus();
-    document.execCommand('styleWithCSS', false, 'true');
+    document.execCommand("styleWithCSS", false, "true");
     document.execCommand(command, false, value);
     if (editorRef.current) {
       const html = editorRef.current.innerHTML;
@@ -233,10 +365,10 @@ export function NoteEditorScreen() {
     setFontSize(size);
     setFontMenuOpen(false);
     editorRef.current?.focus();
-    document.execCommand('styleWithCSS', false, 'true');
-    document.execCommand('fontSize', false, '7');
-    editorRef.current?.querySelectorAll('font[size="7"]').forEach(node => {
-      node.removeAttribute('size');
+    document.execCommand("styleWithCSS", false, "true");
+    document.execCommand("fontSize", false, "7");
+    editorRef.current?.querySelectorAll('font[size="7"]').forEach((node) => {
+      node.removeAttribute("size");
       (node as HTMLElement).style.fontSize = `${size}px`;
     });
     if (editorRef.current) {
@@ -250,124 +382,301 @@ export function NoteEditorScreen() {
     const nextIndex = (alignmentIndex + 1) % ALIGNMENT_CYCLE.length;
     setAlignmentIndex(nextIndex);
     const action =
-      nextIndex === 1 ? 'justifyCenter' : nextIndex === 2 ? 'justifyRight' : 'justifyLeft';
+      nextIndex === 1
+        ? "justifyCenter"
+        : nextIndex === 2
+        ? "justifyRight"
+        : "justifyLeft";
     exec(action);
   }
 
+  function keepEditorSelection(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+  }
+
+  async function handleBackToNotes() {
+    await finalizeOnExit();
+    backOrReplace(router, "/notes");
+  }
+
+  function handleQuickBackToNotes() {
+    backOrReplace(router, "/notes");
+  }
+
   if (!note) {
+    if (!initialized || loading) {
+      return (
+        <div className="grid h-full min-h-full bg-background">
+          <header className="flex items-center gap-2 px-4 pt-4 sm:px-6 sm:pt-5">
+            <button
+              type="button"
+              className="inline-grid h-8 w-8 place-items-center rounded-full text-text transition hover:bg-surface-light"
+              onClick={handleQuickBackToNotes}
+              aria-label="Back to notes"
+            >
+              <AppIcon name="chevron-left" size={24} color="var(--text)" />
+            </button>
+            <h1 className="m-0 font-display text-[22px] tracking-[-0.4px] text-text">
+              Note
+            </h1>
+          </header>
+          <div className="grid place-items-center px-6 text-center">
+            <p className="m-0 font-display text-[22px] tracking-[-0.4px] text-text">
+              Loading note...
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="grid items-start justify-items-center">
-        <div className="grid w-full max-w-[1080px] gap-2 rounded-[28px] border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
-          <h1 className={tw.h1}>Note not found</h1>
-          <Link href="/notes" className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55">
-            Back to notes
-          </Link>
+      <div className="grid h-full min-h-full bg-background">
+        <header className="flex items-center gap-2 px-4 pt-4 sm:px-6 sm:pt-5">
+          <button
+            type="button"
+            className="inline-grid h-8 w-8 place-items-center rounded-full text-text transition hover:bg-surface-light"
+            onClick={handleQuickBackToNotes}
+            aria-label="Back to notes"
+          >
+            <AppIcon name="chevron-left" size={24} color="var(--text)" />
+          </button>
+          <h1 className="m-0 font-display text-[22px] tracking-[-0.4px] text-text">
+            Note
+          </h1>
+        </header>
+        <div className="grid place-items-center px-6 text-center">
+          <p className="m-0 font-display text-[22px] tracking-[-0.4px] text-text">
+            Note not found
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="grid items-start justify-items-center">
-      <section className="w-full max-w-[1080px] min-h-[calc(100vh-56px)] rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <Link href="/notes" className="mb-4 inline-flex items-center gap-1.5 text-muted-text" onClick={() => void finalizeOnExit()}>
-              <AppIcon name="chevron-left" size={18} />
-              <span>Back to notes</span>
-            </Link>
-            <input
-              className="w-full border-0 bg-transparent p-0 font-display text-[40px] tracking-[-0.8px] text-text outline-none"
-              value={headingDraft}
-              onChange={event => setHeadingDraft(event.target.value)}
-              placeholder="Title"
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <header className="flex shrink-0 items-center gap-2 px-4 pt-4 sm:px-6 sm:pt-5">
+        <button
+          type="button"
+          className="inline-grid h-8 w-8 place-items-center rounded-full text-text transition hover:bg-surface-light"
+          onClick={handleBackToNotes}
+          aria-label="Back to notes"
+        >
+          <AppIcon name="chevron-left" size={24} color="var(--text)" />
+        </button>
+
+        <input
+          className="min-h-12 flex-1 border-0 bg-transparent px-0 py-[2px] font-display text-[34px] tracking-[-0.6px] text-text outline-none placeholder:text-muted-text"
+          value={headingDraft}
+          onChange={(event) => setHeadingDraft(event.target.value)}
+          placeholder="Title"
+          aria-label="Note title"
+        />
+
+        <div className="flex items-center gap-3 pr-1">
+          <button
+            type="button"
+            className="inline-grid h-8 w-8 place-items-center rounded-full text-muted-text transition hover:bg-surface-light"
+            onClick={() =>
+              void updateNote(note.id, {
+                isPinned: !note.isPinned,
+                pinnedAt: note.isPinned ? null : new Date().toISOString(),
+              })
+            }
+            aria-label={note.isPinned ? "Unpin note" : "Pin note"}
+          >
+            <AppIcon
+              name="pin"
+              size={18}
+              color={note.isPinned ? "var(--accent)" : "var(--muted-text)"}
             />
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button type="button" className="inline-grid h-10 w-10 place-items-center rounded-full bg-surface-light text-text transition hover:-translate-y-px" onClick={() => void updateNote(note.id, {
-              isPinned: !note.isPinned,
-              pinnedAt: note.isPinned ? null : new Date().toISOString(),
-            })}>
-              <AppIcon name="pin" size={18} color={note.isPinned ? 'var(--accent)' : 'currentColor'} />
-            </button>
-            <button
-              type="button"
-              className="inline-grid h-10 w-10 place-items-center rounded-full bg-danger-light text-danger transition hover:-translate-y-px"
-              onClick={() =>
-                showAlert('Delete note?', 'This action cannot be undone.', [
-                  {text: 'Cancel', style: 'cancel'},
-                  {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () => {
-                      finalizingRef.current = true;
-                      void removeNote(note.id).then(() => router.push('/notes'));
-                    },
-                  },
-                ])
-              }>
-              <AppIcon name="trash-2" size={18} />
-            </button>
-          </div>
-        </div>
-
-        <div className="relative my-5 flex flex-wrap gap-2">
-          <button type="button" className="min-h-[42px] rounded-full bg-surface-light px-4 text-text transition hover:-translate-y-px" onClick={() => setFontMenuOpen(value => !value)}>
-            <span>{fontSize}</span>
-            <AppIcon name="chevron-down" size={14} />
           </button>
 
-          {fontMenuOpen ? (
-            <div className="absolute left-0 top-12 z-10 grid max-h-[220px] w-[90px] gap-1.5 overflow-auto rounded-2xl border border-border bg-surface p-2">
-              {FONT_SIZES.map(size => (
-                <button
-                  key={size}
-                  type="button"
-                  className={cx(
-                    'min-h-9 rounded-[10px] bg-surface-light text-text transition hover:-translate-y-px',
-                    size === fontSize && 'bg-accent text-white',
-                  )}
-                  onClick={() => applyFontSize(size)}>
-                  {size}
-                </button>
-              ))}
-            </div>
+          <button
+            type="button"
+            className="inline-grid h-8 w-8 place-items-center rounded-full text-text transition hover:bg-surface-light"
+            onClick={() =>
+              showAlert("Delete note?", "This action cannot be undone.", [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete",
+                  style: "destructive",
+                  onPress: () => {
+                    finalizingRef.current = true;
+                    void removeNote(note.id).then(() => router.replace("/notes"));
+                  },
+                },
+              ])
+            }
+            aria-label="Delete note"
+          >
+            <AppIcon name="trash-2" size={18} color="var(--text)" />
+          </button>
+        </div>
+      </header>
+
+      <section className="relative min-h-0 flex-1 px-4 pb-5 pt-3 sm:px-6">
+        <div className="relative flex h-full min-h-0 flex-col pb-[88px]">
+          <div
+            ref={editorRef}
+            className="min-h-[1.55em] flex-1 overflow-y-auto rounded-none border-0 bg-transparent px-2 py-1 font-sans-medium text-[20px] leading-[1.55] text-text outline-none [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+            contentEditable
+            suppressContentEditableWarning
+            onFocus={() => setEditorFocused(true)}
+            onBlur={() => setEditorFocused(false)}
+            onInput={(event) => {
+              const html = (event.target as HTMLDivElement).innerHTML;
+              const plain = htmlToPlain(html);
+              if (html === richRef.current && plain === plainRef.current) {
+                return;
+              }
+              richRef.current = html;
+              plainRef.current = plain;
+              setContentRichDraft(html);
+              setContentPlainDraft(plain);
+            }}
+          />
+
+          {!editorFocused && contentPlainDraft.trim().length === 0 ? (
+            <span className="pointer-events-none absolute left-2 top-1 font-sans-medium text-[20px] leading-[1.55] text-muted-text">
+              Start writing...
+            </span>
           ) : null}
 
-          <button type="button" className={cx(tw.chip, activeState.bold && tw.chipActive)} onClick={() => exec('bold')}>
-            B
-          </button>
-          <button type="button" className={cx(tw.chip, activeState.italic && tw.chipActive)} onClick={() => exec('italic')}>
-            <em>I</em>
-          </button>
-          <button type="button" className={cx(tw.chip, activeState.underline && tw.chipActive)} onClick={() => exec('underline')}>
-            <u>U</u>
-          </button>
-          <button type="button" className="min-h-[42px] rounded-full bg-surface-light px-4 text-text transition hover:-translate-y-px" onClick={cycleAlignment}>
-            {ALIGNMENT_CYCLE[alignmentIndex]}
-          </button>
-          <button type="button" className={cx(tw.chip, activeState.ordered && tw.chipActive)} onClick={() => exec('insertOrderedList')}>
-            <AppIcon name="list-ordered" size={16} />
-          </button>
-          <button type="button" className={cx(tw.chip, activeState.unordered && tw.chipActive)} onClick={() => exec('insertUnorderedList')}>
-            <AppIcon name="list" size={16} />
-          </button>
-        </div>
+          <div className="absolute bottom-0 left-0 right-0 w-full max-w-full">
+            {fontMenuOpen ? (
+              <div
+                data-note-font-dropdown
+                className="mb-2 grid max-h-[220px] w-[76px] gap-1 overflow-auto rounded-xl border border-border bg-surface p-2 shadow-[0_6px_14px_var(--shadow)]"
+              >
+                {FONT_SIZES.map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    className={cx(
+                      "h-[34px] w-full rounded-[9px] bg-surface-light px-1 text-center font-sans-semibold text-[13px] text-text transition",
+                      size === fontSize && "bg-accent text-white",
+                    )}
+                    onMouseDown={keepEditorSelection}
+                    onClick={() => applyFontSize(size)}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
-        <div
-          ref={editorRef}
-          className="min-h-[58vh] rounded-[22px] border border-border bg-background p-[18px] leading-[1.6] outline-none [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
-          contentEditable
-          suppressContentEditableWarning
-          onInput={event => {
-            const html = (event.target as HTMLDivElement).innerHTML;
-            setContentRichDraft(html);
-            setContentPlainDraft(htmlToPlain(html));
-          }}
-        />
+            <div
+              data-note-font-menu
+              className="w-fit max-w-full rounded-control border border-border bg-surface px-[10px] py-2 shadow-[0_8px_18px_var(--shadow)]"
+            >
+              <div className="flex items-center gap-1 overflow-x-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                <button
+                  type="button"
+                  className="flex h-[34px] min-w-[54px] items-center justify-center gap-0.5 rounded-[9px] bg-surface-light px-2"
+                  onMouseDown={keepEditorSelection}
+                  onClick={() => setFontMenuOpen((value) => !value)}
+                >
+                  <span className="font-sans-semibold text-[15px] text-text">
+                    {fontSize}
+                  </span>
+                  <AppIcon
+                    name="chevron-down"
+                    size={14}
+                    color="var(--muted-text)"
+                  />
+                </button>
+
+                <span className="mx-1 h-6 w-px bg-border" />
+
+                <button
+                  type="button"
+                  className={cx(
+                    "inline-grid h-8 w-8 place-items-center rounded-lg font-sans-semibold text-[15px] text-text",
+                    activeState.bold && "bg-accent text-white",
+                  )}
+                  onMouseDown={keepEditorSelection}
+                  onClick={() => exec("bold")}
+                >
+                  B
+                </button>
+                <button
+                  type="button"
+                  className={cx(
+                    "inline-grid h-8 w-8 place-items-center rounded-lg font-sans-semibold text-[15px] text-text",
+                    activeState.italic && "bg-accent text-white",
+                  )}
+                  onMouseDown={keepEditorSelection}
+                  onClick={() => exec("italic")}
+                >
+                  <em>I</em>
+                </button>
+                <button
+                  type="button"
+                  className={cx(
+                    "inline-grid h-8 w-8 place-items-center rounded-lg font-sans-semibold text-[15px] text-text",
+                    activeState.underline && "bg-accent text-white",
+                  )}
+                  onMouseDown={keepEditorSelection}
+                  onClick={() => exec("underline")}
+                >
+                  <u>U</u>
+                </button>
+
+                <span className="mx-1 h-6 w-px bg-border" />
+
+                <button
+                  type="button"
+                  className={cx(
+                    "inline-grid h-8 w-8 place-items-center rounded-lg",
+                    activeState.align && "bg-accent text-white",
+                  )}
+                  onMouseDown={keepEditorSelection}
+                  onClick={cycleAlignment}
+                >
+                  <AlignmentGlyph
+                    mode={ALIGNMENT_CYCLE[alignmentIndex]}
+                    color={activeState.align ? "#fff" : "var(--text)"}
+                  />
+                </button>
+
+                <span className="mx-1 h-6 w-px bg-border" />
+
+                <button
+                  type="button"
+                  className={cx(
+                    "inline-grid h-8 w-8 place-items-center rounded-lg text-text",
+                    activeState.ordered && "bg-accent text-white",
+                  )}
+                  onMouseDown={keepEditorSelection}
+                  onClick={() => exec("insertOrderedList")}
+                >
+                  <AppIcon
+                    name="list-ordered"
+                    size={16}
+                    color={activeState.ordered ? "#fff" : "var(--text)"}
+                  />
+                </button>
+                <button
+                  type="button"
+                  className={cx(
+                    "inline-grid h-8 w-8 place-items-center rounded-lg text-text",
+                    activeState.unordered && "bg-accent text-white",
+                  )}
+                  onMouseDown={keepEditorSelection}
+                  onClick={() => exec("insertUnorderedList")}
+                >
+                  <AppIcon
+                    name="list"
+                    size={16}
+                    color={activeState.unordered ? "#fff" : "var(--text)"}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   );
 }
-

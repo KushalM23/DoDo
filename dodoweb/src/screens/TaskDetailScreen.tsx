@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AppIcon, type AppIconName } from "@/components/common/AppIcon";
@@ -15,7 +15,7 @@ import { usePreferences } from "@/providers/PreferencesContext";
 import { useTasks } from "@/providers/TasksContext";
 import { playFocusEnterSound, playFocusExitSound } from "@/utils/sounds";
 import { hapticImpact } from "@/utils/haptics";
-import { formatDate, formatDateTime, formatTime } from "@/utils/dateTime";
+import { formatDateTime } from "@/utils/dateTime";
 import { getTaskTrackedSeconds } from "@/utils/taskTiming";
 import type { CreateTaskInput, Priority, Task } from "@/types/task";
 
@@ -41,18 +41,6 @@ function priorityColor(priority: Priority) {
     return "var(--medium-priority)";
   }
   return "var(--low-priority)";
-}
-
-function formatDurationSmart(mins: number): string {
-  if (mins < 60) {
-    return `${mins}m`;
-  }
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (m === 0) {
-    return `${h}h`;
-  }
-  return `${h}h ${m}m`;
 }
 
 function getTaskDurationMinutes(task: Task): number {
@@ -149,9 +137,6 @@ export function TaskDetailScreen() {
 
   const category = task?.categoryId
     ? categories.find((entry) => entry.id === task.categoryId) ?? null
-    : null;
-  const selectedCategory = categoryIdDraft
-    ? categories.find((entry) => entry.id === categoryIdDraft) ?? null
     : null;
   const focusElapsedSeconds = useMemo(
     () => (task ? getTaskTrackedSeconds(task, lockTime) : 0),
@@ -280,11 +265,11 @@ export function TaskDetailScreen() {
   if (!task) {
     return (
       <div className="grid items-start justify-items-center">
-        <div className="grid w-full max-w-[1080px] gap-2 rounded-[28px] border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
+        <div className="grid w-full max-w-[1080px] gap-2 rounded-panel border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
           <h1 className={tw.h1}>Task not found</h1>
           <Link
             href="/tasks"
-            className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-accent px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
+            className="inline-flex min-h-12.5 items-center justify-center gap-2 rounded-full bg-accent px-4.5 font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
           >
             Back
           </Link>
@@ -400,7 +385,7 @@ export function TaskDetailScreen() {
   if (pendingDelete) {
     return (
       <div className="grid items-start justify-items-center">
-        <section className="grid w-full max-w-[1080px] gap-2 rounded-[28px] border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
+        <section className="grid w-full max-w-[1080px] gap-2 rounded-panel border border-border bg-surface p-6 text-center shadow-[0_24px_60px_var(--shadow)]">
           <h1 className={tw.h1}>Task deleted</h1>
           <p className={tw.muted}>Removing task...</p>
         </section>
@@ -409,23 +394,30 @@ export function TaskDetailScreen() {
   }
 
   return (
-    <div className="grid items-start justify-items-center">
-      <section className="w-full max-w-[1240px] rounded-[28px] border border-border bg-surface p-6 shadow-[0_24px_60px_var(--shadow)] md:p-8 xl:h-[760px]">
+    <div className="grid h-full min-h-0 items-start justify-items-center">
+      <section className="h-full w-full max-w-[1240px] p-2 sm:p-3 md:p-4">
         <div className="grid h-full gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
-          <div className="flex h-full flex-col rounded-[24px] bg-surface p-4 md:p-6">
-            <div className="flex items-center justify-center gap-4">
-              <Link
-                href="/tasks"
-                className="inline-flex items-center gap-1.5 text-muted-text"
-              >
-                <AppIcon name="chevron-left" size={24} />
-              </Link>
+          <div className="flex h-full flex-col p-4 md:p-6">
+            <div className="grid min-h-13 grid-cols-[40px_minmax(0,1fr)_40px] items-center">
+              <div className="flex items-center justify-start">
+                <Link
+                  href="/tasks"
+                  className="inline-flex items-center gap-1.5 text-muted-text"
+                >
+                  <AppIcon name="chevron-left" size={24} />
+                </Link>
+              </div>
 
-              <input
-                className="w-full border-0 bg-transparent p-0 font-display text-[34px] tracking-[-0.8px] text-text outline-none focus:ring-0 md:text-[42px]"
-                value={titleDraft}
-                onChange={(event) => setTitleDraft(event.target.value)}
-              />
+              <div className="inline-flex min-w-0 justify-self-center">
+                <input
+                  size={Math.max(titleDraft.trim().length, 1)}
+                  className="w-auto max-w-[22ch] min-w-0 border-0 bg-transparent p-0 text-center font-display text-[34px] tracking-[-0.8px] text-text outline-none focus:ring-0 md:text-[42px]"
+                  value={titleDraft}
+                  onChange={(event) => setTitleDraft(event.target.value)}
+                />
+              </div>
+
+              <div aria-hidden="true" className="h-6 w-6 justify-self-end" />
             </div>
             <div className="mt-6 grid flex-1 content-start gap-5 overflow-y-auto pr-1">
               <div>
@@ -524,9 +516,8 @@ export function TaskDetailScreen() {
             </div>
           </div>
 
-          <aside className="flex h-full flex-col p-5">
+          <aside className="flex h-full flex-col p-5 xl:border-l xl:border-border">
             <div>
-              <span className={tw.fieldLabel}>Date</span>
               <CustomDatePicker
                 value={safeScheduledDate}
                 onChange={setScheduledDateDraft}
@@ -546,7 +537,7 @@ export function TaskDetailScreen() {
                     hapticImpact("heavy");
                   }}
                   holdDurationMs={1500}
-                  size={84}
+                  size={64}
                 />
               </div>
 
@@ -573,7 +564,7 @@ export function TaskDetailScreen() {
 
               <button
                 type="button"
-                className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-full bg-danger px-[18px] font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
+                className="inline-flex min-h-12.5 w-full items-center justify-center gap-2 rounded-full bg-danger px-4.5 font-sans-bold text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55"
                 disabled={busy || pendingDelete || savingDetails}
                 onClick={handleDelete}
               >

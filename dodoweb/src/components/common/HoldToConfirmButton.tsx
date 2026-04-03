@@ -20,7 +20,7 @@ export function HoldToConfirmButton({
   onHoldComplete,
   disabled = false,
   holdDurationMs = 3000,
-  size = 84,
+  size = 48,
   backgroundColor,
   progressColor,
   iconColor,

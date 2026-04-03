@@ -168,18 +168,3 @@ export function resolveCalendarMonthSelection(
     selectedDate: toLocalDateKey(nextDate),
   };
 }
-
-export function shiftCalendarMonth(
-  currentDate: Date,
-  delta: number,
-): CalendarMonthSelection {
-  const targetMonthDate = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() + delta,
-    1,
-  );
-  return resolveCalendarMonthSelection(
-    targetMonthDate.getMonth(),
-    targetMonthDate.getFullYear(),
-  );
-}

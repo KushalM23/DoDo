@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { cx } from "@/lib/tw";
 import type { TimeFormatPreference } from "@/types/preferences";
 
