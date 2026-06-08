@@ -69,6 +69,9 @@ function HabitGridItem({habit, onPress}: {habit: Habit; onPress: () => void}) {
         shadowOpacity: 0.15,
         shadowRadius: 10,
         elevation: 3,
+        opacity: habit.isPaused ? 0.8 : 1,
+        borderWidth: habit.isPaused ? 1 : 0,
+        borderColor: colors.surfaceLight,
       }}>
       <Pressable
         style={{
@@ -95,16 +98,37 @@ function HabitGridItem({habit, onPress}: {habit: Habit; onPress: () => void}) {
             numberOfLines={2}>
             {habit.title}
           </Text>
-          <Text
-            style={{
-              fontSize: 12,
-              color: colors.mutedText,
-              marginTop: 3,
-              fontFamily: fonts.bodySemiBold,
-              textAlign: 'center',
-            }}>
-            {frequencyLabel}
-          </Text>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, justifyContent: 'center'}}>
+            <Text
+              style={{
+                fontSize: 12,
+                color: colors.mutedText,
+                fontFamily: fonts.bodySemiBold,
+                textAlign: 'center',
+              }}>
+              {frequencyLabel}
+            </Text>
+            {habit.isPaused && (
+              <View
+                style={{
+                  backgroundColor: colors.surfaceLight,
+                  paddingHorizontal: 6,
+                  paddingVertical: 1,
+                  borderRadius: 4,
+                }}>
+                <Text
+                  style={{
+                    fontSize: 9,
+                    color: colors.mutedText,
+                    fontFamily: fonts.bodyBold,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}>
+                  Paused
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </Pressable>
     </Animated.View>

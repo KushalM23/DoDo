@@ -49,6 +49,7 @@ export type AppIconName =
   | 'minus-circle'
   | 'package'
   | 'play'
+  | 'pause'
   | 'plus'
   | 'percent'
   | 'rotate-ccw'
@@ -126,6 +127,7 @@ const ICON_NAME_MAP: Record<AppIconName, string> = {
   'minus-circle': 'circle-minus',
   package: 'package',
   play: 'play',
+  pause: 'pause',
   plus: 'plus',
   percent: 'percent',
   'rotate-ccw': 'rotate-ccw',

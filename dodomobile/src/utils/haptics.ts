@@ -5,12 +5,20 @@ const options = {
   ignoreAndroidSystemSettings: false,
 };
 
-export const hapticImpact = (type: 'light' | 'medium' | 'heavy' | 'soft' | 'rigid' = 'light') => {
+export const hapticImpact = (
+  type: 'light' | 'medium' | 'heavy' | 'soft' | 'rigid' = 'light',
+) => {
   try {
-    const feedbackType = type === 'light' ? 'impactLight' :
-                         type === 'medium' ? 'impactMedium' :
-                         type === 'heavy' ? 'impactHeavy' :
-                         type === 'soft' ? 'impactSoft' : 'impactRigid';
+    const feedbackType =
+      type === 'light'
+        ? 'impactLight'
+        : type === 'medium'
+        ? 'impactMedium'
+        : type === 'heavy'
+        ? 'impactHeavy'
+        : type === 'soft'
+        ? 'soft'
+        : 'rigid';
     ReactNativeHapticFeedback.trigger(feedbackType, options);
   } catch (e) {
     console.error('Haptic error', e);

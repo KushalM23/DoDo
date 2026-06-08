@@ -3,7 +3,7 @@ import {
   resolveCalendarMonthSelection,
   shiftCalendarMonth,
 } from '../../components/overlays/dateWheelPickerUtils';
-import {habitAppliesToDate} from '../../utils/habits';
+import {habitAppliesToDate, isHabitPausedOnDate} from '../../utils/habits';
 import type {Habit} from '../../types/habit';
 import type {Task} from '../../types/task';
 
@@ -206,7 +206,7 @@ export function habitStatusByDate(
   const result: Record<string, DayHabitStatus> = {};
 
   dates.forEach(dateKey => {
-    const applies = habits.filter(habit => habitAppliesToDate(habit, dateKey));
+    const applies = habits.filter(habit => habitAppliesToDate(habit, dateKey) && !isHabitPausedOnDate(habit, dateKey));
     if (applies.length === 0) {
       result[dateKey] = 'none';
       return;

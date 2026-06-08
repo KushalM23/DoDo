@@ -137,6 +137,8 @@ def to_habit_dto(
         "nextOccurrenceOn": row.get("next_occurrence_on"),
         "timerStartedAt": timer_started_at,
         "trackedSecondsToday": max(0, int(tracked_seconds_today)),
+        "isPaused": bool(row.get("is_paused", False)),
+        "pausedUntil": row.get("paused_until"),
         "createdAt": row["created_at"],
         "updatedAt": row.get("updated_at") or row["created_at"],
         "deletedAt": row.get("deleted_at"),

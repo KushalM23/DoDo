@@ -58,6 +58,7 @@ export type AppIconName =
   | "percent"
   | "pin"
   | "play"
+  | "pause"
   | "plus"
   | "repeat"
   | "rotate-cw"
@@ -135,6 +136,7 @@ const ICON_NAME_MAP: Record<AppIconName, React.ComponentType<any>> = {
   percent: Icons.Percent,
   pin: Icons.Pin,
   play: Icons.Play,
+  pause: Icons.Pause,
   plus: Icons.Plus,
   repeat: Icons.Repeat,
   "rotate-cw": Icons.RotateCw,

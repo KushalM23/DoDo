@@ -7,7 +7,7 @@ import { useCategories } from "@/providers/CategoriesContext";
 import { useHabits } from "@/providers/HabitsContext";
 import { useTasks } from "@/providers/TasksContext";
 import { SettingsPanel } from "@/screens/SettingsScreen";
-import { habitAppliesToDate } from "@/utils/habits";
+import { habitAppliesToDate, isHabitPausedOnDate } from "@/utils/habits";
 import {
   getTaskPlannedSeconds,
   getTaskTrackedSeconds,
@@ -237,7 +237,7 @@ export function ProfileScreen() {
     let completed = 0;
     habits.forEach((habit) => {
       days.forEach((day) => {
-        if (!habitAppliesToDate(habit, day)) {
+        if (!habitAppliesToDate(habit, day) || isHabitPausedOnDate(habit, day)) {
           return;
         }
         applicable += 1;

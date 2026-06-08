@@ -35,11 +35,14 @@ export function LoadingScreen({
 
   return (
     <div className="grid h-full min-h-full place-items-center bg-background p-6">
-      <div className="grid justify-items-center gap-2 text-center">
-        <p className="m-0 text-xs font-sans-bold uppercase tracking-[0.28em] text-muted-text">
-          {title}
-        </p>
-        {subtitle ? <p className={cx(tw.muted, 'text-sm')}>{subtitle}</p> : null}
+      <div className="grid justify-items-center gap-4 text-center">
+        <div className="loader"></div>
+        <div className="grid justify-items-center gap-2">
+          <p className="m-0 text-xs font-sans-bold uppercase tracking-[0.28em] text-muted-text">
+            {title}
+          </p>
+          {subtitle ? <p className={cx(tw.muted, 'text-sm')}>{subtitle}</p> : null}
+        </div>
       </div>
     </div>
   );

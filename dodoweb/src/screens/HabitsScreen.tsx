@@ -6,6 +6,7 @@ import { LoadingScreen } from "@/components/common/LoadingScreen";
 import { useHabits } from "@/providers/HabitsContext";
 import { usePreferences } from "@/providers/PreferencesContext";
 import type { Habit } from "@/types/habit";
+import { cx } from "@/lib/tw";
 
 function HabitGridItem({
   habit,
@@ -32,7 +33,10 @@ function HabitGridItem({
     >
       <button
         type="button"
-        className="flex h-[130px] w-full flex-col items-center justify-center gap-2.5 rounded-[16px] bg-surface-light px-4 text-center"
+        className={cx(
+          "flex h-[130px] w-full flex-col items-center justify-center gap-2.5 rounded-[16px] bg-surface-light px-4 text-center border transition",
+          habit.isPaused ? "border-border/30 opacity-75" : "border-transparent"
+        )}
         onMouseDown={() => setPressed(true)}
         onMouseUp={() => setPressed(false)}
         onMouseLeave={() => setPressed(false)}
@@ -49,9 +53,16 @@ function HabitGridItem({
           <strong className="line-clamp-2 font-sans-bold text-base tracking-[-0.2px] text-text">
             {habit.title}
           </strong>
-          <span className="font-sans-semibold text-xs text-muted-text">
-            {frequencyLabel}
-          </span>
+          <div className="flex items-center gap-1.5 mt-0.5 justify-center">
+            <span className="font-sans-semibold text-xs text-muted-text">
+              {frequencyLabel}
+            </span>
+            {habit.isPaused && (
+              <span className="inline-flex items-center gap-0.5 rounded bg-black/10 dark:bg-white/10 px-1.5 py-0.2 text-[10px] font-sans-bold uppercase tracking-wider text-muted-text">
+                Paused
+              </span>
+            )}
+          </div>
         </div>
       </button>
     </article>

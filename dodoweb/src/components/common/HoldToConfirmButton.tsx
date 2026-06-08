@@ -76,7 +76,7 @@ export function HoldToConfirmButton({
     <button
       type="button"
       className={cx(
-        "relative grid place-items-center overflow-hidden rounded-full bg-surface",
+        "relative grid place-items-center overflow-hidden rounded-full bg-surface disabled:opacity-55 disabled:cursor-not-allowed",
         className,
       )}
       disabled={disabled}

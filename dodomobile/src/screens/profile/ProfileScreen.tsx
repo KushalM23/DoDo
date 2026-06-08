@@ -21,7 +21,7 @@ import type {RootStackParamList} from '../../navigation/RootNavigator';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import {fonts} from '../../theme/fonts';
 import {toLocalDateKey} from '../../utils/dateTime';
-import {habitAppliesToDate} from '../../utils/habits';
+import {habitAppliesToDate, isHabitPausedOnDate} from '../../utils/habits';
 import {
   getTaskPlannedSeconds,
   getTaskTrackedSeconds,
@@ -298,7 +298,7 @@ export function ProfileScreen() {
       completed = 0;
     for (const habit of habits) {
       for (const day of days) {
-        if (!habitAppliesToDate(habit, day)) {
+        if (!habitAppliesToDate(habit, day) || isHabitPausedOnDate(habit, day)) {
           continue;
         }
         applicable++;

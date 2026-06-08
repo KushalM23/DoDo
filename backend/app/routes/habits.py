@@ -53,7 +53,30 @@ def _weekday_sun_first(value: date_type) -> int:
     return (value.weekday() + 1) % 7
 
 
+def _is_paused_on_date(row: dict, day: date_type) -> bool:
+    if not row.get("is_paused"):
+        return False
+    paused_until_val = row.get("paused_until")
+    if not paused_until_val:
+        return True
+
+    if isinstance(paused_until_val, str):
+        try:
+            paused_until = date_type.fromisoformat(paused_until_val)
+        except ValueError:
+            return True
+    elif isinstance(paused_until_val, date_type):
+        paused_until = paused_until_val
+    else:
+        return True
+
+    return day < paused_until
+
+
 def _habit_applies_on(row: dict, day: date_type) -> bool:
+    if _is_paused_on_date(row, day):
+        return False
+
     anchor = row.get("anchor_date")
     if isinstance(anchor, str):
         anchor = _parse_date(anchor)
@@ -304,6 +327,8 @@ class CreateHabit(BaseModel):
     customDays: list[int] = Field(default_factory=list)
     timeMinute: Optional[int] = Field(default=None, ge=0, le=1439)
     durationMinutes: Optional[int] = Field(default=None, ge=1, le=720)
+    isPaused: Optional[bool] = None
+    pausedUntil: Optional[str] = None
 
     @field_validator("frequencyType")
     @classmethod
@@ -319,6 +344,20 @@ class CreateHabit(BaseModel):
             raise ValueError("Invalid habit icon.")
         return value
 
+    @field_validator("pausedUntil")
+    @classmethod
+    def validate_paused_until(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        try:
+            target_date = date_type.fromisoformat(value.strip())
+        except ValueError as exc:
+            raise ValueError("Invalid pausedUntil date format.") from exc
+        today = datetime.now(timezone.utc).date()
+        if target_date > today + timedelta(days=365):
+            raise ValueError("Pause duration cannot exceed 365 days.")
+        return value
+
 
 class UpdateHabit(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=100)
@@ -328,6 +367,8 @@ class UpdateHabit(BaseModel):
     customDays: Optional[list[int]] = None
     timeMinute: Optional[int] = Field(default=None, ge=0, le=1439)
     durationMinutes: Optional[int] = Field(default=None, ge=1, le=720)
+    isPaused: Optional[bool] = None
+    pausedUntil: Optional[str] = None
 
     @field_validator("frequencyType")
     @classmethod
@@ -345,6 +386,20 @@ class UpdateHabit(BaseModel):
             return value
         if value not in HABIT_ICON_OPTIONS:
             raise ValueError("Invalid habit icon.")
+        return value
+
+    @field_validator("pausedUntil")
+    @classmethod
+    def validate_paused_until(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        try:
+            target_date = date_type.fromisoformat(value.strip())
+        except ValueError as exc:
+            raise ValueError("Invalid pausedUntil date format.") from exc
+        today = datetime.now(timezone.utc).date()
+        if target_date > today + timedelta(days=365):
+            raise ValueError("Pause duration cannot exceed 365 days.")
         return value
 
 
@@ -416,6 +471,8 @@ async def create_habit(body: CreateHabit, auth: AuthState = Depends(require_auth
                 "best_streak": 0,
                 "last_completed_on": None,
                 "next_occurrence_on": next_occurrence.isoformat() if next_occurrence else None,
+                "is_paused": body.isPaused if body.isPaused is not None else False,
+                "paused_until": body.pausedUntil if body.pausedUntil else None,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "deleted_at": None,
             }
@@ -461,6 +518,12 @@ async def update_habit(
         payload["time_minute"] = updates["timeMinute"]
     if "durationMinutes" in updates:
         payload["duration_minutes"] = updates["durationMinutes"]
+    if "isPaused" in body.model_fields_set:
+        payload["is_paused"] = body.isPaused
+        if not body.isPaused:
+            payload["paused_until"] = None
+    if "pausedUntil" in body.model_fields_set:
+        payload["paused_until"] = body.pausedUntil
 
     next_occurrence = _first_applicable_on_or_after(
         {**current_row, **payload},

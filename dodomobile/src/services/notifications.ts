@@ -17,7 +17,7 @@ import {PermissionsAndroid, Platform} from 'react-native';
 import {runSync} from '../lib/local/syncEngine';
 import {setHabitCompletedLocal, updateTaskLocal} from '../lib/local/repository';
 import {handleNotificationNavigation} from '../navigation/navigationRef';
-import {habitAppliesToDate} from '../utils/habits';
+import {habitAppliesToDate, isHabitPausedOnDate} from '../utils/habits';
 import type {Task} from '../types/task';
 import type {Habit} from '../types/habit';
 
@@ -326,7 +326,7 @@ function buildHabitReminderDefinitions(
       date.setDate(date.getDate() + dayOffset);
 
       const dateKey = localDateKey(date);
-      if (!habitAppliesToDate(habit, dateKey)) {
+      if (!habitAppliesToDate(habit, dateKey) || isHabitPausedOnDate(habit, dateKey)) {
         continue;
       }
 

@@ -35,7 +35,7 @@ import {
   parseDateKey,
 } from '../../components/overlays/dateWheelPickerUtils';
 import {sortTasks} from '../../utils/taskSort';
-import {habitAppliesToDate, minuteToIso} from '../../utils/habits';
+import {habitAppliesToDate, minuteToIso, isHabitPausedOnDate} from '../../utils/habits';
 import {toLocalDateKey} from '../../utils/dateTime';
 import {hapticImpact, hapticSuccess} from '../../utils/haptics';
 import {playTaskCompleteSound} from '../../utils/sounds';
@@ -581,7 +581,7 @@ export function TasksScreen() {
       t => !t.completed && isSameDay(t.scheduledAt, selectedDate),
     );
     const habitTasks: DisplayTask[] = habits
-      .filter(h => habitAppliesToDate(h, selectedDate))
+      .filter(h => habitAppliesToDate(h, selectedDate) && !isHabitPausedOnDate(h, selectedDate))
       .filter(h => !isHabitCompletedOn(h.id, selectedDate))
       .map(h => habitToTask(h, selectedDate, false));
     return sortTasks([...dateTasks, ...habitTasks], 'time_asc');
@@ -592,7 +592,7 @@ export function TasksScreen() {
       t => t.completed && isSameDay(t.scheduledAt, selectedDate),
     );
     const compHabits: DisplayTask[] = habits
-      .filter(h => habitAppliesToDate(h, selectedDate))
+      .filter(h => habitAppliesToDate(h, selectedDate) && !isHabitPausedOnDate(h, selectedDate))
       .filter(h => isHabitCompletedOn(h.id, selectedDate))
       .map(h => habitToTask(h, selectedDate, true));
     return sortTasks([...compTasks, ...compHabits], 'time_asc');

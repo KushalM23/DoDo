@@ -18,7 +18,7 @@ import {
 } from "@/components/overlays/DateWheelPickerUtils";
 import { readDb } from "@/lib/local/db";
 import { runSync } from "@/lib/local/syncEngine";
-import { habitAppliesToDate } from "@/utils/habits";
+import { habitAppliesToDate, isHabitPausedOnDate } from "@/utils/habits";
 import {
   formatTime,
   getCalendarOffset,
@@ -244,7 +244,7 @@ function habitStatusByDate(
   return Object.fromEntries(
     dates.map((dateKey) => {
       const applies = habits.filter((habit) =>
-        habitAppliesToDate(habit, dateKey),
+        habitAppliesToDate(habit, dateKey) && !isHabitPausedOnDate(habit, dateKey),
       );
       if (applies.length === 0) {
         return [dateKey, "none"];
@@ -361,7 +361,7 @@ export function CalendarScreen() {
       .map(toTaskEvent);
 
     const habitEvents = habits
-      .filter((habit) => habitAppliesToDate(habit, selectedDate))
+      .filter((habit) => habitAppliesToDate(habit, selectedDate) && !isHabitPausedOnDate(habit, selectedDate))
       .map((habit, index) => ({
         ...toHabitEvent(habit, selectedDate, index),
         completed: !!completionMap[habit.id]?.[selectedDate],

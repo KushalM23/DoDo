@@ -13,7 +13,7 @@ import type { Category } from "@/types/category";
 import type { Habit } from "@/types/habit";
 import type { Task } from "@/types/task";
 import { hapticImpact, hapticSuccess } from "@/utils/haptics";
-import { habitAppliesToDate, minuteToIso } from "@/utils/habits";
+import { habitAppliesToDate, minuteToIso, isHabitPausedOnDate } from "@/utils/habits";
 import { playTaskCompleteSound } from "@/utils/sounds";
 import { sortTasks } from "@/utils/taskSort";
 import { toLocalDateKey } from "@/utils/dateTime";
@@ -226,7 +226,7 @@ export function TasksScreen() {
       (task) => !task.completed && isSameDay(task.scheduledAt, selectedDate),
     );
     const habitTasks: DisplayTask[] = habits
-      .filter((habit) => habitAppliesToDate(habit, selectedDate))
+      .filter((habit) => habitAppliesToDate(habit, selectedDate) && !isHabitPausedOnDate(habit, selectedDate))
       .filter((habit) => !isHabitCompletedOn(habit.id, selectedDate))
       .map((habit) => habitToTask(habit, selectedDate, false));
     return sortTasks([...dateTasks, ...habitTasks], "time_asc");
@@ -237,7 +237,7 @@ export function TasksScreen() {
       (task) => task.completed && isSameDay(task.scheduledAt, selectedDate),
     );
     const habitTasks: DisplayTask[] = habits
-      .filter((habit) => habitAppliesToDate(habit, selectedDate))
+      .filter((habit) => habitAppliesToDate(habit, selectedDate) && !isHabitPausedOnDate(habit, selectedDate))
       .filter((habit) => isHabitCompletedOn(habit.id, selectedDate))
       .map((habit) => habitToTask(habit, selectedDate, true));
     return sortTasks([...dateTasks, ...habitTasks], "time_asc");

@@ -8,7 +8,7 @@ import {useHabits} from '../../state/HabitsContext';
 import {usePreferences} from '../../state/PreferencesContext';
 import {spacing} from '../../theme/colors';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
-import {habitAppliesToDate} from '../../utils/habits';
+import {habitAppliesToDate, isHabitPausedOnDate} from '../../utils/habits';
 import type {Task} from '../../types/task';
 import {
   monthWindow,
@@ -131,7 +131,7 @@ export function CalendarScreen() {
       .map(toTaskEvent);
 
     const hTasks = habits
-      .filter(habit => habitAppliesToDate(habit, selectedDate))
+      .filter(habit => habitAppliesToDate(habit, selectedDate) && !isHabitPausedOnDate(habit, selectedDate))
       .map((habit, idx) => {
         const event = toHabitEvent(habit, selectedDate, idx);
         return {...event, completed: !!completionMap[habit.id]?.[selectedDate]};

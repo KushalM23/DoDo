@@ -161,6 +161,8 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
                 customDays: input.customDays ?? habit.customDays,
                 timeMinute: input.timeMinute ?? habit.timeMinute,
                 durationMinutes: input.durationMinutes ?? habit.durationMinutes,
+                isPaused: typeof input.isPaused !== 'undefined' ? input.isPaused : habit.isPaused,
+                pausedUntil: typeof input.pausedUntil !== 'undefined' ? input.pausedUntil : habit.pausedUntil,
               }
             : habit,
         ),

@@ -32,6 +32,7 @@ type HabitComposerProps = {
   panelBackHref?: string;
   panelBackOnClick?: () => void;
   onSubmit: (input: CreateHabitInput) => Promise<void>;
+  headerRight?: React.ReactNode;
 };
 
 function formatDurationSmart(minutes: number): string {
@@ -73,6 +74,7 @@ export function HabitComposer({
   panelBackHref,
   panelBackOnClick,
   onSubmit,
+  headerRight,
 }: HabitComposerProps) {
   const isStackedPanelEditor = mode === "edit";
   const { showAlert } = useAlert();
@@ -460,7 +462,9 @@ export function HabitComposer({
               />
             </div>
 
-            <div aria-hidden="true" className="h-6 w-6 justify-self-end" />
+            <div className="flex items-center justify-end">
+              {headerRight}
+            </div>
           </div>
         ) : (
           <div className="grid gap-3">

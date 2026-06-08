@@ -147,7 +147,7 @@ export function calculateHabitStreaks(
 
   while (cursor <= referenceDate && guard < 10000) {
     const key = toDateKey(cursor);
-    if (habitAppliesToDate(habit, key)) {
+    if (habitAppliesToDate(habit, key) && !isHabitPausedOnDate(habit, key)) {
       latestApplicableKey = key;
       if (completedSet.has(key)) {
         runningStreak += 1;
@@ -166,7 +166,7 @@ export function calculateHabitStreaks(
     guard = 0;
     while (streakCursor >= anchor && guard < 10000) {
       const key = toDateKey(streakCursor);
-      if (!habitAppliesToDate(habit, key)) {
+      if (!habitAppliesToDate(habit, key) || isHabitPausedOnDate(habit, key)) {
         streakCursor.setDate(streakCursor.getDate() - 1);
         guard += 1;
         continue;
@@ -187,7 +187,7 @@ export function calculateHabitStreaks(
 
   while (guard < 10000) {
     const key = toDateKey(nextOccurrenceCursor);
-    if (habitAppliesToDate(habit, key)) {
+    if (habitAppliesToDate(habit, key) && !isHabitPausedOnDate(habit, key)) {
       nextOccurrenceOn = key;
       break;
     }
@@ -237,4 +237,14 @@ export function minuteToLabel(
   const date = new Date();
   date.setHours(Math.floor(minute / 60), minute % 60, 0, 0);
   return formatTime(date, timeFormat);
+}
+
+export function isHabitPausedOnDate(habit: Habit, dateKey: string): boolean {
+  if (!habit.isPaused) {
+    return false;
+  }
+  if (!habit.pausedUntil) {
+    return true;
+  }
+  return dateKey < habit.pausedUntil;
 }

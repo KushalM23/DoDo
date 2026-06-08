@@ -49,6 +49,8 @@ export type Habit = {
   nextOccurrenceOn: string | null;
   timerStartedAt: string | null;
   trackedSecondsToday: number;
+  isPaused?: boolean;
+  pausedUntil?: string | null;
   createdAt: string;
   updatedAt?: string;
   deletedAt?: string | null;
@@ -65,6 +67,8 @@ export type CreateHabitInput = {
   customDays?: number[];
   timeMinute?: number | null;
   durationMinutes?: number | null;
+  isPaused?: boolean;
+  pausedUntil?: string | null;
 };
 
 export type HabitCompletionRecord = {

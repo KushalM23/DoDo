@@ -771,6 +771,8 @@ export async function createHabitLocal(
     nextOccurrenceOn: null,
     timerStartedAt: null,
     trackedSecondsToday: 0,
+    isPaused: input.isPaused ?? false,
+    pausedUntil: input.pausedUntil ?? null,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,

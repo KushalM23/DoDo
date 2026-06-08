@@ -1,0 +1,17 @@
+{
+  "title": "DoDo",
+  "description": "DoDo helps users plan daily work, build routines, and stay consistent with a light gamification layer.\n\nUsers can:\n\n- Create and organize tasks by date, priority, and category.\n- Start/stop timers and complete tasks with undo support.\n- Create recurring habits (daily, interval-based, or selected weekdays).\n- Track streaks, completion history, and profile stats.\n- Earn XP and level up from completed tasks and habits.\n- Manage account settings, password changes, and preferences.",
+  "techStack": [
+    "FastAPI",
+    "Next.js",
+    "React",
+    "React Native",
+    "Python",
+    "TypeScript",
+    "Tailwind CSS",
+    "Supabase",
+    "Lucide React"
+  ],
+  "screenshots": [],
+  "githubUrl": "https://github.com/KushalM23/DoDo"
+}

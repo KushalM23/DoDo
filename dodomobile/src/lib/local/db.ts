@@ -135,6 +135,8 @@ export async function initializeLocalDb(): Promise<void> {
       next_occurrence_on TEXT,
       timer_started_at TEXT,
       tracked_seconds_today INTEGER NOT NULL DEFAULT 0,
+      is_paused INTEGER NOT NULL DEFAULT 0,
+      paused_until TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       deleted_at TEXT,
@@ -238,6 +240,16 @@ export async function initializeLocalDb(): Promise<void> {
        WHEN actual_duration_seconds IS NULL OR actual_duration_seconds < 0 THEN MAX(COALESCE(actual_duration_minutes, 0), 0) * 60
        ELSE actual_duration_seconds
      END`,
+  );
+  await ensureColumn(
+    'habits_local',
+    'is_paused',
+    'is_paused INTEGER NOT NULL DEFAULT 0',
+  );
+  await ensureColumn(
+    'habits_local',
+    'paused_until',
+    'paused_until TEXT',
   );
 
   for (const [fromColor, toColor] of LEGACY_CATEGORY_COLOR_MIGRATIONS) {

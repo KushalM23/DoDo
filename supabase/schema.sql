@@ -68,6 +68,8 @@ create table if not exists public.habits (
   best_streak integer not null default 0,
   last_completed_on date,
   next_occurrence_on date,
+  is_paused boolean not null default false,
+  paused_until date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz
@@ -146,6 +148,8 @@ alter table public.habits add column if not exists updated_at timestamptz;
 alter table public.habits add column if not exists deleted_at timestamptz;
 alter table public.habits add column if not exists frequency text;
 alter table public.habits add column if not exists start_minute integer;
+alter table public.habits add column if not exists is_paused boolean;
+alter table public.habits add column if not exists paused_until date;
 
 alter table public.habit_completions add column if not exists completed boolean;
 alter table public.habit_completions add column if not exists updated_at timestamptz;
@@ -231,6 +235,7 @@ set frequency_type = case
     anchor_date = coalesce(anchor_date, created_at::date, current_date),
     current_streak = coalesce(current_streak, 0),
     best_streak = coalesce(best_streak, 0),
+    is_paused = coalesce(is_paused, false),
     updated_at = coalesce(updated_at, created_at, now());
 
 update public.habit_completions
@@ -282,6 +287,8 @@ alter table public.habits alter column best_streak set default 0;
 alter table public.habits alter column best_streak set not null;
 alter table public.habits alter column updated_at set default now();
 alter table public.habits alter column updated_at set not null;
+alter table public.habits alter column is_paused set default false;
+alter table public.habits alter column is_paused set not null;
 
 alter table public.habit_completions alter column completed set default true;
 alter table public.habit_completions alter column completed set not null;
