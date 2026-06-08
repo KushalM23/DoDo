@@ -202,7 +202,7 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surfaceLight,
     },
     destructiveButton: {
-      backgroundColor: colors.dangerLight,
+      backgroundColor: colors.danger,
     },
     buttonPressed: {
       opacity: 0.92,
@@ -220,6 +220,6 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.textSecondary,
     },
     destructiveText: {
-      color: colors.danger,
+      color: colors.text,
     },
   });
