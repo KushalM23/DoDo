@@ -199,7 +199,17 @@ def _recalculate_streaks(auth: AuthState, habit_row: dict) -> dict:
                     run = 0
             cursor += timedelta(days=1)
 
-        last_due_day = _last_applicable_on_or_before(habit_row, today, earliest)
+        # Recalculate current streak
+        # If the latest completed day is today or in the future, start from that day
+        # Otherwise, if today is not completed, we start from yesterday (today - 1)
+        # so that the streak is not broken for today until today is over.
+        start_date = today
+        if latest_completed and latest_completed >= today:
+            start_date = latest_completed
+        elif today not in completed_days:
+            start_date = today - timedelta(days=1)
+
+        last_due_day = _last_applicable_on_or_before(habit_row, start_date, earliest)
         cursor = last_due_day
         while cursor is not None and cursor >= earliest:
             if cursor not in completed_days:

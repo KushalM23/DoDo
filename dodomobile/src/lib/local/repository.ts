@@ -311,7 +311,7 @@ export async function listTasksLocal(
     args.push(opts.categoryId);
   }
   if (opts?.startAt) {
-    where.push('scheduled_at >= ?');
+    where.push('deadline >= ?');
     args.push(opts.startAt);
   }
   if (opts?.endAt) {

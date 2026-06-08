@@ -161,8 +161,38 @@ export function calculateHabitStreaks(
     guard += 1;
   }
 
-  if (latestApplicableKey && completedSet.has(latestApplicableKey)) {
-    const streakCursor = parseDateKey(latestApplicableKey);
+  // Find the start key for the current streak calculation
+  let currentStreakStartKey: string | null = null;
+  if (latestApplicableKey) {
+    if (completedSet.has(latestApplicableKey)) {
+      currentStreakStartKey = latestApplicableKey;
+    } else {
+      // Find the last applicable key before today
+      const yesterday = new Date(referenceDate);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayKey = toDateKey(yesterday);
+      
+      // Find the last applicable day on or before yesterday
+      const tempCursor = parseDateKey(yesterdayKey);
+      let foundKey: string | null = null;
+      let tempGuard = 0;
+      while (tempCursor >= anchor && tempGuard < 1000) {
+        const k = toDateKey(tempCursor);
+        if (habitAppliesToDate(habit, k) && !isHabitPausedOnDate(habit, k)) {
+          foundKey = k;
+          break;
+        }
+        tempCursor.setDate(tempCursor.getDate() - 1);
+        tempGuard += 1;
+      }
+      if (foundKey && completedSet.has(foundKey)) {
+        currentStreakStartKey = foundKey;
+      }
+    }
+  }
+
+  if (currentStreakStartKey) {
+    const streakCursor = parseDateKey(currentStreakStartKey);
     guard = 0;
     while (streakCursor >= anchor && guard < 10000) {
       const key = toDateKey(streakCursor);

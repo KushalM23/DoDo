@@ -127,8 +127,15 @@ export function CalendarScreen() {
 
   const tasksForSelectedDate: TimelineEvent[] = useMemo(() => {
     const tTasks = monthTasks
-      .filter(task => localDateKey(new Date(task.scheduledAt)) === selectedDate)
-      .map(toTaskEvent);
+      .filter(task => {
+        const start = new Date(task.scheduledAt);
+        const end = new Date(task.deadline);
+        const dayStart = new Date(`${selectedDate}T00:00:00`);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+        return start < dayEnd && end > dayStart;
+      })
+      .map(task => toTaskEvent(task, selectedDate));
 
     const hTasks = habits
       .filter(habit => habitAppliesToDate(habit, selectedDate) && !isHabitPausedOnDate(habit, selectedDate))

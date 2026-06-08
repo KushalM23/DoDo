@@ -56,6 +56,16 @@ function toLocalDateStr(iso: string): string {
 function isSameDay(iso: string, dateStr: string): boolean {
   return toLocalDateStr(iso) === dateStr;
 }
+function isTaskOnDay(task: Task, dateStr: string): boolean {
+  const dayStart = new Date(`${dateStr}T00:00:00`);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  const start = new Date(task.scheduledAt);
+  const end = new Date(task.deadline);
+
+  return start < dayEnd && end > dayStart;
+}
 function habitToTask(
   h: Habit,
   dateStr: string,
@@ -146,11 +156,13 @@ function TaskSlab({
   onToggle,
   onPress,
   categories,
+  selectedDate,
 }: {
   task: DisplayTask;
   onToggle: (t: DisplayTask) => void;
   onPress: (t: DisplayTask) => void;
   categories: Category[];
+  selectedDate: string;
 }) {
   const colors = useThemeColors();
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -256,7 +268,9 @@ function TaskSlab({
               fontFamily: fonts.bodyMedium,
               textDecorationLine: task.completed ? 'line-through' : 'none',
             }}>
-            {formatTaskTime(task.scheduledAt)}
+            {toLocalDateStr(task.scheduledAt) !== selectedDate
+              ? '12:00 am'
+              : formatTaskTime(task.scheduledAt)}
             {durationStr ? ` • ${durationStr}` : null}
           </Text>
         </View>
@@ -370,6 +384,7 @@ function TaskPage({
   onManageCategories,
   onHeadingPress,
   colors,
+  selectedDate,
 }: {
   index: number;
   scrollX: Animated.Value;
@@ -384,6 +399,7 @@ function TaskPage({
   onManageCategories?: () => void;
   onHeadingPress?: () => void;
   colors: ThemeColors;
+  selectedDate: string;
 }) {
   const done = completedTasks.length;
   const total = tasks.length + done;
@@ -518,6 +534,7 @@ function TaskPage({
             onToggle={onToggle}
             onPress={onPress}
             categories={categories}
+            selectedDate={selectedDate}
           />
         )}
         ListEmptyComponent={
@@ -578,7 +595,7 @@ export function TasksScreen() {
 
   const allFilteredTasks = useMemo(() => {
     const dateTasks = tasks.filter(
-      t => !t.completed && isSameDay(t.scheduledAt, selectedDate),
+      t => !t.completed && isTaskOnDay(t, selectedDate),
     );
     const habitTasks: DisplayTask[] = habits
       .filter(h => habitAppliesToDate(h, selectedDate) && !isHabitPausedOnDate(h, selectedDate))
@@ -589,7 +606,7 @@ export function TasksScreen() {
 
   const completedTasks = useMemo(() => {
     const compTasks = tasks.filter(
-      t => t.completed && isSameDay(t.scheduledAt, selectedDate),
+      t => t.completed && isTaskOnDay(t, selectedDate),
     );
     const compHabits: DisplayTask[] = habits
       .filter(h => habitAppliesToDate(h, selectedDate) && !isHabitPausedOnDate(h, selectedDate))
@@ -696,6 +713,7 @@ export function TasksScreen() {
               index === 0 ? () => setIsDatePickerOpen(true) : undefined
             }
             colors={colors}
+            selectedDate={selectedDate}
           />
         ))}
       </Animated.ScrollView>

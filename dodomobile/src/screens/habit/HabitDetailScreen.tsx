@@ -471,7 +471,7 @@ export function HabitDetailScreen() {
           holdDurationMs={1500}
           size={84}
           style={styles.lockInFloatingBtn}
-          disabled={currentHabit.isPaused}
+          disabled={currentHabit.isPaused || completedToday || !canCompleteToday}
         />
 
         <View style={styles.primaryActionsRow}>

@@ -177,13 +177,24 @@ export function buildWeekCells(
 export function taskStatusByDate(tasks: Task[]): Record<string, DayTaskStatus> {
   const bucket: Record<string, {total: number; completed: number}> = {};
   for (const task of tasks) {
-    const key = toLocalDateKey(task.scheduledAt);
-    if (!bucket[key]) {
-      bucket[key] = {total: 0, completed: 0};
-    }
-    bucket[key].total += 1;
-    if (task.completed) {
-      bucket[key].completed += 1;
+    const startKey = toLocalDateKey(task.scheduledAt);
+    const endKey = toLocalDateKey(task.deadline);
+    
+    const start = parseDateKey(startKey);
+    const end = parseDateKey(endKey);
+    const cursor = new Date(start);
+    let guard = 0;
+    while (cursor <= end && guard < 100) {
+      const key = toLocalDateKey(cursor.toISOString());
+      if (!bucket[key]) {
+        bucket[key] = {total: 0, completed: 0};
+      }
+      bucket[key].total += 1;
+      if (task.completed) {
+        bucket[key].completed += 1;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+      guard += 1;
     }
   }
 
@@ -233,11 +244,23 @@ export function fallbackHabitStartMinute(habit: Habit, index: number): number {
   return Math.min(23 * 60, Math.max(0, base));
 }
 
-export function toTaskEvent(task: Task): TimelineEvent {
+export function toTaskEvent(task: Task, dateKey: string): TimelineEvent {
   const start = new Date(task.scheduledAt);
   const end = new Date(task.deadline);
-  let startMinute = start.getHours() * 60 + start.getMinutes();
-  let endMinute = end.getHours() * 60 + end.getMinutes();
+  
+  const dayStart = parseDateKey(dateKey);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  let startMinute = 0;
+  if (start > dayStart) {
+    startMinute = start.getHours() * 60 + start.getMinutes();
+  }
+
+  let endMinute = DAY_MINUTES;
+  if (end < dayEnd) {
+    endMinute = end.getHours() * 60 + end.getMinutes();
+  }
 
   if (endMinute <= startMinute) {
     endMinute = Math.min(

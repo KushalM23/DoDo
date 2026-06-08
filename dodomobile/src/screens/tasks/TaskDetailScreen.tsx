@@ -141,7 +141,7 @@ export function TaskDetailScreen() {
     setActiveTab('');
     lastAutoSavedSignatureRef.current = '';
     autoSaveErrorShownRef.current = false;
-  }, [task]);
+  }, [task?.id]);
 
   useEffect(() => {
     if (!lockInMode) {
@@ -683,6 +683,9 @@ export function TaskDetailScreen() {
                 </View>
               </View>
             )}
+              {savingDetails && (
+                <Text style={styles.savingText}>Saving...</Text>
+              )}
           </ScrollView>
         ) : (
           <View style={styles.deletedState}>
@@ -691,7 +694,10 @@ export function TaskDetailScreen() {
             <Text style={styles.deletedText}>Removing task...</Text>
           </View>
         )}
+        
       </View>
+
+      
 
       <View style={styles.floatingActions}>
         <HoldToConfirmButton
@@ -704,6 +710,7 @@ export function TaskDetailScreen() {
           holdDurationMs={1500}
           size={84}
           style={styles.lockInBtn}
+          disabled={task.completed}
         />
 
         <View style={styles.primaryActionsRow}>
@@ -713,6 +720,7 @@ export function TaskDetailScreen() {
               task.completed
                 ? {backgroundColor: colors.surface}
                 : styles.completeBtn,
+              (busy || savingDetails) && styles.disabled,
             ]}
             onPress={handleComplete}
             disabled={busy || savingDetails}>
@@ -730,7 +738,7 @@ export function TaskDetailScreen() {
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.actionBtn, styles.deleteBtn]}
+            style={[styles.actionBtn, styles.deleteBtn, (busy || savingDetails) && styles.disabled]}
             onPress={handleDelete}
             disabled={busy || savingDetails}>
             <AppIcon name="trash-2" size={18} color="#fff" />
@@ -767,6 +775,13 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
       minWidth: 0,
       marginHorizontal: spacing.sm,
+    },
+    savingText: {
+      fontSize: fontSize.xs,
+      fontFamily: fonts.body,
+      color: colors.mutedText,
+      textAlign: 'center',
+      marginTop: 2,
     },
     scroll: {
       flex: 1,
@@ -929,5 +944,8 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.bodyBold,
       fontSize: fontSize.md,
       color: '#fff',
+    },
+    disabled: {
+      opacity: 0.5,
     },
   });
