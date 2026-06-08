@@ -30,6 +30,17 @@ import {
   navigationRef,
 } from './src/navigation/navigationRef';
 
+const linking = {
+  prefixes: ['dodo://'],
+  config: {
+    screens: {
+      TaskDetail: 'task/:taskId',
+      HabitDetail: 'habit/:habitId',
+      QuickAddTask: 'quick-add',
+    },
+  },
+};
+
 function AppNavigation() {
   const colors = useThemeColors();
   const mode = useThemeMode();
@@ -66,6 +77,7 @@ function AppNavigation() {
                   <NavigationContainer
                     ref={navigationRef}
                     theme={navTheme}
+                    linking={linking}
                     onReady={flushPendingNotificationNavigation}>
                     <RootNavigator />
                   </NavigationContainer>

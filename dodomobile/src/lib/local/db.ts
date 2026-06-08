@@ -17,6 +17,13 @@ const LEGACY_CATEGORY_COLOR_MIGRATIONS = [
 function getDb(): QuickSQLiteConnection {
   if (!db) {
     db = open({name: DB_NAME});
+    try {
+      db.execute('PRAGMA journal_mode = WAL');
+      db.execute('PRAGMA foreign_keys = ON');
+      db.execute('PRAGMA busy_timeout = 5000');
+    } catch (e) {
+      console.error('[db] Error configuring PRAGMAs:', e);
+    }
   }
   return db;
 }
@@ -70,6 +77,19 @@ export async function runInTransaction(
 export async function initializeLocalDb(): Promise<void> {
   if (initialized) {
     return;
+  }
+
+  // Optimize: Check if table schema is already initialized to avoid executing 20+ setup/schema queries
+  try {
+    const tableCheck = await query<{name: string}>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='tasks_local'"
+    );
+    if (tableCheck.length > 0) {
+      initialized = true;
+      return;
+    }
+  } catch (e) {
+    // If query fails, fall back to full schema execution
   }
 
   await exec('PRAGMA journal_mode = WAL');

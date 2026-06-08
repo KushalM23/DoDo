@@ -14,6 +14,7 @@ import {HabitDetailScreen} from '../screens/habit/HabitDetailScreen';
 import {NoteEditorScreen} from '../screens/notes/NoteEditorScreen';
 import {MainTabs} from './MainTabs';
 import {LoadingScreen} from '../components/feedback/LoadingScreen';
+import {QuickAddTaskScreen} from '../screens/widget/QuickAddTaskScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -23,6 +24,7 @@ export type RootStackParamList = {
   HabitDetail: {habitId: string; openFocus?: boolean};
   NoteEditor: {noteId: string};
   Settings: undefined;
+  QuickAddTask: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -85,6 +87,11 @@ export function RootNavigator() {
                 name="Settings"
                 component={SettingsScreen}
                 options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="QuickAddTask"
+                component={QuickAddTaskScreen}
+                options={{animation: 'slide_from_bottom'}}
               />
             </>
           ) : (

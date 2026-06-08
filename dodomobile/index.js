@@ -2,6 +2,9 @@ import {AppRegistry, Platform, StyleSheet} from 'react-native';
 import TrackPlayer from 'react-native-track-player';
 import messaging from '@react-native-firebase/messaging';
 import notifee, {EventType} from '@notifee/react-native';
+import {registerWidgetTaskHandler} from 'react-native-android-widget';
+import {widgetTaskHandler} from './src/widget/widgetTaskHandler';
+import {QuickAddApp} from './src/screens/widget/QuickAddTaskScreen';
 import {name as appName} from './app.json';
 import {
   handleBackgroundNotificationEvent,
@@ -49,4 +52,7 @@ notifee.onBackgroundEvent(async event => {
 });
 
 AppRegistry.registerComponent(appName, () => App);
+AppRegistry.registerComponent('DodoWidgetQuickAdd', () => QuickAddApp);
 TrackPlayer.registerPlaybackService(() => require('./src/services/player-service'));
+
+registerWidgetTaskHandler(widgetTaskHandler);
