@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.auth import AuthState, require_auth
 from app.contracts import DEFAULT_HABIT_ICON, HABIT_ICON_OPTIONS, to_habit_dto
 from app.progression import apply_experience_delta, habit_completion_xp
+from app.encryption import encrypt
 
 router = APIRouter(prefix="/habits")
 
@@ -469,7 +470,7 @@ async def create_habit(body: CreateHabit, auth: AuthState = Depends(require_auth
             {
                 **({"id": body.id} if body.id else {}),
                 "user_id": auth.user_id,
-                "title": body.title.strip(),
+                "title": encrypt(body.title.strip()),
                 "icon": body.icon,
                 "frequency_type": body.frequencyType,
                 "interval_days": interval_days,
@@ -521,7 +522,7 @@ async def update_habit(
     }
 
     if "title" in updates:
-        payload["title"] = updates["title"].strip()
+        payload["title"] = encrypt(updates["title"].strip())
     if "icon" in updates:
         payload["icon"] = updates["icon"]
     if "timeMinute" in updates:
@@ -560,13 +561,11 @@ async def update_habit(
 
 @router.delete("/{habit_id}", status_code=204)
 async def delete_habit(habit_id: str, auth: AuthState = Depends(require_auth)):
-    now = datetime.now(timezone.utc).isoformat()
     resp = (
         auth.supabase.table("habits")
-        .update({"deleted_at": now, "updated_at": now})
+        .delete()
         .eq("id", habit_id)
         .eq("user_id", auth.user_id)
-        .is_("deleted_at", "null")
         .execute()
     )
 

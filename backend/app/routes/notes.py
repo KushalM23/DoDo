@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.auth import AuthState, require_auth
 from app.contracts import to_note_dto
+from app.encryption import encrypt
 
 router = APIRouter(prefix="/notes")
 
@@ -36,9 +37,9 @@ async def create_note(body: CreateNote, auth: AuthState = Depends(require_auth))
             {
                 **({"id": body.id} if body.id else {}),
                 "user_id": auth.user_id,
-                "heading": body.heading.strip(),
-                "content_rich": body.contentRich,
-                "content_plain": body.contentPlain,
+                "heading": encrypt(body.heading.strip()),
+                "content_rich": encrypt(body.contentRich),
+                "content_plain": encrypt(body.contentPlain),
                 "is_pinned": body.isPinned,
                 "pinned_at": pinned_at,
                 "updated_at": now,
@@ -72,7 +73,11 @@ async def update_note(note_id: str, request: Request, auth: AuthState = Depends(
             payload[snake] = raw[camel]
 
     if "heading" in payload and isinstance(payload["heading"], str):
-        payload["heading"] = payload["heading"].strip()
+        payload["heading"] = encrypt(payload["heading"].strip())
+    if "content_rich" in payload and isinstance(payload["content_rich"], str):
+        payload["content_rich"] = encrypt(payload["content_rich"])
+    if "content_plain" in payload and isinstance(payload["content_plain"], str):
+        payload["content_plain"] = encrypt(payload["content_plain"])
 
     now = datetime.now(timezone.utc).isoformat()
     if "is_pinned" in payload:
@@ -105,13 +110,11 @@ async def update_note(note_id: str, request: Request, auth: AuthState = Depends(
 
 @router.delete("/{note_id}", status_code=204)
 async def delete_note(note_id: str, auth: AuthState = Depends(require_auth)):
-    now = datetime.now(timezone.utc).isoformat()
     resp = (
         auth.supabase.table("notes")
-        .update({"deleted_at": now, "updated_at": now})
+        .delete()
         .eq("id", note_id)
         .eq("user_id", auth.user_id)
-        .is_("deleted_at", "null")
         .execute()
     )
 

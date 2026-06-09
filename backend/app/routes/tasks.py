@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.auth import AuthState, require_auth
 from app.contracts import to_task_dto
 from app.progression import apply_experience_delta, task_completion_xp
+from app.encryption import encrypt
 
 router = APIRouter(prefix="/tasks")
 
@@ -131,8 +132,8 @@ async def create_task(body: CreateTask, auth: AuthState = Depends(require_auth))
             {
                 **({"id": body.id} if body.id else {}),
                 "user_id": auth.user_id,
-                "title": body.title.strip(),
-                "description": body.description.strip(),
+                "title": encrypt(body.title.strip()),
+                "description": encrypt(body.description.strip()),
                 "category_id": body.categoryId,
                 "scheduled_at": body.scheduledAt,
                 "deadline": body.deadline,
@@ -190,7 +191,7 @@ async def update_task(task_id: str, request: Request, auth: AuthState = Depends(
         if camel in raw:
             val = raw[camel]
             if camel in ("title", "description") and isinstance(val, str):
-                val = val.strip()
+                val = encrypt(val.strip())
             payload[snake] = val
 
     if "actualDurationSeconds" in raw and raw["actualDurationSeconds"] is not None:
@@ -315,13 +316,11 @@ async def update_task(task_id: str, request: Request, auth: AuthState = Depends(
 
 @router.delete("/{task_id}", status_code=204)
 async def delete_task(task_id: str, auth: AuthState = Depends(require_auth)):
-    now = datetime.now(timezone.utc).isoformat()
     resp = (
         auth.supabase.table("tasks")
-        .update({"deleted_at": now, "updated_at": now, "timer_started_at": None})
+        .delete()
         .eq("id", task_id)
         .eq("user_id", auth.user_id)
-        .is_("deleted_at", "null")
         .execute()
     )
 

@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from app.auth import AuthState, require_auth
 from app.progression import progress_from_experience
 from app.supabase_client import get_client_for_token, get_public_client, get_service_client
+from app.encryption import encrypt
 
 router = APIRouter(prefix="/auth")
 
@@ -65,7 +66,7 @@ def _ensure_default_categories(client, user_id: str) -> None:
         [
             {
                 "user_id": user_id,
-                "name": category["name"],
+                "name": encrypt(category["name"]),
                 "color": category["color"],
                 "icon": category["icon"],
                 "updated_at": now,

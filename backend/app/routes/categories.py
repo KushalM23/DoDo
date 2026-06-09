@@ -15,6 +15,7 @@ from app.contracts import (
     normalize_category_color,
     to_category_dto,
 )
+from app.encryption import encrypt
 
 router = APIRouter(prefix="/categories")
 
@@ -75,7 +76,7 @@ async def create_category(body: CreateCategory, auth: AuthState = Depends(requir
             {
                 **({"id": body.id} if body.id else {}),
                 "user_id": auth.user_id,
-                "name": body.name.strip(),
+                "name": encrypt(body.name.strip()),
                 "color": body.color,
                 "icon": body.icon,
                 "updated_at": now.isoformat(),
@@ -94,7 +95,7 @@ async def update_category(
     now = datetime.now(timezone.utc)
     resp = (
         auth.supabase.table("categories")
-        .update({"name": body.name.strip(), "color": body.color, "icon": body.icon, "updated_at": now.isoformat()})
+        .update({"name": encrypt(body.name.strip()), "color": body.color, "icon": body.icon, "updated_at": now.isoformat()})
         .eq("id", category_id)
         .eq("user_id", auth.user_id)
         .is_("deleted_at", "null")
@@ -109,13 +110,11 @@ async def update_category(
 
 @router.delete("/{category_id}", status_code=204)
 async def delete_category(category_id: str, auth: AuthState = Depends(require_auth)):
-    now = datetime.now(timezone.utc).isoformat()
     resp = (
         auth.supabase.table("categories")
-        .update({"deleted_at": now, "updated_at": now})
+        .delete()
         .eq("id", category_id)
         .eq("user_id", auth.user_id)
-        .is_("deleted_at", "null")
         .execute()
     )
 

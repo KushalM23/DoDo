@@ -3,6 +3,9 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from app.encryption import decrypt
+
+
 
 CATEGORY_COLOR_OPTIONS = (
     "#E5484D",
@@ -77,8 +80,8 @@ def to_task_dto(row: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "id": row["id"],
-        "title": row["title"],
-        "description": row.get("description") or "",
+        "title": decrypt(row["title"]),
+        "description": decrypt(row.get("description")) or "",
         "categoryId": row.get("category_id"),
         "scheduledAt": row["scheduled_at"],
         "deadline": row["deadline"],
@@ -99,7 +102,7 @@ def to_task_dto(row: dict[str, Any]) -> dict[str, Any]:
 def to_category_dto(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": row["id"],
-        "name": row["name"],
+        "name": decrypt(row["name"]),
         "color": normalize_category_color(row.get("color")),
         "icon": row.get("icon") or DEFAULT_CATEGORY_ICON,
         "createdAt": row["created_at"],
@@ -123,7 +126,7 @@ def to_habit_dto(
 
     return {
         "id": row["id"],
-        "title": row["title"],
+        "title": decrypt(row["title"]),
         "icon": row.get("icon") or DEFAULT_HABIT_ICON,
         "frequencyType": frequency_type,
         "intervalDays": interval_days,
@@ -157,9 +160,9 @@ def to_habit_completion_dto(row: dict[str, Any]) -> dict[str, Any]:
 def to_note_dto(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": row["id"],
-        "heading": row.get("heading") or "",
-        "contentRich": row.get("content_rich") or "",
-        "contentPlain": row.get("content_plain") or "",
+        "heading": decrypt(row.get("heading")) or "",
+        "contentRich": decrypt(row.get("content_rich")) or "",
+        "contentPlain": decrypt(row.get("content_plain")) or "",
         "isPinned": bool(row.get("is_pinned", False)),
         "pinnedAt": row.get("pinned_at"),
         "createdAt": row["created_at"],
