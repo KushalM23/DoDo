@@ -5,6 +5,9 @@ import { initializeLocalDb, query } from '../lib/local/db';
 import { habitAppliesToDate, isHabitPausedOnDate } from '../utils/habits';
 import { toLocalDateKey, formatTime } from '../utils/dateTime';
 import { DodoWeekWidget, WidgetDay, WidgetItem } from './DodoWeekWidget';
+import { DodoMonthWidget } from './DodoMonthWidget';
+import { buildMonthCells } from '../screens/calendar/utils';
+import { formatCalendarTriggerLabel2 } from '../components/overlays/dateWheelPickerUtils';
 
 const SELECTED_DATE_KEY_PREFIX = '@dodo/widget_selected_date:';
 
@@ -60,7 +63,7 @@ const lightColors = {
   habitBadge: '#6D4BD8' as ColorProp,
 };
 
-export async function buildWidgetRepresentation(widgetId: number) {
+export async function buildWidgetRepresentation(widgetId: number, widgetName: string = 'DodoWeekWidget') {
   // 1. Read userId and preferences
   const authUserRaw = await AsyncStorage.getItem('@dodo/auth_user');
   const user = authUserRaw ? JSON.parse(authUserRaw) : null;
@@ -211,6 +214,31 @@ export async function buildWidgetRepresentation(widgetId: number) {
     return a.timeMs - b.timeMs;
   });
 
+  if (widgetName === 'DodoMonthWidget') {
+    const selectedDateD = new Date(selectedDate + 'T00:00:00');
+    const cells = buildMonthCells(selectedDateD, weekStart);
+    const widgetDays = cells.map((cell) => ({
+      dateKey: cell.dateKey,
+      dayNum: cell.dayNum,
+      isToday: cell.isToday,
+      inCurrentMonth: cell.inCurrentMonth,
+    }));
+    const monthLabel = formatCalendarTriggerLabel2(selectedDateD);
+    const weekdayInitials =
+      weekStart === 'monday'
+        ? ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+        : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    return React.createElement(DodoMonthWidget, {
+      monthLabel,
+      weekdayInitials,
+      days: widgetDays,
+      selectedDate,
+      items: combinedItems,
+      colors,
+    });
+  }
+
   return React.createElement(DodoWeekWidget, {
     days,
     selectedDate,
@@ -222,7 +250,16 @@ export async function buildWidgetRepresentation(widgetId: number) {
 export function requestDodoWeekWidgetUpdate() {
   requestWidgetUpdate({
     widgetName: 'DodoWeekWidget',
-    renderWidget: (props) => buildWidgetRepresentation(props.widgetId),
+    renderWidget: (props) => buildWidgetRepresentation(props.widgetId, 'DodoWeekWidget'),
+  }).catch((err) => {
+    console.error('[widgetUpdater] Error requesting widget update:', err);
+  });
+}
+
+export function requestDodoMonthWidgetUpdate() {
+  requestWidgetUpdate({
+    widgetName: 'DodoMonthWidget',
+    renderWidget: (props) => buildWidgetRepresentation(props.widgetId, 'DodoMonthWidget'),
   }).catch((err) => {
     console.error('[widgetUpdater] Error requesting widget update:', err);
   });

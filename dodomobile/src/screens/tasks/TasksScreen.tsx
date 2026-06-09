@@ -38,7 +38,6 @@ import {sortTasks} from '../../utils/taskSort';
 import {habitAppliesToDate, minuteToIso, isHabitPausedOnDate} from '../../utils/habits';
 import {toLocalDateKey} from '../../utils/dateTime';
 import {hapticImpact, hapticSuccess} from '../../utils/haptics';
-import {playTaskCompleteSound} from '../../utils/sounds';
 import {fonts} from '../../theme/fonts';
 import {type ThemeColors, useThemeColors} from '../../theme/ThemeProvider';
 import type {CreateTaskInput, Task} from '../../types/task';
@@ -648,7 +647,6 @@ export function TasksScreen() {
   function handleToggle(task: DisplayTask) {
     if (!task.completed) {
       hapticSuccess();
-      playTaskCompleteSound();
     } else {
       hapticImpact('light');
     }

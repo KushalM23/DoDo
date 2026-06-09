@@ -81,6 +81,10 @@ export function formatCalendarTriggerLabel(value: Date): string {
   return `${TASK_MONTH_LABELS[value.getMonth()]} ${value.getFullYear()}`;
 }
 
+export function formatCalendarTriggerLabel2(value: Date): string {
+  return `${TASK_MONTH_LABELS[value.getMonth()]}`;
+}
+
 export function buildTaskDateItems(centerDate: Date): TaskDateWheelItem[] {
   const center = startOfLocalDay(centerDate);
   return Array.from({length: TASK_DAY_WINDOW * 2 + 1}, (_, index) => {

@@ -3,7 +3,7 @@ import { View, BackHandler, StyleSheet, Pressable } from 'react-native';
 import { useAuth, AuthProvider } from '../../state/AuthContext';
 import { useCategories, CategoriesProvider } from '../../state/CategoriesContext';
 import { createTaskLocal } from '../../lib/local/repository';
-import { requestDodoWeekWidgetUpdate } from '../../widget/widgetUpdater';
+import { requestDodoWeekWidgetUpdate, requestDodoMonthWidgetUpdate } from '../../widget/widgetUpdater';
 import { TaskForm } from '../../components/forms/TaskForm';
 import { toLocalDateKey } from '../../utils/dateTime';
 import { PreferencesProvider, usePreferences } from '../../state/PreferencesContext';
@@ -23,6 +23,7 @@ export function QuickAddTaskScreen() {
     try {
       await createTaskLocal(user.id, input);
       requestDodoWeekWidgetUpdate();
+      requestDodoMonthWidgetUpdate();
     } catch (err) {
       console.error('[QuickAddTaskScreen] Error creating task:', err);
     } finally {

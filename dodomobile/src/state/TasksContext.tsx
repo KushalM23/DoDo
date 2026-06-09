@@ -16,7 +16,7 @@ import {runSync} from '../lib/local/syncEngine';
 import {useAuth} from './AuthContext';
 import type {CreateTaskInput, Task} from '../types/task';
 import {sortTasks, type SortMode} from '../utils/taskSort';
-import {requestDodoWeekWidgetUpdate} from '../widget/widgetUpdater';
+import {requestDodoWeekWidgetUpdate, requestDodoMonthWidgetUpdate} from '../widget/widgetUpdater';
 
 type TasksContextValue = {
   tasks: Task[];
@@ -95,6 +95,7 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
       const created = await createTaskLocal(user.id, input);
       setTasks(prev => sortTasks([created, ...prev], sortMode));
       requestDodoWeekWidgetUpdate();
+      requestDodoMonthWidgetUpdate();
       void runSync(user.id, 'manual');
     },
     [sortMode, user?.id],
@@ -131,6 +132,7 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
       }
 
       requestDodoWeekWidgetUpdate();
+      requestDodoMonthWidgetUpdate();
 
       const didSync = await runSync(user.id, 'manual');
       if (!didSync) {
@@ -222,6 +224,7 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
       );
 
       requestDodoWeekWidgetUpdate();
+      requestDodoMonthWidgetUpdate();
 
       const shouldRefreshProgress = updates.completed !== undefined;
       const didSync = await runSync(user.id, 'manual');
@@ -251,6 +254,7 @@ export function TasksProvider({children}: {children: React.ReactNode}) {
         ),
       );
       requestDodoWeekWidgetUpdate();
+      requestDodoMonthWidgetUpdate();
       void runSync(user.id, 'manual');
     },
     [sortMode, user?.id],

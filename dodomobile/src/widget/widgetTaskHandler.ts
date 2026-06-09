@@ -10,9 +10,9 @@ import {
   setSelectedDate,
 } from './widgetUpdater';
 
-async function renderWidgetUI(widgetId: number, renderWidgetFn: any) {
+async function renderWidgetUI(widgetId: number, widgetName: string, renderWidgetFn: any) {
   try {
-    const representation = await buildWidgetRepresentation(widgetId);
+    const representation = await buildWidgetRepresentation(widgetId, widgetName);
     renderWidgetFn(representation);
   } catch (error) {
     console.error('[widgetTaskHandler] Error rendering widget:', error);
@@ -22,13 +22,14 @@ async function renderWidgetUI(widgetId: number, renderWidgetFn: any) {
 export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
   const { widgetAction, clickAction, clickActionData, widgetInfo } = props;
   const widgetId = widgetInfo.widgetId;
+  const widgetName = widgetInfo.widgetName;
 
   if (
     widgetAction === 'WIDGET_ADDED' ||
     widgetAction === 'WIDGET_UPDATE' ||
     widgetAction === 'WIDGET_RESIZED'
   ) {
-    await renderWidgetUI(widgetId, props.renderWidget);
+    await renderWidgetUI(widgetId, widgetName, props.renderWidget);
   } else if (widgetAction === 'WIDGET_CLICK') {
     switch (clickAction) {
       case 'SELECT_DATE': {
@@ -36,7 +37,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         if (typeof date === 'string') {
           await setSelectedDate(widgetId, date);
         }
-        await renderWidgetUI(widgetId, props.renderWidget);
+        await renderWidgetUI(widgetId, widgetName, props.renderWidget);
         break;
       }
 
@@ -57,7 +58,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
             }
           }
         }
-        await renderWidgetUI(widgetId, props.renderWidget);
+        await renderWidgetUI(widgetId, widgetName, props.renderWidget);
         break;
       }
 
@@ -82,13 +83,9 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
             });
           }
         }
-        await renderWidgetUI(widgetId, props.renderWidget);
+        await renderWidgetUI(widgetId, widgetName, props.renderWidget);
         break;
       }
-
-
-
-
 
 
       case 'REFRESH_WIDGET': {
@@ -99,7 +96,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
             console.error('[widgetTaskHandler] Error during sync on refresh:', err);
           });
         }
-        await renderWidgetUI(widgetId, props.renderWidget);
+        await renderWidgetUI(widgetId, widgetName, props.renderWidget);
         break;
       }
 
@@ -107,7 +104,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         const selectedDate = await getSelectedDate(widgetId);
         const newDate = shiftDateByDays(selectedDate, -7);
         await setSelectedDate(widgetId, newDate);
-        await renderWidgetUI(widgetId, props.renderWidget);
+        await renderWidgetUI(widgetId, widgetName, props.renderWidget);
         break;
       }
 
@@ -115,7 +112,23 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         const selectedDate = await getSelectedDate(widgetId);
         const newDate = shiftDateByDays(selectedDate, 7);
         await setSelectedDate(widgetId, newDate);
-        await renderWidgetUI(widgetId, props.renderWidget);
+        await renderWidgetUI(widgetId, widgetName, props.renderWidget);
+        break;
+      }
+
+      case 'PREV_MONTH': {
+        const selectedDate = await getSelectedDate(widgetId);
+        const newDate = shiftMonthDate(selectedDate, -1);
+        await setSelectedDate(widgetId, newDate);
+        await renderWidgetUI(widgetId, widgetName, props.renderWidget);
+        break;
+      }
+
+      case 'NEXT_MONTH': {
+        const selectedDate = await getSelectedDate(widgetId);
+        const newDate = shiftMonthDate(selectedDate, 1);
+        await setSelectedDate(widgetId, newDate);
+        await renderWidgetUI(widgetId, widgetName, props.renderWidget);
         break;
       }
     }
@@ -129,4 +142,30 @@ function shiftDateByDays(dateKey: string, days: number): string {
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function shiftMonthDate(dateKey: string, delta: number): string {
+  const currentDate = new Date(dateKey + 'T00:00:00');
+  const targetMonthDate = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth() + delta,
+    1
+  );
+
+  const today = new Date();
+  const isTodayMonth =
+    targetMonthDate.getMonth() === today.getMonth() &&
+    targetMonthDate.getFullYear() === today.getFullYear();
+
+  if (isTodayMonth) {
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  } else {
+    const yyyy = targetMonthDate.getFullYear();
+    const mm = String(targetMonthDate.getMonth() + 1).padStart(2, '0');
+    const dd = '01';
+    return `${yyyy}-${mm}-${dd}`;
+  }
 }

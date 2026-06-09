@@ -68,6 +68,18 @@
                 android:resource="@xml/dodo_week_widget_info" />
         </receiver>
 
+        <receiver
+            android:name="com.rn_native.DodoMonthWidget"
+            android:label="Month view"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/dodo_month_widget_info" />
+        </receiver>
+
         <service
             android:name="com.doublesymmetry.trackplayer.service.MusicService"
             android:enabled="true"

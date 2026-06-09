@@ -14,7 +14,6 @@ import type { Habit } from "@/types/habit";
 import type { Task } from "@/types/task";
 import { hapticImpact, hapticSuccess } from "@/utils/haptics";
 import { habitAppliesToDate, minuteToIso, isHabitPausedOnDate } from "@/utils/habits";
-import { playTaskCompleteSound } from "@/utils/sounds";
 import { sortTasks } from "@/utils/taskSort";
 import { toLocalDateKey } from "@/utils/dateTime";
 import {
@@ -284,7 +283,6 @@ export function TasksScreen() {
   async function handleToggle(task: DisplayTask) {
     if (!task.completed) {
       hapticSuccess();
-      playTaskCompleteSound();
     } else {
       hapticImpact("light");
     }

@@ -13,7 +13,6 @@ import { useAlert } from "@/providers/AlertContext";
 import { useCategories } from "@/providers/CategoriesContext";
 import { usePreferences } from "@/providers/PreferencesContext";
 import { useTasks } from "@/providers/TasksContext";
-import { playFocusEnterSound, playFocusExitSound } from "@/utils/sounds";
 import { hapticImpact } from "@/utils/haptics";
 import { formatDateTime } from "@/utils/dateTime";
 import { getTaskTrackedSeconds } from "@/utils/taskTiming";
@@ -318,7 +317,6 @@ export function TaskDetailScreen() {
 
   async function handleExitFocus() {
     setLockInMode(false);
-    playFocusExitSound();
     hapticImpact("soft");
     if (!currentTask.completed && currentTask.timerStartedAt) {
       try {
@@ -533,7 +531,6 @@ export function TaskDetailScreen() {
                   iconName="lock"
                   onHoldComplete={() => {
                     setLockInMode(true);
-                    playFocusEnterSound();
                     hapticImpact("heavy");
                   }}
                   holdDurationMs={1500}

@@ -17,7 +17,7 @@ import {
 } from '../lib/local/repository';
 import {runSync} from '../lib/local/syncEngine';
 import {useAuth} from './AuthContext';
-import {requestDodoWeekWidgetUpdate} from '../widget/widgetUpdater';
+import {requestDodoWeekWidgetUpdate, requestDodoMonthWidgetUpdate} from '../widget/widgetUpdater';
 import {
   DEFAULT_HABIT_ICON,
   type CreateHabitInput,
@@ -138,6 +138,7 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
       });
       setHabits(prev => [...prev, optimistic]);
       requestDodoWeekWidgetUpdate();
+      requestDodoMonthWidgetUpdate();
       void syncAndReconcile(user.id);
     },
     [syncAndReconcile, user?.id],
@@ -180,6 +181,7 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
 
       setHabits(prev => prev.map(h => (h.id === habitId ? updated : h)));
       requestDodoWeekWidgetUpdate();
+      requestDodoMonthWidgetUpdate();
       void syncAndReconcile(user.id);
     },
     [habits, syncAndReconcile, user?.id],
@@ -201,6 +203,7 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
         return next;
       });
       requestDodoWeekWidgetUpdate();
+      requestDodoMonthWidgetUpdate();
       void syncAndReconcile(user.id);
     },
     [syncAndReconcile, user?.id],
@@ -259,6 +262,7 @@ export function HabitsProvider({children}: {children: React.ReactNode}) {
         completed,
       });
       requestDodoWeekWidgetUpdate();
+      requestDodoMonthWidgetUpdate();
       await syncAndReconcile(user.id, true);
     },
     [syncAndReconcile, user?.id],

@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">DoDo</string>
     <string name="widget_dodo_week_description">View your tasks and habits for the week and quickly add tasks.</string>
+    <string name="widget_dodo_month_description">View your tasks and habits for the month and quickly add tasks.</string>
 </resources>

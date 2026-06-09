@@ -11,13 +11,13 @@ export const hapticImpact = (
   try {
     const feedbackType =
       type === 'light'
-        ? 'impactLight'
-        : type === 'medium'
         ? 'impactMedium'
+        : type === 'medium'
+        ? 'impactHeavy'
         : type === 'heavy'
         ? 'impactHeavy'
         : type === 'soft'
-        ? 'soft'
+        ? 'rigid'
         : 'rigid';
     ReactNativeHapticFeedback.trigger(feedbackType, options);
   } catch (e) {
